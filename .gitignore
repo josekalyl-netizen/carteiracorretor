@@ -1,0 +1,4 @@
+# Backups contêm dados pessoais dos corretores: NUNCA vão para o GitHub
+backups/
+backup-*.json
+*.json
