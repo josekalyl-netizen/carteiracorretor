@@ -1,97 +1,132 @@
 # Carteira W3G na web — passo a passo
 
-Objetivo: abrir a carteira por um endereço na internet, em qualquer aparelho, com login, e com os dados guardados na nuvem (não mais só no Chrome).
+Guia para deixar a carteira funcionando por um endereço na internet, com login, dados na nuvem e uma cópia de segurança automática todo dia às 18h.
 
-São duas peças, as duas com plano gratuito:
+## Como tudo se encaixa
 
-| Peça | Para quê | Serviço sugerido |
+Pense em três lugares diferentes, cada um com uma função:
+
+| Lugar | O que é | O que guarda |
 |---|---|---|
-| Banco de dados + login | Guardar a carteira e exigir senha | Supabase |
-| Hospedagem | Dar um endereço (link) para o arquivo | GitHub Pages |
+| **Site** (GitHub, repositório `carteiracorretor`) | A "fachada da loja": o programa da carteira | Só o sistema. Nenhum dado de corretor. |
+| **Nuvem** (Supabase) | O "cofre": onde os dados ficam, atrás de login | A carteira de verdade, sempre atualizada |
+| **Cópia de segurança** (GitHub, repositório privado `carteira-backup`) | O "cofre reserva", em outra empresa | Uma cópia da carteira, renovada todo dia às 18h |
 
-Tempo estimado: 30 a 40 minutos. Os nomes de menus podem mudar um pouco com o tempo; a ordem das etapas é a mesma.
+Se o site sair do ar, os dados continuam no cofre. Se o cofre der problema, existe o cofre reserva. Os três são gratuitos.
 
-> Enquanto você não fizer a Parte 2, nada muda: o arquivo continua funcionando localmente como hoje.
+Tempo total: cerca de 40 minutos. Os nomes dos menus podem mudar um pouco com o tempo; a ordem é a mesma.
+
+**O que já está pronto:** o sistema já está no GitHub, em `github.com/josekalyl-netizen/carteiracorretor`.
+
+**Regra de ouro das chaves:** o Supabase tem duas chaves.
+- A **pública** (`anon` ou `publishable`): pode ir no sistema. É essa que você manda para o Claude.
+- A **secreta** (`service_role` ou `secret`): abre tudo sem login. Nunca mande para ninguém, nem cole em conversa. Ela só será colada em um lugar: o campo de segredos do GitHub (Etapa 5).
 
 ---
 
-## Parte 1 — Criar o banco (Supabase)
+## Etapa 1 — Ligar o site (2 minutos)
 
-1. Acesse **supabase.com**, crie uma conta e clique em **New project**.
-   - Nome: `carteira-w3g`
-   - Senha do banco: crie uma forte e guarde (não é a senha de login do sistema).
-   - Região: **South America (São Paulo)**.
-2. Quando o projeto terminar de criar, abra **SQL Editor** → **New query**, cole todo o conteúdo do arquivo `nuvem/supabase.sql` e clique em **Run**. Deve aparecer "Success".
-3. Crie o seu usuário: **Authentication** → **Users** → **Add user** → **Create new user**.
-   - Informe seu e-mail e uma senha forte.
-   - Marque **Auto Confirm User**.
-   - Essa é a senha que você vai digitar para entrar na carteira.
-4. Bloqueie cadastros de terceiros: **Authentication** → **Sign In / Providers** (ou **Settings**) → desligue **Allow new users to sign up** e salve.
-5. Pegue os dois dados de conexão em **Project Settings** → **API** (ou **API Keys**):
-   - **Project URL** (algo como `https://abcdefghijkl.supabase.co`)
-   - Chave **anon / publishable** (texto longo).
-   - Nunca use a chave `service_role` / `secret` — ela dá acesso total e não pode ir para o arquivo.
+1. Abra `github.com/josekalyl-netizen/carteiracorretor` e entre na sua conta.
+2. Clique em **Settings** (engrenagem, no alto do repositório).
+3. No menu da esquerda, clique em **Pages**.
+4. Em **Source**, escolha **Deploy from a branch**.
+5. Em **Branch**, escolha **main** e a pasta **/ (root)**. Clique em **Save**.
+6. Espere 2 minutos e abra: `https://josekalyl-netizen.github.io/carteiracorretor/`
 
-## Parte 2 — Ligar o arquivo à nuvem
+O sistema abre, mas ainda vazio e sem login. **Não lance nada nele ainda** — nesse ponto ele ainda guardaria só no navegador.
 
-1. Abra `carteira-w3g.html` no Bloco de Notas (botão direito → Abrir com).
-2. Procure (Ctrl+F) por `const NUVEM`. Você vai encontrar:
-   ```js
-   const NUVEM = {
-     url: '',
-     key: ''
-   };
-   ```
-3. Cole os dois dados entre as aspas e salve:
-   ```js
-   const NUVEM = {
-     url: 'https://abcdefghijkl.supabase.co',
-     key: 'cole-aqui-a-chave-anon'
-   };
-   ```
-   Se preferir, me passe a URL e a chave que eu preencho e confiro para você.
+## Etapa 2 — Criar o cofre (Supabase, 10 minutos)
 
-## Parte 3 — Publicar (GitHub Pages)
+1. Abra `supabase.com`, clique em **Start your project** e crie sua conta.
+2. Clique em **New project**.
+   - **Name:** `carteira-w3g`
+   - **Database Password:** clique em gerar uma senha forte e guarde-a (é a senha do banco; você quase nunca vai usar).
+   - **Region:** **South America (São Paulo)**.
+   - Clique em **Create new project** e espere 1 a 2 minutos.
+3. Monte as "gavetas" do cofre:
+   - No menu da esquerda, clique em **SQL Editor** → **New query**.
+   - Abra o arquivo `nuvem/supabase.sql` (está na pasta do projeto e no GitHub), copie tudo, cole na tela e clique em **Run**.
+   - Deve aparecer **Success**.
+4. Crie o seu login:
+   - Menu **Authentication** → **Users** → **Add user** → **Create new user**.
+   - Coloque seu e-mail e uma senha forte, marque **Auto Confirm User** e confirme.
+   - Esses são o e-mail e a senha que você vai digitar para entrar na carteira.
+5. Feche a porta para estranhos:
+   - Menu **Authentication** → **Sign In / Providers**.
+   - Desligue **Allow new users to sign up** e salve.
 
-A pasta do projeto já está preparada como repositório git, com os backups bloqueados pelo `.gitignore` (eles nunca sobem).
+## Etapa 3 — Conectar o site ao cofre (5 minutos)
 
-1. Acesse **github.com**, entre na sua conta e clique em **New repository**.
-   - Nome: `carteira-w3g`
-   - Visibilidade: **Public** (no plano gratuito o GitHub Pages só publica repositório público; o arquivo não contém dados de corretores, eles ficam no Supabase atrás do login).
+1. No Supabase, vá em **Project Settings** (engrenagem) → **API Keys** (ou **API**).
+2. Copie dois textos:
+   - **Project URL** — parecido com `https://abcdefghijkl.supabase.co`
+   - A chave **pública** — `anon` / `publishable`
+3. Mande os dois para o Claude na conversa. Ele coloca no sistema e publica.
+4. Em 2 minutos, recarregue o site com **Ctrl + F5**. Agora aparece a tela de login.
+
+## Etapa 4 — Levar seus dados para o cofre (uma vez só, 5 minutos)
+
+1. Abra `https://josekalyl-netizen.github.io/carteiracorretor/` e entre com o e-mail e a senha da Etapa 2.
+2. O topo mostra "Nuvem vazia · restaure seu backup".
+3. Vá em **Relatório** → **Restaurar backup** e escolha o seu backup mais recente.
+   - Se você lançou algo no sistema antigo depois do último backup, exporte um novo lá antes (**Relatório** → **Exportar backup completo**).
+4. Quando o topo mostrar **Nuvem em dia**, os dados estão no cofre.
+5. Teste: abra o mesmo endereço no celular, faça login e veja se aparece igual.
+
+Daqui em diante, use **somente** o endereço novo. O arquivo antigo do Chrome fica guardado como lembrança; não lance mais nada nele.
+
+## Etapa 5 — Ligar o cofre reserva das 18h (10 minutos)
+
+1. Crie o repositório privado:
+   - No GitHub, clique no **+** (alto, à direita) → **New repository**.
+   - **Repository name:** `carteira-backup`
+   - Marque **Private**. (Importante: ele vai guardar dados de corretores.)
    - Não marque README, .gitignore nem licença. Clique em **Create repository**.
-2. Copie o endereço do repositório (ex.: `https://github.com/SEU-USUARIO/carteira-w3g.git`) e me envie — eu faço o envio dos arquivos daqui. Na primeira vez o Windows abre uma janela do GitHub pedindo para você autorizar.
-3. No repositório, vá em **Settings** → **Pages** → em **Source** escolha **Deploy from a branch**, branch **main**, pasta **/ (root)** → **Save**.
-4. Em um ou dois minutos o endereço aparece no topo dessa mesma tela: `https://SEU-USUARIO.github.io/carteira-w3g/`.
+2. Avise o Claude que criou. Ele envia para lá o "robô" que faz a cópia.
+3. Entregue as chaves ao robô (só você faz isso, direto no GitHub):
+   - No repositório `carteira-backup`: **Settings** → **Secrets and variables** → **Actions** → **New repository secret**.
+   - Primeiro segredo — **Name:** `SUPABASE_URL` · **Secret:** a Project URL da Etapa 3. Clique em **Add secret**.
+   - Segundo segredo — **Name:** `SUPABASE_CHAVE_SECRETA` · **Secret:** a chave **secreta** do Supabase (`service_role` / `secret`, na mesma tela de API Keys). Clique em **Add secret**.
+   - Depois de salvo, nem você nem ninguém consegue ler o segredo de volta; só o robô usa.
+4. Faça o primeiro teste na hora:
+   - Aba **Actions** → **Cópia de segurança diária** → **Run workflow** → **Run workflow**.
+   - Em cerca de 1 minuto aparece uma bolinha **verde**.
+   - Volte para a aba **Code**: lá estão o arquivo `backup-carteira-w3g-ULTIMO.json` e a pasta `historico`.
 
-## Parte 4 — Levar os dados para a nuvem (uma vez só)
-
-1. No sistema atual (o do Chrome), vá em **Relatório** → **Exportar backup completo**.
-2. Abra o endereço novo do GitHub Pages. Vai aparecer a tela de login: entre com o e-mail e a senha criados na Parte 1.
-3. A carteira abre vazia e o topo mostra "Nuvem vazia · restaure seu backup". Vá em **Relatório** → **Restaurar backup** e escolha o arquivo exportado.
-4. Em alguns segundos o topo mostra **Nuvem em dia**. Pronto: os dados estão na nuvem.
-5. Confira: abra o mesmo endereço no celular, faça login e veja se a carteira aparece igual.
-
-A partir daqui, use sempre o endereço novo. O arquivo antigo do Chrome pode ficar guardado como reserva, mas não lance mais nada nele.
+Pronto. A partir daí o robô roda sozinho todo dia por volta das 18h (o GitHub pode atrasar alguns minutos), mesmo com seu computador desligado.
 
 ---
 
-## Como fica protegido
+## Como fica no dia a dia
 
-- **Na nuvem**: cada alteração é enviada em cerca de 2 segundos. O indicador no topo mostra "Nuvem em dia", "Enviando…" ou "Sem nuvem · salvo neste aparelho".
-- **Cópias diárias**: a nuvem guarda uma versão por dia dos últimos 90 dias. Em **Relatório** → **Versões na nuvem** você volta a carteira para qualquer um desses dias.
-- **Sem internet**: você continua trabalhando; o navegador guarda e envia quando a conexão voltar.
-- **Dois aparelhos**: se os dois alterarem ao mesmo tempo, o sistema pergunta qual versão manter em vez de sobrescrever em silêncio.
-- **Login**: sem e-mail e senha ninguém vê os dados, mesmo conhecendo o endereço. O botão de sair (no topo) apaga a cópia daquele aparelho — use em computador que não é seu.
-- **Backup em arquivo**: continua existindo. Vale exportar um toda sexta, como reserva fora da nuvem.
+- **Você trabalha no site.** Cada alteração vai para o cofre em cerca de 2 segundos. O topo mostra "Nuvem em dia".
+- **Sem internet:** continue trabalhando. O sistema guarda no aparelho e envia quando a conexão voltar.
+- **Todo dia às 18h:** o robô copia a carteira para o cofre reserva. Você não precisa fazer nada.
+- **Sistema novo:** quando o Claude melhorar o sistema, ele envia ao GitHub e o site se atualiza sozinho em 2 minutos. Seus dados não são tocados. Basta recarregar com **Ctrl + F5**.
 
-## Quando eu te entregar uma versão nova do sistema
+## As camadas de segurança
 
-Eu altero o arquivo nesta pasta e envio para o GitHub; o site se atualiza sozinho em um ou dois minutos. Basta recarregar a página (Ctrl+F5).
+1. **Cofre (Supabase):** os dados ficam na nuvem, não no navegador.
+2. **Versões por dia, dentro do cofre:** uma por dia, dos últimos 90 dias. Em **Relatório** → **Versões na nuvem** você volta a carteira a um desses dias.
+3. **Cofre reserva (GitHub privado):** cópia diária às 18h, em outra empresa, com 60 dias de histórico.
+4. **Cópia no aparelho:** o navegador mantém a última versão, para funcionar sem internet.
+5. **Backup em arquivo:** **Relatório** → **Exportar backup completo** continua existindo.
 
-Os dados não são afetados: eles ficam no Supabase, não no arquivo. Não é mais preciso restaurar backup a cada atualização.
+## Se algo der errado
+
+| O que aconteceu | O que fazer |
+|---|---|
+| Apaguei ou estraguei algo hoje | **Relatório** → **Versões na nuvem** → escolha o dia anterior |
+| O site não abre | Os dados estão seguros no cofre. Abra o arquivo `carteira-w3g.html` da pasta do projeto no computador e faça login normalmente |
+| O Supabase saiu do ar ou perdeu os dados | No `carteira-backup`, baixe o `backup-carteira-w3g-ULTIMO.json` e use **Relatório** → **Restaurar backup** |
+| Chegou e-mail do GitHub dizendo que o robô falhou | Abra a aba **Actions** do `carteira-backup`, clique na linha vermelha e leia a mensagem. A cópia anterior nunca é apagada por uma falha |
+| Esqueci a senha da carteira | Supabase → **Authentication** → **Users** → no seu usuário, redefina a senha |
+| O projeto do Supabase aparece como "pausado" | Painel do Supabase → **Restore project**. Os dados permanecem |
 
 ## Pontos de atenção
 
-- No plano gratuito, o Supabase **pausa projetos sem uso por cerca de uma semana**. Com uso diário isso não acontece; se acontecer (férias, por exemplo), basta entrar no painel do Supabase e clicar em **Restore/Resume** — os dados permanecem.
-- A carteira contém dados pessoais dos corretores (telefone, CPF, endereço). Use senha forte e exclusiva, e não compartilhe o login.
-- Esqueceu a senha: no painel do Supabase, **Authentication** → **Users** → no seu usuário, redefina a senha.
+- O plano gratuito do Supabase pausa projetos parados por cerca de uma semana. O uso diário e o robô das 18h mantêm o projeto em atividade.
+- O `carteira-backup` precisa continuar **privado**. O `carteiracorretor` é público, mas só tem o sistema, sem dados.
+- A carteira tem dados pessoais (telefone, CPF, endereço). Use senha forte e exclusiva, e ative a verificação em duas etapas na conta do GitHub e do Supabase.
+- Em computador que não é seu, use o botão de sair no topo: ele apaga a cópia daquele aparelho.
+- Uma vez por mês, abra o `carteira-backup` e confira se a data da última cópia é recente.

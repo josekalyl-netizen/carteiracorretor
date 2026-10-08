@@ -2,3 +2,6 @@
 backups/
 backup-*.json
 *.json
+
+# Repositório separado (privado) da cópia de segurança diária
+copia-seguranca/
