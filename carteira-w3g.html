@@ -571,9 +571,31 @@ input:focus,textarea:focus,select:focus{border-color:var(--ativa-turq);box-shado
   .modal-head .mh-title{font-size:20px!important}
   .modal > .modal-body{padding:1rem 1rem calc(1.2rem + env(safe-area-inset-bottom))}
 }
+/* celular: cartões uniformes e filtros em uma linha só (desliza para o lado) */
+@media (max-width:560px){
+  .wrap .chips{position:relative;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;margin-left:-12px;margin-right:-12px;padding:2px 12px;scroll-padding:0 12px}
+  .wrap .chips::-webkit-scrollbar{display:none}
+  .wrap .chips > *{flex-shrink:0}
+  /* carteira: linha 1 = nome e etapa; linha 2 = voltar | avançar | excluir, sempre do mesmo tamanho */
+  .row-cart > .name-btn{flex:1 1 calc(100% - 84px)}
+  .row-cart .nm{display:block;white-space:nowrap;-webkit-line-clamp:unset;overflow:hidden;text-overflow:ellipsis}
+  .row-cart > .btn{height:32px;margin-left:0!important;justify-content:center}
+  .row-cart > .btn-icon{width:38px;flex:0 0 38px;padding:0}
+  .row-cart > .btn-sm{flex:1 1 0;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  /* follow-up: botões em colunas iguais */
+  .jcard-head .nm{display:block;white-space:nowrap;-webkit-line-clamp:unset;overflow:hidden;text-overflow:ellipsis}
+  .jacts{flex-wrap:nowrap!important}
+  .jacts > .btn{flex:1 1 auto;justify-content:center;padding-left:8px;padding-right:8px;height:32px}
+  .timing-row{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .timing-row > .hint{grid-column:1 / -1;margin:0!important}
+  .timing-btn{justify-content:center;min-width:0;overflow:hidden;text-overflow:ellipsis;height:28px}
+  .jcard-foot > input{flex:1 1 100%!important;font-size:12.5px;padding:8px 11px}
+  .jcard-foot > .btn{flex:1 1 0;justify-content:center;height:32px}
+}
 @media (max-width:359px){
   .ativa-logo{gap:8px}.ativa-logo b{font-size:17px}.ativa-logo svg{height:20px}.ativa-logo small{font-size:8px;letter-spacing:.16em}
   .nav-btn{font-size:8.5px}
+  .timing-btn{font-size:9.5px;padding:4px 3px;gap:3px}
 }
 /* nada estoura a largura do cartão */
 .kpi,.kpi-grid > *,.field-grid > *,.card,.jcard,.row{min-width:0}
@@ -2472,7 +2494,7 @@ function buildFollowup() {
       html += '</div>';
       if (ehAudio) html += '<div class="audio-hint"><i class="ti ti-player-record"></i> Grave um áudio no WhatsApp falando naturalmente o roteiro abaixo. Não precisa decorar — a ideia é soar como você.</div>';
       html += '<div class="jmsg' + (ehBreakup ? ' jmsg-breakup' : '') + (ehAudio ? ' jmsg-audio' : '') + '" id="msg-' + c.id + '">' + esc(contato.texto) + '</div>';
-      html += '<div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;">';
+      html += '<div class="jacts" style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;">';
       html += '<button class="btn btn-sm btn-accent" onclick="copiarMsg(' + c.id + ')"><i class="ti ti-copy"></i> ' + (ehAudio ? 'Copiar roteiro' : 'Copiar mensagem') + '</button>';
       html += '<button class="btn btn-sm" onclick="outraMsg(' + c.id + ')" title="Gerar outra variação"><i class="ti ti-refresh"></i> Outra</button>';
       if (c.dados.telefone) html += '<button class="btn btn-sm" onclick="abrirWhats(' + c.id + ')" title="' + (ehAudio ? 'Abrir conversa no WhatsApp para gravar o áudio' : 'Abrir conversa no WhatsApp com a mensagem') + '"><i class="ti ti-brand-whatsapp"></i> ' + (ehAudio ? 'Abrir conversa' : 'WhatsApp') + '</button>';
@@ -2504,6 +2526,14 @@ function buildFollowup() {
   html += '<p class="hint" style="margin-top:1rem;">Cada corretor tem sua jornada de 12 contatos por etapa, com mensagem sugerida diferente a cada toque (nunca repete para o mesmo corretor). Ao avançar de etapa, a jornada recomeça e o momento é registrado no histórico. Marcar "Falei" avança o contato da jornada.</p>';
 
   v.innerHTML = html;
+  chipsVisiveis();
+}
+// no celular os filtros ficam em uma linha que desliza: mantém o filtro escolhido à vista
+function chipsVisiveis() {
+  document.querySelectorAll('#view .chips').forEach(p => {
+    const a = p.querySelector('.chip.active, .chip.active-dados');
+    if (a && p.scrollWidth > p.clientWidth) p.scrollLeft = a.offsetLeft - (p.clientWidth - a.offsetWidth) / 2;
+  });
 }
 
 /* ============================================================
@@ -2539,7 +2569,7 @@ function buildLista() {
   items.forEach(c => {
     const idx = stageIndex(c.stage);
     const st = stageOf(c);
-    html += '<div class="row' + (isStar(c) ? ' star' : '') + (c.moplan ? ' moplan' : '') + '">';
+    html += '<div class="row row-cart' + (isStar(c) ? ' star' : '') + (c.moplan ? ' moplan' : '') + '">';
     // flags
     html += '<div style="display:flex; flex-direction:column; gap:2px;">';
     html += '<button class="flag-btn ' + (c.star ? 'star-on' : (isStar(c) ? 'star-on' : '')) + '" onclick="toggleStar(' + c.id + ')" title="Corretor estrela"><i class="ti ' + (isStar(c) ? 'ti-star-filled' : 'ti-star') + '"></i></button>';
@@ -2560,6 +2590,7 @@ function buildLista() {
   if (items.length === 0) html += '<p class="empty">Nenhum corretor aqui.</p>';
   html += '</div>';
   v.innerHTML = html;
+  chipsVisiveis();
 
   const ls = document.getElementById('list-search');
   if (ls) ls.oninput = (e) => { listSearch = e.target.value; const pos = e.target.selectionStart; buildLista(); refocar('list-search', pos); };
