@@ -27,7 +27,7 @@
     if (t !== "escuro") document.documentElement.setAttribute("data-tema", "claro"); // claro é o padrão
   })();
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "13";
+  var VERSAO = "14";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -1881,8 +1881,13 @@ function ensureJornada(c) {
 
 function primeiroNome(name) {
   const clean = name.replace(/[|\-].*$/, '').trim();
-  const p = clean.split(/\s+/).filter(Boolean);
-  return p[0] || name;
+  let p = clean.split(/\s+/).filter(Boolean);
+  // pula tratamentos na frente do nome (Dr., Sra., Corretor...) para chamar pelo nome de verdade
+  while (p.length > 1 && /^(dr|dra|sr|sra|srta|corretor|corretora)\.?$/i.test(p[0])) p = p.slice(1);
+  const n = p[0] || name;
+  // "STHEFANY" ou "sthefany" viram "Sthefany"; nomes já escritos certo (ex.: "McDonald") ficam como estão
+  if (n === n.toUpperCase() || n === n.toLowerCase()) return n.charAt(0).toUpperCase() + n.slice(1).toLowerCase();
+  return n;
 }
 
 // escolhe o tema do contato de hoje, aplicando travas de dia
