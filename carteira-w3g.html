@@ -27,7 +27,7 @@
     if (t !== "escuro") document.documentElement.setAttribute("data-tema", "claro"); // claro é o padrão
   })();
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "23";
+  var VERSAO = "24";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -516,10 +516,10 @@ input:focus,textarea:focus,select:focus{border-color:var(--ativa-turq);box-shado
 
 /* ---------- mobile: barra inferior em pílula + bottom sheet ---------- */
 @media (max-width:860px){
-  .wrap{padding:10px 14px calc(166px + env(safe-area-inset-bottom))}
+  .wrap{padding:10px 14px calc(110px + env(safe-area-inset-bottom))}
   .nav{top:auto;left:10px;right:10px;bottom:calc(12px + env(safe-area-inset-bottom));width:auto;height:auto;padding:6px;flex-direction:row;flex-wrap:wrap;justify-content:center;gap:2px 0;border-radius:28px}
   .nav::before{display:none}
-  .nav-btn{flex:0 0 25%;width:auto;min-width:0;height:50px;border-radius:18px;font-size:10.5px;gap:3px}
+  .nav-btn{flex:1;width:auto;min-width:0;height:52px;border-radius:22px;font-size:11px;gap:3px}
   .nav-btn span{right:calc(50% - 26px)}
   .nav-btn i{font-size:20px}
   .brand-bar{padding:6px 2px 18px;flex-wrap:nowrap}
@@ -546,7 +546,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--ativa-turq);box-shado
 }
 /* celular: interface compacta (cartões, filtros e números menores) */
 @media (max-width:560px){
-  .wrap{padding:8px 12px calc(156px + env(safe-area-inset-bottom))}
+  .wrap{padding:8px 12px calc(100px + env(safe-area-inset-bottom))}
   .brand-bar{padding:4px 2px 12px}
   .ativa-logo b{font-size:18px}.ativa-logo svg{height:21px}.ativa-logo small{font-size:8.5px;margin-top:4px}
   .icon-round{width:32px;height:32px;font-size:14px}
@@ -723,7 +723,7 @@ button.ag-row:hover{background:rgb(var(--c-paper))}
 #ag-toast.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
 #ag-toast span{padding:4px 10px 4px 0}
 #ag-toast button{border:0;border-radius:999px;background:var(--ativa-turq);color:#04203F;font:700 12.5px/1 var(--ativa-font-body);padding:9px 14px;cursor:pointer;white-space:nowrap}
-@media (max-width:860px){#ag-toast{bottom:calc(146px + env(safe-area-inset-bottom));border-radius:22px}}
+@media (max-width:860px){#ag-toast{bottom:calc(92px + env(safe-area-inset-bottom));border-radius:22px}}
 @media (max-width:560px){
   .ag-top{margin-bottom:12px;gap:10px}
   .ag-tools{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -12px;padding:0 12px;width:calc(100% + 24px)}
@@ -745,7 +745,21 @@ button.ag-row:hover{background:rgb(var(--c-paper))}
   .ag-cal-cell{height:46px;border-radius:11px;font-size:13px}
   .ag-side .card{padding:15px}
 }
-@media print{.nav,#ceu,#ag-toast{display:none}.wrap{padding:0}}
+/* barra das abas de Trabalho (Carteira Ativa) */
+.subnav{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 20px}
+.subnav:empty{display:none}
+.subnav button{display:inline-flex;align-items:center;gap:7px;padding:10px 16px;border:0;border-radius:999px;background:rgb(var(--c-card));color:rgb(var(--c-ink2));font:600 13px/1 var(--ativa-font-body);box-shadow:var(--sh-card);cursor:pointer;white-space:nowrap;transition:background .15s,color .15s}
+.subnav button i{font-size:17px}
+.subnav button:hover{color:rgb(var(--c-ink))}
+.subnav button.active{background:var(--ativa-turq);color:var(--ativa-on-turq)}
+.subnav .sn-n{font-size:10.5px;font-weight:700;background:rgb(var(--c-alert) / .18);color:rgb(var(--c-alert));border-radius:999px;padding:2px 6px}
+@media (max-width:860px){
+  .subnav{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;gap:6px;margin:0 -14px 14px;padding:2px 14px 6px}
+  .subnav::-webkit-scrollbar{display:none}
+  .subnav button{flex:none;padding:9px 13px;font-size:12.5px}
+  .subnav button i{font-size:16px}
+}
+@media print{.nav,.subnav,#ceu,#ag-toast{display:none}.wrap{padding:0}}
 .eco-login{display:flex;flex-direction:column;align-items:center;gap:6px;margin:0 0 14px;color:rgb(var(--c-primary))}.eco-login img{border-radius:22%;box-shadow:0 14px 30px -14px rgba(0,40,90,.55);margin-bottom:8px}.eco-login b{font:600 30px/1 var(--ativa-font-display);letter-spacing:-0.02em}
 </style>
 </head>
@@ -796,6 +810,7 @@ button.ag-row:hover{background:rgb(var(--c-paper))}
   </div>
 
   <div class="nav" id="nav"></div>
+  <div class="subnav" id="subnav"></div>
 
   <div id="view"></div>
 
@@ -2418,17 +2433,40 @@ const TABS = [
   { key: 'lixeira',   nome: 'Lixeira',   icon: 'ti-trash' }
 ];
 
+// menu principal: Trabalho (as abas da Carteira Ativa), Agenda e FinanÃ§as.
+// as abas de trabalho aparecem numa segunda barra, no topo da tela, sÃ³ quando se estÃ¡ no Trabalho.
+const TRABALHO = ['dashboard', 'followup', 'lista', 'relatorio', 'lixeira'];
+let ultimaTrabalho = 'dashboard';
+function buildSubnav() {
+  const sn = document.getElementById('subnav');
+  if (!sn) return;
+  sn.innerHTML = '';
+  if (TRABALHO.indexOf(activeTab) < 0) return;
+  ultimaTrabalho = activeTab;
+  TRABALHO.forEach(k => {
+    const t = TABS.find(x => x.key === k);
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = activeTab === k ? 'active' : '';
+    let extra = '';
+    if (k === 'lixeira') {
+      const n = data.corretores.filter(c => c.deleted).length;
+      if (n) extra = '<span class="sn-n">' + n + '</span>';
+    }
+    b.innerHTML = '<i class="ti ' + t.icon + '"></i>' + t.nome + extra;
+    b.onclick = () => { activeTab = k; render(); };
+    sn.appendChild(b);
+  });
+}
 function buildNav() {
   const nav = document.getElementById('nav');
   nav.innerHTML = '';
-  TABS.forEach(t => {
+  buildSubnav();
+  const noTrabalho = TRABALHO.indexOf(activeTab) >= 0;
+  [{ key: 'trabalho', nome: 'Trabalho', icon: 'ti-briefcase' }].concat(TABS.filter(t => TRABALHO.indexOf(t.key) < 0)).forEach(t => {
     const b = document.createElement('button');
-    b.className = 'nav-btn' + (activeTab === t.key ? ' active' : '');
+    b.className = 'nav-btn' + ((t.key === 'trabalho' ? noTrabalho : activeTab === t.key) ? ' active' : '');
     let extra = '';
-    if (t.key === 'lixeira') {
-      const n = data.corretores.filter(c => c.deleted).length;
-      if (n) extra = ' <span style="font-size:10px; background:rgb(var(--c-alert) / 0.2); color:rgb(var(--c-alert)); border-radius:6px; padding:1px 5px;">' + n + '</span>';
-    }
     if (t.key === 'agenda') {
       const n = Agenda.pendentesHoje();
       if (n) extra = ' <span style="font-size:10px; background:var(--ativa-turq); color:#04203F; font-weight:700; border-radius:6px; padding:1px 5px;">' + n + '</span>';
@@ -2438,7 +2476,7 @@ function buildNav() {
       if (n) extra = ' <span style="font-size:10px; background:var(--ativa-turq); color:#04203F; font-weight:700; border-radius:6px; padding:1px 5px;">' + n + '</span>';
     }
     b.innerHTML = '<i class="ti ' + t.icon + '"></i>' + t.nome + extra;
-    b.onclick = () => { activeTab = t.key; render(); if (t.key === 'agenda' || t.key === 'financas') nuvemVerificar(); };
+    b.onclick = () => { activeTab = t.key === 'trabalho' ? ultimaTrabalho : t.key; render(); if (t.key === 'agenda' || t.key === 'financas') nuvemVerificar(); };
     nav.appendChild(b);
   });
 }
@@ -5890,7 +5928,7 @@ input[type="checkbox"]{width:16px;height:16px;padding:0;flex:none;accent-color:#
   .sheet-scroll{padding:14px 20px 22px}
   .sheet-x{top:14px;right:14px}
   .section-title{font-size:26px}
-  #toast{bottom:calc(146px + env(safe-area-inset-bottom))}
+  #toast{bottom:calc(92px + env(safe-area-inset-bottom))}
   .toast-in{border-radius:22px}
   .fin{zoom:.76}
 }
