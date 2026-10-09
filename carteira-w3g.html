@@ -27,7 +27,7 @@
     if (t !== "escuro") document.documentElement.setAttribute("data-tema", "claro"); // claro é o padrão
   })();
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "25";
+  var VERSAO = "26";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -2433,8 +2433,8 @@ const TABS = [
   { key: 'lixeira',   nome: 'Lixeira',   icon: 'ti-trash' }
 ];
 
-// menu principal: Trabalho (as abas da Carteira Ativa), Agenda e FinanÃ§as.
-// as abas de trabalho aparecem numa segunda barra, no topo da tela, sÃ³ quando se estÃ¡ no Trabalho.
+// menu principal: Trabalho (as abas da Carteira Ativa), Agenda e Finanças.
+// as abas de trabalho aparecem numa segunda barra, no topo da tela, só quando se está no Trabalho.
 const TRABALHO = ['dashboard', 'followup', 'lista', 'relatorio', 'lixeira'];
 let ultimaTrabalho = 'dashboard';
 function buildSubnav() {
@@ -3831,19 +3831,54 @@ async function nuvemCarregar() {
   render();
 }
 
-// ao voltar para a aba: se outro aparelho salvou, puxa a versão nova
+// se outro aparelho salvou, puxa a versão nova (ao voltar para a aba e também sozinho, a cada poucos segundos)
+let nuvemVerificando = false;
 async function nuvemVerificar() {
-  if (!nuvemPronta || nuvemEnviando || nuvemPendente()) return;
+  if (!nuvemPronta || nuvemEnviando || nuvemPendente() || nuvemVerificando) return;
+  nuvemVerificando = true;
   try {
     const r = await sb.from('carteira').select('rev').eq('user_id', nuvemUid).maybeSingle();
     if (r.error || !r.data || r.data.rev === nuvemRev) return;
+    // há versão nova: só troca a tela quando você não está no meio de nada (ver nuvemOcioso)
+    if (!nuvemOcioso()) return;
     const f = await sb.from('carteira').select('data,rev').eq('user_id', nuvemUid).maybeSingle();
-    if (f.error || !f.data || nuvemPendente()) return;
+    if (f.error || !f.data || nuvemPendente() || !nuvemOcioso()) return;
+    const rolagem = window.scrollY;
     nuvemAdotar(f.data);
     rolloverIfNeeded();
     render();
+    window.scrollTo(0, rolagem);
+    nuvemStatus('ti-cloud-check', 'Atualizado de outro aparelho', '--c-grow');
+    setTimeout(() => { if (!nuvemPendente() && !nuvemEnviando) nuvemStatus('ti-cloud-check', 'Nuvem em dia', '--c-grow'); }, 4000);
   } catch (e) {}
+  finally { nuvemVerificando = false; }
 }
+// "ocioso" = nenhuma janela aberta e nada sendo digitado. Trocar os dados no meio de uma edição
+// poderia perder o que está sendo escrito; nesse caso a atualização espera você terminar.
+function nuvemOcioso() {
+  try {
+    if (document.querySelector('.overlay')) return false;
+    const campo = el => !!el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) && el.type !== 'checkbox' && el.type !== 'button';
+    let a = document.activeElement;
+    if (a && a.shadowRoot) a = a.shadowRoot.activeElement;
+    if (campo(a) && (a.tagName === 'SELECT' || String(a.value || '').trim() !== '')) return false;
+    const ag = document.getElementById('ag-input');
+    if (ag && ag.value.trim()) return false;
+    if (window.Financas) {
+      const m = Financas.motor && Financas.motor();
+      if (m && m.aberto && m.aberto()) return false;
+      // formulário de novo compromisso das Finanças com algo digitado
+      const host = document.getElementById('fin-host');
+      const raiz = host && host.shadowRoot;
+      if (raiz && ['inTitulo', 'inValor', 'inComissao', 'calcTitulo', 'calcValor'].some(id => { const x = raiz.getElementById(id); return x && String(x.value || '').trim() !== ''; })) return false;
+    }
+  } catch (e) {}
+  return true;
+}
+// sincronia entre aparelhos: com a tela visível, confere a nuvem a cada 8 segundos
+setInterval(() => { if (!document.hidden && navigator.onLine !== false) nuvemVerificar(); }, 8000);
+window.addEventListener('online', () => { if (nuvemPendente()) { clearTimeout(nuvemTimer); nuvemTimer = setTimeout(nuvemEnviar, 300); } else nuvemVerificar(); });
+window.addEventListener('focus', () => nuvemVerificar());
 
 // uma cópia por dia fica guardada na nuvem (últimos 90 dias) para poder voltar atrás
 async function nuvemSnapshot() {
