@@ -27,7 +27,7 @@
     if (t !== "escuro") document.documentElement.setAttribute("data-tema", "claro"); // claro é o padrão
   })();
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "14";
+  var VERSAO = "15";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -642,7 +642,109 @@ body.bloqueado #ceu::before,body.bloqueado #ceu .estrelas{opacity:1}
 #login-ov input{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.16);color:#fff}
 #login-ov .btn-accent{background:var(--ativa-turq);border-color:var(--ativa-turq);color:#04203F}
 #login-ov .btn-accent:hover:not(:disabled){background:#5FDCCF;border-color:#5FDCCF}
-@media print{.nav,#ceu{display:none}.wrap{padding:0}}
+/* ---------- AGENDA (compromissos, lembretes, pessoas e objetivos) ---------- */
+.ag-top{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+.ag-tools{display:flex;gap:8px;flex-wrap:wrap}
+.ag-grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;align-items:start}
+.ag-side{display:flex;flex-direction:column;gap:14px;position:sticky;top:14px}
+.ag-side .card{padding:20px}
+@media (max-width:1180px){.ag-grid{grid-template-columns:minmax(0,1fr)}.ag-side{position:static}}
+.ag-greet{display:flex;align-items:center;gap:16px;background:var(--ativa-turq);color:var(--ativa-on-turq);border-radius:var(--r-lg);padding:18px 22px;margin-bottom:14px}
+.ag-greet p{flex:1;margin:0;font:500 15px/1.45 var(--ativa-font-body)}
+.ag-greet .btn{background:var(--ativa-on-turq);border-color:var(--ativa-on-turq);color:#fff;flex-shrink:0}
+.ag-comp{padding:14px 18px}
+.ag-comp.edit{box-shadow:0 0 0 2px var(--ativa-turq),var(--sh-card)}
+.ag-comp-row{display:flex;align-items:flex-start;gap:4px}
+.ag-comp textarea{flex:1;border:0!important;background:transparent;box-shadow:none!important;resize:none;min-height:44px;max-height:140px;padding:10px 2px;font-size:15.5px;line-height:1.4}
+.ag-comp .btn-icon{font-size:18px;color:rgb(var(--c-ink2))}
+.ag-comp .btn-icon.rec{background:rgb(var(--c-alert) / .14);color:rgb(var(--c-alert))}
+.ag-prev{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;padding-top:10px;border-top:1px solid rgb(var(--c-line2))}
+.ag-comp-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}
+.ag-comp-foot > span:last-child{display:flex;gap:6px;flex-shrink:0}
+.ag-tag{display:inline-flex;align-items:center;gap:4px;font:600 11.5px/1 var(--ativa-font-body);padding:5px 9px;border-radius:999px;border:0;background:rgb(var(--c-paper));color:rgb(var(--c-ink2));white-space:nowrap;text-decoration:none;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+button.ag-tag,a.ag-tag{cursor:pointer}
+.ag-tag i{font-size:13px}
+.ag-tag.ok{background:rgb(var(--c-grow) / .14);color:rgb(var(--c-grow))}
+.ag-tag.warn{background:rgb(var(--c-warn) / .16);color:rgb(var(--c-warn))}
+.ag-tag.bad{background:rgb(var(--c-alert) / .13);color:rgb(var(--c-alert))}
+.ag-tag.top{background:var(--ativa-turq);color:var(--ativa-on-turq)}
+.ag-tag.area{background:rgb(var(--ac) / .14);color:rgb(var(--ac))}
+.ag-sec{margin-top:22px}
+.ag-sec-head{display:flex;align-items:baseline;gap:10px;margin:0 4px 10px}
+.ag-sec-head b{font:700 20px/1 var(--ativa-font-display);letter-spacing:-.02em;color:rgb(var(--c-ink))}
+.ag-sec-head span{font-size:12.5px;color:rgb(var(--c-muted))}
+.ag-sec-head em{margin-left:auto;font:600 12px/1 var(--ativa-font-mono);font-style:normal;color:rgb(var(--c-muted))}
+.ag-item{background:rgb(var(--c-card));border-radius:var(--r-md);box-shadow:var(--sh-card);margin-bottom:8px;min-width:0}
+.ag-item.top{box-shadow:inset 4px 0 0 var(--ativa-turq),var(--sh-card)}
+.ag-main{display:flex;align-items:flex-start;gap:12px;padding:12px 10px 12px 14px}
+.ag-check{width:26px;height:26px;flex-shrink:0;margin-top:1px;border-radius:50%;border:2px solid rgb(var(--c-primary-500));background:transparent;color:transparent;cursor:pointer;display:grid;place-items:center;font-size:15px;padding:0;transition:all .15s}
+.ag-check.rem{border-radius:8px;border-color:rgb(var(--c-accent))}
+.ag-check:hover{background:rgb(var(--c-grow) / .16);border-color:rgb(var(--c-grow));color:rgb(var(--c-grow))}
+.ag-item.done .ag-check{background:rgb(var(--c-grow));border-color:rgb(var(--c-grow));color:#fff}
+.ag-body{flex:1;min-width:0}
+.ag-time{font:600 12px/1 var(--ativa-font-mono);color:rgb(var(--c-primary-500));margin-right:8px}
+.ag-title{font-size:14.5px;font-weight:600;line-height:1.35;color:rgb(var(--c-ink));overflow-wrap:anywhere}
+.ag-item.done .ag-title{text-decoration:line-through;color:rgb(var(--c-muted))}
+.ag-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
+.ag-acts{display:flex;gap:6px;flex-wrap:wrap;padding:0 14px 12px 52px}
+.ag-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:12px;background:rgb(var(--c-paper) / .7);margin-bottom:6px;font-size:13.5px;min-width:0}
+.ag-row .t{font:600 12px/1 var(--ativa-font-mono);color:rgb(var(--c-primary-500));min-width:42px;flex-shrink:0}
+.ag-row .tt{flex:1;min-width:0;overflow-wrap:anywhere;line-height:1.35}
+.ag-row.feito .tt{color:rgb(var(--c-muted));text-decoration:line-through}
+.ag-row .n{width:22px;height:22px;flex-shrink:0;border-radius:50%;background:var(--ativa-turq);color:var(--ativa-on-turq);display:grid;place-items:center;font:700 12px/1 var(--ativa-font-display)}
+button.ag-row{width:100%;border:0;cursor:pointer;text-align:left;color:inherit;font-family:inherit}
+button.ag-row:hover{background:rgb(var(--c-paper))}
+.ag-ins{border-left:3px solid rgb(var(--c-accent));padding:9px 12px;border-radius:10px;background:rgb(var(--c-paper) / .7);font-size:13.5px;line-height:1.45;margin-bottom:6px}
+.ag-ins.bom{border-left-color:rgb(var(--c-grow))}.ag-ins.ruim{border-left-color:rgb(var(--c-alert))}.ag-ins.plano{border-left-color:rgb(var(--c-warn))}
+.ag-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:10px}
+.ag-stat{background:rgb(var(--c-paper) / .7);border-radius:14px;padding:12px 8px;text-align:center}
+.ag-stat b{display:block;font:700 26px/1 var(--ativa-font-display);letter-spacing:-.03em;color:rgb(var(--c-ink))}
+.ag-stat span{display:block;font-size:11.5px;color:rgb(var(--c-muted));margin-top:5px}
+.ag-ov .sect-title{margin-top:1.3rem}
+.ag-ov .modal-body > .sect-title:first-child{margin-top:0}
+.ag-ov .sect-title em{margin-left:auto;font:600 12px/1 var(--ativa-font-mono);font-style:normal;color:rgb(var(--c-muted))}
+.ag-cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.ag-cal-head b{font:700 19px/1 var(--ativa-font-display);letter-spacing:-.02em}
+.ag-cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.ag-cal-dow{text-align:center;font-size:11px;font-weight:700;color:rgb(var(--c-muted));padding:2px 0 4px}
+.ag-cal-cell{height:58px;border:1px solid rgb(var(--c-line));background:rgb(var(--c-paper) / .5);border-radius:14px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:2px;color:rgb(var(--c-ink));font:600 14px/1 var(--ativa-font-display);transition:all .15s}
+.ag-cal-cell:hover{border-color:var(--ativa-turq)}
+.ag-cal-cell.vazio{border:0;background:transparent;cursor:default}
+.ag-cal-cell.hoje{border-color:var(--ativa-turq);background:rgb(var(--c-accent) / .1)}
+.ag-cal-cell.sel{background:var(--ativa-blue);border-color:var(--ativa-blue);color:#fff}
+:root:not([data-tema="claro"]) .ag-cal-cell.sel{background:var(--ativa-turq);border-color:var(--ativa-turq);color:var(--ativa-on-turq)}
+.ag-dots{display:flex;gap:3px;height:5px}
+.ag-dots i{width:5px;height:5px;border-radius:50%;background:rgb(var(--ac))}
+.ag-cal-cell.sel .ag-dots i{background:currentColor}
+.ag-meta{font-size:11.5px;color:rgb(var(--c-muted));margin-top:4px}
+.ag-reptags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+#ag-toast{position:fixed;left:50%;bottom:26px;z-index:200;transform:translate(-50%,16px);opacity:0;pointer-events:none;transition:all .25s;background:#04203F;color:#fff;border-radius:999px;padding:8px 8px 8px 18px;min-height:44px;display:flex;align-items:center;gap:12px;font-size:13.5px;line-height:1.3;box-shadow:0 20px 40px -16px rgba(0,20,50,.7);max-width:calc(100vw - 24px)}
+#ag-toast.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+#ag-toast span{padding:4px 10px 4px 0}
+#ag-toast button{border:0;border-radius:999px;background:var(--ativa-turq);color:#04203F;font:700 12.5px/1 var(--ativa-font-body);padding:9px 14px;cursor:pointer;white-space:nowrap}
+@media (max-width:860px){#ag-toast{bottom:calc(90px + env(safe-area-inset-bottom));border-radius:22px}}
+@media (max-width:560px){
+  .ag-top{margin-bottom:12px;gap:10px}
+  .ag-tools{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -12px;padding:0 12px;width:calc(100% + 24px)}
+  .ag-tools::-webkit-scrollbar{display:none}
+  .ag-tools > *{flex-shrink:0}
+  .ag-greet{flex-direction:column;align-items:stretch;gap:12px;padding:14px 16px;border-radius:18px}
+  .ag-greet p{font-size:13.5px}
+  .ag-comp{padding:10px 12px}
+  .ag-comp textarea{font-size:14.5px}
+  .ag-comp-foot .hint{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ag-sec{margin-top:16px}
+  .ag-sec-head b{font-size:17px}
+  .ag-main{padding:10px 6px 10px 10px;gap:10px}
+  .ag-title{font-size:13.5px}
+  .ag-tag{font-size:10.5px;padding:4px 8px}
+  .ag-acts{padding:0 10px 10px 10px}
+  .ag-acts .btn{flex:1 1 30%;justify-content:center}
+  .ag-cal-grid{gap:4px}
+  .ag-cal-cell{height:46px;border-radius:11px;font-size:13px}
+  .ag-side .card{padding:15px}
+}
+@media print{.nav,#ceu,#ag-toast{display:none}.wrap{padding:0}}
 </style>
 </head>
 <body>
@@ -2308,6 +2410,7 @@ const TABS = [
   { key: 'dashboard', nome: 'Dashboard', icon: 'ti-layout-dashboard' },
   { key: 'followup',  nome: 'Follow-up', icon: 'ti-checkbox' },
   { key: 'lista',     nome: 'Carteira',  icon: 'ti-users' },
+  { key: 'agenda',    nome: 'Agenda',    icon: 'ti-calendar-event' },
   { key: 'relatorio', nome: 'Relatório', icon: 'ti-file-text' },
   { key: 'lixeira',   nome: 'Lixeira',   icon: 'ti-trash' }
 ];
@@ -2323,8 +2426,12 @@ function buildNav() {
       const n = data.corretores.filter(c => c.deleted).length;
       if (n) extra = ' <span style="font-size:10px; background:rgb(var(--c-alert) / 0.2); color:rgb(var(--c-alert)); border-radius:6px; padding:1px 5px;">' + n + '</span>';
     }
+    if (t.key === 'agenda') {
+      const n = Agenda.pendentesHoje();
+      if (n) extra = ' <span style="font-size:10px; background:var(--ativa-turq); color:#04203F; font-weight:700; border-radius:6px; padding:1px 5px;">' + n + '</span>';
+    }
     b.innerHTML = '<i class="ti ' + t.icon + '"></i>' + t.nome + extra;
-    b.onclick = () => { activeTab = t.key; render(); };
+    b.onclick = () => { activeTab = t.key; render(); if (t.key === 'agenda') nuvemVerificar(); };
     nav.appendChild(b);
   });
 }
@@ -3781,6 +3888,1249 @@ async function nuvemIniciar() {
 }
 
 /* ============================================================
+   AGENDA — compromissos, lembretes, pessoas e objetivos
+   ------------------------------------------------------------
+   Um braço a mais do sistema (veio do assessor "Polaris").
+   Fica em data.agenda: vai junto no salvamento, na nuvem e no
+   backup. Você escreve em português comum e o interpretador
+   entende data, hora, repetição e aviso.
+   Nada aqui salva sozinho por temporizador: o que é só "já
+   avisei / já mostrei" fica guardado por aparelho (AG_LOCAL).
+   ============================================================ */
+const Agenda = (function () {
+  const WD_ICS = ['SU','MO','TU','WE','TH','FR','SA'];
+  const WD_NOME = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
+  const DIA = 86400000;
+  const AG_LOCAL = 'w3g_agenda_local';
+  let sub = 'lista', areaAtiva = null, openId = null, editId = null, draft = '', cal = null, topId = null;
+
+  /* ---------- estado ---------- */
+  function S() {
+    let a = data.agenda;
+    if (!a || typeof a !== 'object') a = data.agenda = {};
+    if (!Array.isArray(a.items)) a.items = [];
+    if (!Array.isArray(a.goals)) a.goals = [];
+    if (!Array.isArray(a.contacts)) a.contacts = [];
+    if (!Array.isArray(a.evalLog)) a.evalLog = [];
+    if (!a.prefs || typeof a.prefs !== 'object') a.prefs = {};
+    if (!a.prefs.notifyCounts || typeof a.prefs.notifyCounts !== 'object') a.prefs.notifyCounts = {};
+    if (!a.name) a.name = 'Kalyl';
+    return a;
+  }
+  function salvar() { saveData(); buildNav(); }
+  function L() { try { return JSON.parse(localStorage.getItem(AG_LOCAL)) || {}; } catch (e) { return {}; } }
+  function Lset(k, v) { const o = L(); o[k] = v; try { localStorage.setItem(AG_LOCAL, JSON.stringify(o)); } catch (e) {} }
+  const item = id => S().items.find(x => x.id === id) || null;
+
+  /* ---------- utilidades ---------- */
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const sod = d => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+  const pad = n => String(n).padStart(2, '0');
+  const primeiro = n => String(n || '').trim().split(/\s+/)[0] || 'você';
+  const dataLonga = d => d.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const semAcento = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  function todayKey() { const d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+  function weekKey() { const d = new Date(), on = new Date(d.getFullYear(), 0, 1); return d.getFullYear() + '-W' + Math.ceil((((d - on) / DIA) + on.getDay() + 1) / 7); }
+  function hojeISO() { const d = new Date(); d.setHours(0, 0, 0, 0); return d.toISOString(); }
+  function daysSince(ts) { return Math.floor((Date.now() - ts) / DIA); }
+  function confirmStrong(msg) { const v = prompt(msg + '\n\nEsta ação é irreversível. Digite CONFIRMAR para continuar:'); return v != null && v.trim().toUpperCase() === 'CONFIRMAR'; }
+
+  /* ---------- interpretador pt-BR ---------- */
+  // limites de palavra que entendem acento (montados em texto para não quebrar em navegador antigo)
+  const B = '(?<![a-zà-ÿ0-9_])', A = '(?![a-zà-ÿ0-9_])';
+  function R(p, f) { return new RegExp(p, f); }
+  function reEsc(x) { return x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+  function wordToNum(w) {
+    const m = { 'um':1,'uma':1,'dois':2,'duas':2,'tres':3,'três':3,'quatro':4,'cinco':5,'seis':6,'sete':7,'oito':8,'nove':9,'dez':10,'onze':11,'doze':12,'quinze':15,'vinte':20,'trinta':30,'meia':30 };
+    if (w == null) return null;
+    if (/^\d+$/.test(w)) return parseInt(w, 10);
+    return m[w] === undefined ? null : m[w];
+  }
+  const WD = { 'domingo':0,'segunda':1,'terca':2,'terça':2,'quarta':3,'quinta':4,'sexta':5,'sabado':6,'sábado':6 };
+  const MO = { 'janeiro':0,'fevereiro':1,'marco':2,'março':2,'abril':3,'maio':4,'junho':5,'julho':6,'agosto':7,'setembro':8,'outubro':9,'novembro':10,'dezembro':11 };
+  const MARCA = '␟';   // fica no lugar de cada trecho de data/hora retirado do título
+
+  function parse(text, now) {
+    now = now || new Date();
+    let s = ' ' + text.toLowerCase().replace(/\s+/g, ' ').trim() + ' ';
+    let orig = ' ' + text.replace(/\s+/g, ' ').trim() + ' ';
+    const res = { type: null, start: null, hasTime: false, allDay: false, recurrence: null, notifyBefore: null, title: '' };
+    const kill = (m) => { if (!m) return; s = s.replace(m, ' '); orig = orig.replace(R(reEsc(m), 'i'), ' ' + MARCA + ' '); };
+    const killRe = (re) => { const m = s.match(re); if (m) { kill(m[0]); return m; } return null; };
+
+    // aviso ("me avisa 1h antes", "na véspera")
+    let mN = s.match(R('(?:me\\s+)?(?:avis\\w+|lembr\\w+|alert\\w+|anteced[êe]ncia)[^0-9]{0,14}(\\d+|um|uma|dois|duas|meia|quinze|vinte|trinta)\\s*(minutos?|mins?|min|horas?|hrs?|h|dias?|semanas?)\\s*(?:de\\s+)?(?:antes|anteced[êe]ncia)?'));
+    if (!mN) mN = s.match(R('(\\d+|um|uma|dois|duas|meia|quinze|vinte|trinta)\\s*(minutos?|mins?|min|horas?|hrs?|h|dias?|semanas?)\\s+(?:de\\s+)?(?:antes|anteced[êe]ncia)'));
+    if (mN) { const n = wordToNum(mN[1]), u = mN[2]; let mins = n; if (/^h|hora|hr/.test(u)) mins = n * 60; else if (/dia/.test(u)) mins = n * 1440; else if (/semana/.test(u)) mins = n * 10080; res.notifyBefore = mins; kill(mN[0]); }
+    else { const mv = killRe(R(B + 'na v[ée]spera' + A + '|' + B + 'v[ée]spera' + A)); if (mv) res.notifyBefore = 1440; }
+
+    // repetição
+    const mMon = killRe(R(B + 'todo (?:dia )?(\\d{1,2})' + A + '|' + B + 'todo m[êe]s' + A + '|' + B + 'mensalmente' + A));
+    if (mMon) { res.recurrence = { freq: 'MONTHLY', bymonthday: mMon[1] ? parseInt(mMon[1], 10) : now.getDate() }; }
+    else if (killRe(R(B + 'tod[oa]s? os dias?' + A + '|' + B + 'todo dia' + A + '|' + B + 'diariamente' + A + '|' + B + 'di[áa]ri[oa]' + A))) { res.recurrence = { freq: 'DAILY' }; }
+    else {
+      const mW = s.match(R(B + 'tod[ao]s?\\s+(?:as?\\s+)?(domingos?|segundas?|ter[çc]as?|quartas?|quintas?|sextas?|s[áa]bados?)' + A));
+      if (mW) { const k = mW[1].replace(/s$/, ''); let wd = WD[k]; if (wd == null) { for (const key in WD) { if (k.startsWith(key)) { wd = WD[key]; break; } } } res.recurrence = { freq: 'WEEKLY', byday: wd }; kill(mW[0]); }
+      else if (killRe(R(B + 'toda semana' + A + '|' + B + 'semanalmente' + A))) { res.recurrence = { freq: 'WEEKLY' }; }
+    }
+
+    const base = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    let d = null, explicitDate = false;
+
+    const mRel = killRe(R('(?:daqui a|daqui h[áa]|em)\\s+(\\d+|um|uma|dois|duas|meia|quinze|vinte|trinta)\\s*(minutos?|mins?|min|horas?|hrs?|h|dias?|semanas?)' + A));
+    if (mRel) {
+      const n = wordToNum(mRel[1]), u = mRel[2]; d = new Date(now.getTime());
+      if (/^h|hora|hr/.test(u)) { d.setHours(d.getHours() + n); res.hasTime = true; }
+      else if (/min/.test(u)) { d.setMinutes(d.getMinutes() + n); res.hasTime = true; }
+      else if (/dia/.test(u)) { d.setDate(d.getDate() + n); explicitDate = true; }
+      else if (/semana/.test(u)) { d.setDate(d.getDate() + n * 7); explicitDate = true; }
+    }
+
+    if (!d) {
+      if (killRe(R(B + 'depois de amanh[ãa]' + A))) { d = new Date(base); d.setDate(d.getDate() + 2); explicitDate = true; }
+      else if (killRe(R(B + 'amanh[ãa]' + A))) { d = new Date(base); d.setDate(d.getDate() + 1); explicitDate = true; }
+      else if (killRe(R(B + 'hoje' + A))) { d = new Date(base); explicitDate = true; }
+    }
+    if (!d) { const m = killRe(R(B + '(\\d{1,2})\\/(\\d{1,2})(?:\\/(\\d{2,4}))?' + A));
+      if (m) { const day = +m[1], mon = +m[2] - 1, yr = m[3] ? (+m[3] < 100 ? 2000 + +m[3] : +m[3]) : now.getFullYear(); d = new Date(yr, mon, day); if (!m[3] && d < base) d.setFullYear(yr + 1); explicitDate = true; } }
+    if (!d) { const m = killRe(R(B + '(\\d{1,2})\\s+de\\s+(janeiro|fevereiro|mar[çc]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)' + A));
+      if (m) { const day = +m[1], mon = MO[m[2]], yr = now.getFullYear(); d = new Date(yr, mon, day); if (d < base) d.setFullYear(yr + 1); explicitDate = true; } }
+    if (!d) { const m = killRe(R(B + 'dia\\s+(\\d{1,2})' + A));
+      if (m) { const day = +m[1]; d = new Date(base.getFullYear(), base.getMonth(), day); if (d < base) d.setMonth(d.getMonth() + 1); explicitDate = true; } }
+    if (!d) {
+      const prox = R(B + 'pr[óo]xim[ao]' + A + '|' + B + 'que vem' + A).test(s);
+      const m = s.match(R(B + '(domingo|segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado)(?:-feira)?' + A));
+      if (m) {
+        const wd = WD[m[1]];
+        let delta = (wd - base.getDay() + 7) % 7; if (delta === 0) delta = prox ? 7 : 0; if (prox && delta < 7) delta += 7;
+        d = new Date(base); d.setDate(d.getDate() + delta); explicitDate = true; kill(m[0]); killRe(R(B + 'pr[óo]xim[ao]' + A + '|' + B + 'que vem' + A));
+      }
+      else if (prox && R(B + 'semana' + A).test(s)) { d = new Date(base); d.setDate(d.getDate() + 7); explicitDate = true; killRe(R(B + 'pr[óo]xim[ao]' + A)); killRe(R(B + 'que vem' + A)); killRe(R(B + 'semana' + A)); }
+      else if (killRe(R(B + 'fim de semana' + A + '|' + B + 'final de semana' + A))) { const delta = (6 - base.getDay() + 7) % 7 || 7; d = new Date(base); d.setDate(d.getDate() + delta); explicitDate = true; }
+    }
+
+    if (!res.hasTime) {
+      let hh = null, mm = 0;
+      if (killRe(R(B + 'meio[- ]dia' + A))) { hh = 12; }
+      else if (killRe(R(B + 'meia[- ]noite' + A))) { hh = 0; }
+      else {
+        let m;
+        if ((m = killRe(R(B + '(\\d{1,2})[:h](\\d{2})' + A)))) { hh = +m[1]; mm = +m[2]; }
+        else if ((m = killRe(R(B + '(\\d{1,2})h' + A)))) { hh = +m[1]; mm = 0; }
+        else if ((m = killRe(R(B + '[àa]s?\\s+(\\d{1,2})(?:[:h](\\d{2}))?' + A)))) { hh = +m[1]; mm = m[2] ? +m[2] : 0; }
+        else if ((m = killRe(R(B + '(\\d{1,2})(?:[:h](\\d{2}))?\\s*(?:da|de|[àa]|as)?\\s*(manh[ãa]|tarde|noite)' + A)))) { hh = +m[1]; mm = m[2] ? +m[2] : 0; if (/tarde|noite/.test(m[3]) && hh < 12) hh += 12; if (/manh/.test(m[3]) && hh === 12) hh = 0; }
+        if (hh === null) {
+          if (killRe(R(B + '(?:de|pela|[àa])\\s+manh[ãa]' + A))) { hh = 9; }
+          else if (killRe(R(B + '(?:de|pela|[àa])\\s+tarde' + A))) { hh = 15; }
+          else if (killRe(R(B + '(?:de|pela|[àa])\\s+noite' + A))) { hh = 20; }
+        }
+      }
+      if (hh !== null && hh <= 23 && mm <= 59) { if (!d) d = new Date(base); d.setHours(hh, mm, 0, 0); res.hasTime = true; }
+    }
+
+    if (res.recurrence && !explicitDate) {
+      const r = res.recurrence, anchor = d ? new Date(d) : new Date(base);
+      const hh = res.hasTime ? anchor.getHours() : 9, mm = res.hasTime ? anchor.getMinutes() : 0;
+      if (r.freq === 'WEEKLY' && r.byday != null) { const delta = (r.byday - base.getDay() + 7) % 7; const c = new Date(base); c.setDate(c.getDate() + delta); c.setHours(hh, mm, 0, 0); if (c.getTime() <= now.getTime()) c.setDate(c.getDate() + 7); d = c; }
+      else if (r.freq === 'MONTHLY' && r.bymonthday != null) { let c = new Date(base.getFullYear(), base.getMonth(), r.bymonthday, hh, mm, 0, 0); if (c.getTime() < now.getTime()) c = new Date(base.getFullYear(), base.getMonth() + 1, r.bymonthday, hh, mm, 0, 0); d = c; }
+      else if (r.freq === 'DAILY') { const c = d ? new Date(d) : new Date(base); c.setHours(hh, mm, 0, 0); if (c.getTime() <= now.getTime()) c.setDate(c.getDate() + 1); d = c; }
+    }
+
+    if (d) { if (!res.hasTime) { res.allDay = true; d.setHours(9, 0, 0, 0); } res.start = d; }
+
+    const t = text.toLowerCase();
+    const lembrete = R(B + 'lembr\\w+|' + B + 'pagar' + A + '|' + B + 'pague' + A + '|' + B + 'comprar' + A + '|' + B + 'ligar' + A + '|' + B + 'enviar' + A + '|' + B + 'mandar' + A + '|' + B + 'responder' + A + '|' + B + 'renovar' + A + '|' + B + 'tomar' + A + '|' + B + 'beber' + A + '|' + B + 'estudar' + A + '|' + B + 'buscar' + A + '|' + B + 'cobrar' + A + '|' + B + 'n[ãa]o esquecer' + A);
+    const evento = R(B + 'reuni[ãa]o' + A + '|' + B + 'consulta' + A + '|' + B + 'm[ée]dic\\w+|' + B + 'dentista' + A + '|' + B + 'compromisso' + A + '|' + B + 'almo[çc]o' + A + '|' + B + 'jantar' + A + '|' + B + 'caf[ée]' + A + '|' + B + 'call' + A + '|' + B + 'encontro' + A + '|' + B + 'apresenta[çc][ãa]o' + A + '|' + B + 'treinamento' + A + '|' + B + 'treino' + A + '|' + B + 'academia' + A + '|' + B + 'aula' + A + '|' + B + 'visita' + A);
+    if (evento.test(t)) res.type = 'evento'; else if (lembrete.test(t)) res.type = 'lembrete'; else res.type = res.hasTime ? 'evento' : 'lembrete';
+
+    // título: tira só o que sobrou grudado na data/hora ("na ␟", "às ␟") e o verbo de comando do começo;
+    // o resto da frase fica como você escreveu ("Pagar conta de luz", "Ligar para a Mariluce")
+    let title = orig, antes;
+    do { antes = title; title = title.replace(R('(^|\\s)(?:[àa]s?|no|na|em|de|do|da|pra|para|dia|at[ée]|e)\\s+' + MARCA, 'gi'), '$1' + MARCA); } while (title !== antes);
+    title = title.split(MARCA).join(' ').replace(/[.,;:?!]+(?=\s|$)/g, ' ').replace(/\s+/g, ' ').trim();
+    title = title.replace(/^(?:(?:por favor|pfv)\s+)?(?:me\s+)?(?:marcar|marque|agendar|agende|criar|crie|coloca|coloque|colocar|p[õo]e|anota|anote|anotar|lembrar|lembra|lembre|preciso|tenho que|tenho de|quero)\s+(?:de\s+|que\s+)?/i, '').trim();
+    title = title.replace(/^(que|de|e)\s+/i, '').trim();
+    title = title.replace(/\s+(ao|à|at[ée]|a|para|pra|de|da|do|em|no|na|com|e)$/i, '').trim();
+    if (!title) title = text.trim();
+    res.title = cap(title);
+    return res;
+  }
+
+  // próxima ocorrência de um item que se repete (nunca devolve uma data que já passou)
+  function rollNext(iso, rec) {
+    const d = new Date(iso), h0 = sod(new Date());
+    let voltas = 0;
+    do {
+      if (rec.freq === 'DAILY') d.setDate(d.getDate() + 1);
+      else if (rec.freq === 'WEEKLY') d.setDate(d.getDate() + 7);
+      else if (rec.freq === 'MONTHLY') d.setMonth(d.getMonth() + 1);
+      else break;
+    } while (sod(d) < h0 && ++voltas < 800);
+    return d.toISOString();
+  }
+
+  /* ---------- motor de confiança (cria / sugere / pergunta) ---------- */
+  function analyze(text, p) {
+    const t = text.toLowerCase();
+    const words = (p.title || '').trim().split(/\s+/).filter(Boolean);
+    const typeHint = /(reuni|consulta|médic|medic|dentista|almoç|almoc|jantar|café|cafe|call|encontro|apresenta|treino|academia|aula|visita|lembr|pagar|comprar|ligar|enviar|mandar|responder|renovar|tomar|estudar|buscar|cobrar|marcar|agendar)/i.test(t);
+    const hasExplicitDate = /(hoje|amanhã|amanha|segunda|terça|terca|quarta|quinta|sexta|sábado|sabado|domingo|dia\s+\d|\d{1,2}\/\d{1,2}|\d{1,2}\s+de\s+[a-zç]+|daqui a|semana que vem|próxim|proxim)/i.test(t);
+    const tt = t.replace(/(\d+|um|uma|meia)\s*(min\w*|h|hora\w*|hrs?|dia\w*|semana\w*)\s*(de\s+)?(antes|anteced\w+)/g, ' ').replace(/me\s+avis\w+/g, ' ');
+    const twoTimes = (tt.match(/\b\d{1,2}h\b|\b\d{1,2}[:h]\d{2}\b/g) || []).length >= 2;
+    const valid = words.length >= 2 || typeHint || !!p.start;
+    let dc = 0.2;
+    if (p.start) { dc += hasExplicitDate ? 0.50 : 0.22; if (p.hasTime) dc += 0.25; if (typeHint) dc += 0.10; if (twoTimes) dc -= 0.30; dc = Math.max(0.05, Math.min(0.99, dc)); }
+    let band, msg;
+    if (!valid) { band = 'ask'; msg = 'Pouco detalhe — diga o quê e quando.'; }
+    else if (!p.start) { band = 'auto'; msg = 'Sem data: entra nas tarefas de hoje.'; }
+    else if (twoTimes) { band = 'suggest'; msg = 'Confira o horário — achei mais de um.'; }
+    else if (dc < 0.62) { band = 'suggest'; msg = 'Confira a data e a hora.'; }
+    else { band = 'auto'; msg = 'Entendi com segurança.'; }
+    return { valid, dateScore: p.start ? Math.round(dc * 100) : null, band, msg };
+  }
+
+  /* ---------- áreas da vida + objetivos ---------- */
+  const AREAS = [
+    { id: 'saude',      nome: 'Saúde',         icon: 'ti-heartbeat',    cor: 'var(--c-grow)',  kw: /(academia|treino|médic|medic|consulta|dentista|remédio|remedio|exame|dieta|corrida|correr|caminhada|nutri|terapia|psicólog|psicolog|sono|dormir|vacina|saúde|saude|cabelo)/i },
+    { id: 'familia',    nome: 'Família',       icon: 'ti-home',         cor: 'var(--c-drop)',  kw: /(esposa|filh|mãe|mae\b|\bpai\b|avó|\bavo\b|família|familia|aniversári|aniversari|namorad|churrasco|missa|igreja|dízimo|dizimo|dia dos pais|\bcasa\b|reforma|lavar|secar|costurar)/i },
+    { id: 'financeiro', nome: 'Financeiro',    icon: 'ti-coin',         cor: 'var(--c-warn)',  kw: /(pagar|pagamento|\bcontas?\b|boleto|fatura|aluguel|condomínio|condominio|imposto|\bdas\b|irpf|dívida|divida|parcela|banco|cartão|cartao|reserva|investir|\bcdb\b|salário|salario|cobrança|cobranca|financiamento|seguro|orçamento|orcamento|financeir)/i },
+    { id: 'empresa',    nome: 'Empresa',       icon: 'ti-briefcase',    cor: 'var(--c-dados)', kw: /(reunião|reuniao|cliente|corretor|operadora|proposta|contrato|comercial|venda|cotação|cotacao|w3g|plano de saúde|plano de saude|apresentaç|apresentac|follow|prospec|\bcall\b|fornecedor|sinistralidade|carteira|cnpj|\bpme\b|visita|medsenior|unimed|alice|trasmontano|\bbow\b|\bporto\b|código|codigo|associação|associacao|whatsapp|\bgrade\b|acesso|cobrar)/i },
+    { id: 'marca',      nome: 'Marca pessoal', icon: 'ti-speakerphone', cor: '150 110 220',    kw: /(\bpost\b|instagram|linkedin|story|stories|conteúdo|conteudo|marketing|\bmarca\b|vídeo|video|reels|campanha|divulga|\bartes?\b|comunidade|outubro rosa|convite|gravar|patrocinador|evento)/i },
+    { id: 'estudos',    nome: 'Estudos',       icon: 'ti-book',         cor: 'var(--c-accent)', kw: /(estudar|estudo|\bcurso|\baula\b|\bler\b|leitura|livro|\bprova\b|certificação|certificacao|\bans\b|aprender|treinamento|workshop|palestra|universidade|federal|matéria|materia|documento)/i }
+  ];
+  function inferArea(text, title) { const hay = (text + ' ' + (title || '')).toLowerCase(); for (const a of AREAS) { if (a.kw.test(hay)) return a.id; } return null; }
+  function areaObj(id) { return AREAS.find(x => x.id === id) || null; }
+  function areaNome(id) { const a = areaObj(id); return a ? a.nome : 'Geral'; }
+  function areaCor(id) { const a = areaObj(id); return a ? a.cor : 'var(--c-muted)'; }
+  function goalsOf(area) { return S().goals.filter(g => g.area === area && !g.done); }
+  function goalById(id) { return S().goals.find(g => g.id === id) || null; }
+  function goalProgress(goalId) { const its = S().items.filter(i => i.goalId === goalId); return { total: its.length, done: its.filter(i => i.done).length }; }
+
+  /* ---------- pessoas: promessas viram follow-up ---------- */
+  const PROMISE_VERBS = /(prometi|prometer|enviar|mandar|ligar|responder|retornar|falar|escrever|passar|encaminhar|cobrar|combinei|devolver|avisar|confirmar|visitar|procurar)/i;
+  const NAME_STOP = /^(operadora|proposta|pdf|contrato|pagamento|presença|presenca|ligação|ligacao|áudio|audio|livro|reunião|reuniao|documento|email|e-mail|mensagem|hoje|amanhã|amanha|dinheiro|foto|arquivo|planilha|relatório|relatorio|porto|unimed|medsenior|trasmontano|alice|whatsapp|w3g)$/i;
+  function isPromise(text) { return PROMISE_VERBS.test(text); }
+  function extractContact(text) {
+    const re = /(?:^|\s)(?:pra|pro|para|ao|à|com|de|do|da|o|a)\s+(?:o\s+|a\s+|os\s+|as\s+)?(?:dr\.?\s+|dra\.?\s+|sr\.?\s+|sra\.?\s+|prof\.?\s+)?([A-ZÀ-Ý][a-zà-ÿ]+(?:\s+[A-ZÀ-Ý][a-zà-ÿ]+)?)/g;
+    let m, best = null;
+    while ((m = re.exec(text))) { const cand = m[1].trim(); if (NAME_STOP.test(cand.split(' ')[0])) continue; best = cand; re.lastIndex = m.index + 1; }
+    return best;
+  }
+  function contactByName(name) { const n = name.trim().toLowerCase(); return S().contacts.find(c => c.name.toLowerCase() === n || c.name.toLowerCase().split(' ')[0] === n.split(' ')[0]) || null; }
+  function ensureContact(name) { let c = contactByName(name); if (!c) { c = { id: uid(), name: name.trim(), note: '', createdAt: Date.now() }; S().contacts.push(c); } return c; }
+  function contactById(id) { return S().contacts.find(c => c.id === id) || null; }
+  function followupsOf(cid, openOnly) { return S().items.filter(i => i.contactId === cid && (!openOnly || !i.done)); }
+  // se a pessoa for (sem dúvida) um corretor da carteira, liga uma coisa na outra
+  function corretorDe(c) {
+    const alvo = semAcento(c.name).split(/\s+/).filter(Boolean);
+    if (!alvo.length) return null;
+    const m = ativos().filter(x => { const t = semAcento(x.name).split(/[\s|\-]+/); return alvo.every(p => t.indexOf(p) >= 0); });
+    return m.length === 1 ? m[0] : null;
+  }
+  function waURL(tel) { let d = String(tel || '').replace(/\D/g, ''); if (!d) return ''; if (d.length <= 11) d = '55' + d; return 'https://wa.me/' + d; }
+
+  /* ---------- formatação ---------- */
+  function fmtTime(iso) { return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); }
+  function fmtDayLabel(iso) { return new Date(iso).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' }).replace(/\./g, ''); }
+  function recLabel(rec) {
+    if (!rec) return null;
+    if (rec.freq === 'DAILY') return 'todo dia';
+    if (rec.freq === 'MONTHLY') return 'dia ' + rec.bymonthday + ' de cada mês';
+    if (rec.freq === 'WEEKLY') return rec.byday != null ? (rec.byday === 0 || rec.byday === 6 ? 'todo ' : 'toda ') + WD_NOME[rec.byday] : 'toda semana';
+    return null;
+  }
+  function notifyLabel(min, allDay) {
+    if (min == null) return allDay ? 'aviso às 9h' : null;
+    if (min === 0) return 'aviso na hora';
+    if (min < 60) return 'aviso ' + min + ' min antes';
+    if (min % 1440 === 0) return 'aviso ' + (min / 1440) + (min / 1440 > 1 ? ' dias' : ' dia') + ' antes';
+    if (min % 60 === 0) return 'aviso ' + (min / 60) + 'h antes';
+    return 'aviso ' + Math.round(min / 60) + 'h antes';
+  }
+  const quando = i => i.start ? (i.allDay ? 'dia' : fmtTime(i.start)) : '—';
+
+  /* ---------- local do compromisso (abre no mapa) ---------- */
+  const PLACE_STOP = /^(que|de|a|o|e|casa|manh[ãa]|tarde|noite|semana|seguida|frente|ponto|dia|hora|horas|minutos?|breve|aberto|final|in[íi]cio|todo|toda)$/i;
+  function extractPlace(text) {
+    const re = /(?:^|\s)(?:na|no|em)\s+([A-ZÀ-Ý][\wÀ-ÿ'’-]*(?:\s+(?:d[aeo]s?\s+)?[A-ZÀ-Ý][\wÀ-ÿ'’-]*){0,3})/g;
+    let m, best = null;
+    while ((m = re.exec(text))) { const cand = m[1].trim(); if (PLACE_STOP.test(cand.split(' ')[0])) continue; best = cand; }
+    return best;
+  }
+  function mapsURL(place) { return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(place); }
+  function bucketOf(i, now) {
+    if (!i.start) return 'today';
+    const s = sod(new Date(i.start)), t = sod(now);
+    if (s <= t) return 'today';              // atrasado continua aparecendo em Hoje
+    if (s === t + DIA) return 'tomorrow';
+    return 'soon';
+  }
+
+  /* ---------- motor de priorização (só sinais reais) ---------- */
+  function priorityRank(i, now) {
+    now = now || new Date();
+    const today = sod(now), hasDate = !!i.start, start = hasDate ? new Date(i.start).getTime() : null;
+    let tier, score = 0; const fatores = [];
+    if (hasDate) {
+      const dd = Math.round((sod(new Date(i.start)) - today) / DIA);
+      if (dd < 0) { tier = 0; fatores.push('atrasado'); }
+      else if (dd === 0) { tier = 1; fatores.push('hoje'); }
+      else if (dd === 1) { tier = 2; fatores.push('amanhã'); }
+      else if (dd <= 7) { tier = 3; fatores.push('esta semana'); }
+      else { tier = 5; fatores.push('mais para frente'); }
+    } else { tier = 4; }
+    if (hasDate && tier === 1 && !i.allDay) {
+      if (start < now.getTime()) { score += 15; fatores.push('horário já passou'); }
+      else if (start - now.getTime() <= 2 * 3600000) { score += 25; fatores.push('nas próximas 2h'); }
+    }
+    if (i.goalId) { score += 25; fatores.push('serve a um objetivo'); }
+    if (i.contactId) { score += 15; fatores.push('compromisso com alguém'); }
+    if (i.type === 'evento' && !i.allDay) { score += 10; fatores.push('hora fixa'); }
+    if (i.notifyBefore != null && i.notifyBefore > 0) { score += 8; fatores.push('tem aviso'); }
+    if (i.recurrence) { score += 4; fatores.push('rotina'); }
+    if ((i.adiado || 0) >= 2) { score += 6; fatores.push('já foi adiada ' + i.adiado + ' vezes'); }
+    return { tier, score, fatores };
+  }
+  function priorityCmp(a, b, now) {
+    const ra = priorityRank(a, now), rb = priorityRank(b, now);
+    if (ra.tier !== rb.tier) return ra.tier - rb.tier;
+    if (rb.score !== ra.score) return rb.score - ra.score;
+    const sa = a.start ? new Date(a.start).getTime() : Infinity, sb2 = b.start ? new Date(b.start).getTime() : Infinity;
+    return sa - sb2;
+  }
+  const porHora = (a, b) => { if (!a.start) return 1; if (!b.start) return -1; return new Date(a.start) - new Date(b.start); };
+
+  /* ---------- regras operacionais: conflito, follow-up parado, acúmulo, sobrecarga ---------- */
+  function eventWindow(i) { if (!i.start || i.allDay) return null; const s = new Date(i.start).getTime(); return [s, s + 3600000]; }
+  function findConflicts(target, excludeId) {
+    const wn = eventWindow(target); if (!wn) return [];
+    return S().items.filter(i => { if (i.done || i.id === excludeId) return false; const wi = eventWindow(i); return !!wi && wn[0] < wi[1] && wi[0] < wn[1]; });
+  }
+  function conflitosDoDia(lista) {
+    const t = lista.filter(i => !i.allDay && i.start), pares = [];
+    for (let x = 0; x < t.length; x++) for (let y = x + 1; y < t.length; y++) { const w1 = eventWindow(t[x]), w2 = eventWindow(t[y]); if (w1 && w2 && w1[0] < w2[1] && w2[0] < w1[1]) pares.push([t[x], t[y]]); }
+    return pares;
+  }
+  function stalledFollowups(days) { const lim = Date.now() - (days || 5) * DIA; return S().items.filter(i => i.contactId && !i.done && i.createdAt < lim); }
+  function temporalStalled(dias) { return S().items.filter(i => !i.done && !i.recurrence && (Date.now() - (i.createdAt || Date.now())) > dias * DIA); }
+  function atrasados() { const h0 = sod(new Date()); return S().items.filter(i => !i.done && i.start && sod(new Date(i.start)) < h0).sort(porHora); }
+  function overloadState() {
+    const today = sod(new Date()), porDia = {};
+    const criadosHoje = S().items.filter(i => sod(new Date(i.createdAt)) === today).length;
+    S().items.forEach(i => { const d = sod(new Date(i.createdAt)); if (d < today && d >= today - 14 * DIA) porDia[d] = (porDia[d] || 0) + 1; });
+    const dias = Object.keys(porDia).map(k => porDia[k]);
+    const media = dias.length ? dias.reduce((a, b) => a + b, 0) / dias.length : 0;
+    const limiar = media > 0 ? Math.max(6, Math.ceil(media * 1.7)) : 6;
+    return { criadosHoje, media, limiar, over: criadosHoje >= limiar };
+  }
+  function saudeOp() {
+    const wk = Date.now() - 7 * DIA; let done7 = 0;
+    S().items.forEach(i => { if (i.done && i.doneAt && i.doneAt >= wk) done7++; (i.log || []).forEach(l => { if (l.doneAt >= wk) done7++; }); });
+    const atras = atrasados().length;
+    return { done7, atras, rate: (done7 + atras) ? Math.round(done7 / (done7 + atras) * 100) : 0 };
+  }
+
+  /* ---------- governança: auditor de objetivos + radar ---------- */
+  function auditGoals() {
+    const out = [];
+    S().goals.filter(g => !g.done).forEach(g => {
+      const vinc = S().items.filter(i => i.goalId === g.id), concl = vinc.filter(i => i.done && i.doneAt);
+      if (vinc.length === 0) out.push({ title: g.title, area: g.area, msg: 'sem nenhuma tarefa vinculada' });
+      else if (concl.length === 0) out.push({ title: g.title, area: g.area, msg: 'nenhuma tarefa concluída ainda (' + daysSince(g.createdAt) + ' dias)' });
+      else { const d = daysSince(Math.max.apply(null, concl.map(i => i.doneAt))); if (d >= 14) out.push({ title: g.title, area: g.area, msg: 'sem progresso há ' + d + ' dias' }); }
+    });
+    return out;
+  }
+  function strategicBoard() {
+    const wk = Date.now() - 7 * DIA, byArea = {};
+    S().items.forEach(i => { const k = i.area || 'geral'; if (i.done && i.doneAt && i.doneAt >= wk) byArea[k] = (byArea[k] || 0) + 1; (i.log || []).forEach(l => { if (l.doneAt >= wk) byArea[k] = (byArea[k] || 0) + 1; }); });
+    const comObjetivo = Array.from(new Set(S().goals.filter(g => !g.done).map(g => g.area)));
+    return { byArea, negligenciadas: comObjetivo.filter(a => !byArea[a]), top: Object.keys(byArea).map(k => [k, byArea[k]]).sort((a, b) => b[1] - a[1])[0] };
+  }
+  function logEval(type, detail) { const st = S(); st.evalLog.push({ t: type, at: Date.now(), d: detail || null }); if (st.evalLog.length > 800) st.evalLog = st.evalLog.slice(-800); }
+  function recordNotifyPref(min) { if (min == null || min <= 0) return; const c = S().prefs.notifyCounts; c[min] = (c[min] || 0) + 1; }
+  function learnedNotify() { const c = S().prefs.notifyCounts; let best = null, bestN = 0; for (const k in c) { if (c[k] > bestN) { bestN = c[k]; best = +k; } } return bestN >= 2 ? best : null; }
+
+  /* ---------- explicação: por que entendi assim ---------- */
+  function explainItem(i) {
+    const t = (i.rawText || i.title).toLowerCase(), out = [];
+    out.push(i.type === 'evento'
+      ? 'Classifiquei como <b>evento</b>' + (/(reuni|consulta|almoç|almoc|jantar|call|encontro|caf[ée]|dentista|m[ée]dic|treino|academia|aula|visita|apresenta)/.test(t) ? ' por uma palavra-chave no texto.' : (!i.allDay ? ' porque tem hora marcada.' : '.'))
+      : 'Classifiquei como <b>lembrete</b>' + (/(lembr|pagar|comprar|ligar|enviar|mandar|responder|renovar|tomar|estudar|buscar|cobrar)/.test(t) ? ' pela ação descrita.' : '.'));
+    if (i.autoToday) out.push('Você não informou data — por isso entrou nas tarefas do dia e permanece até ser concluída.');
+    else if (i.start) out.push('Li a data como <b>' + cap(fmtDayLabel(i.start)) + (i.allDay ? ' (dia inteiro)' : ' às ' + fmtTime(i.start)) + '</b>.');
+    out.push(i.area ? 'Organizei na área <b>' + areaNome(i.area) + '</b>' + (i.areaFixa ? ' (você escolheu).' : ' pelo assunto.') : 'Sem área específica — deixei em Geral.');
+    if (i.recurrence) out.push('Repetição reconhecida: <b>' + recLabel(i.recurrence) + '</b>.');
+    const nl = (i.silent || i.autoToday) ? null : notifyLabel(i.notifyBefore, i.allDay);
+    if (nl) out.push('Aviso configurado: ' + nl.replace('aviso ', '') + '.');
+    const c = i.contactId && contactById(i.contactId);
+    if (c) out.push('Vi um compromisso com <b>' + esc(c.name) + '</b> — virou follow-up dessa pessoa.');
+    if (i.local) out.push('Local reconhecido: <b>' + esc(i.local) + '</b> (toque na etiqueta para abrir o mapa).');
+    if (i.confidence != null) out.push('Confiança da interpretação: <b>' + i.confidence + '%</b>' + (i.pending ? ' — por isso pedi para você confirmar.' : '.'));
+    return out;
+  }
+  // limpa mensagens coladas de WhatsApp/e-mail antes de interpretar
+  function normalizeIncoming(text) {
+    let t = ' ' + text.trim() + ' ';
+    t = t.replace(/^\s*(oi+|ol[áa]|opa|e a[íi]|fala|bom dia|boa tarde|boa noite)[\s,!.:]+/i, ' ');
+    const nome = primeiro(S().name);
+    if (nome.length > 2) t = t.replace(new RegExp('(^|[\\s,])' + reEsc(nome) + '[\\s,!.:]+', 'ig'), ' ');
+    t = t.replace(/(^|\s)(confirmad[oa] (nosso|nossa|o|a)?|segue (o|a|para)?|pode me|voc[êe] consegue|consegue|por favor|pfv|ser[áa] que|d[áa] pra)(?=\s)/ig, ' ');
+    return t.replace(/\s+/g, ' ').trim();
+  }
+
+  /* ---------- som, aviso do navegador e toast ---------- */
+  let audioCtx = null;
+  function ensureAudio() { if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } }
+  function chime() {
+    if (!audioCtx) return;
+    try {
+      const t = audioCtx.currentTime;
+      [[660, 0], [880, 0.12]].forEach(p => {
+        const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+        o.type = 'sine'; o.frequency.value = p[0]; o.connect(g); g.connect(audioCtx.destination);
+        g.gain.setValueAtTime(0, t + p[1]); g.gain.linearRampToValueAtTime(0.12, t + p[1] + 0.02); g.gain.exponentialRampToValueAtTime(0.001, t + p[1] + 0.3);
+        o.start(t + p[1]); o.stop(t + p[1] + 0.32);
+      });
+    } catch (e) {}
+  }
+  function requestNotifPermission() { if ('Notification' in window && Notification.permission === 'default') { try { Notification.requestPermission(); } catch (e) {} } }
+  let toastTimer = null;
+  function toast(msg, rotulo, fn) {
+    let box = document.getElementById('ag-toast');
+    if (!box) { box = document.createElement('div'); box.id = 'ag-toast'; document.body.appendChild(box); }
+    box.innerHTML = '<span>' + esc(msg) + '</span>';
+    if (rotulo) { const b = document.createElement('button'); b.textContent = rotulo; b.onclick = () => { box.classList.remove('show'); if (fn) fn(); }; box.appendChild(b); }
+    void box.offsetWidth;
+    box.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => box.classList.remove('show'), rotulo ? 5200 : 2800);
+  }
+  function irPara() { fecharSheet(); activeTab = 'agenda'; sub = 'lista'; areaAtiva = null; render(); window.scrollTo(0, 0); }
+  function refresh() { if (activeTab === 'agenda') build(); else buildNav(); }
+  function fireNotif(titulo, corpo) {
+    chime();
+    if ('Notification' in window && Notification.permission === 'granted') { try { new Notification(titulo, { body: corpo, silent: false }); } catch (e) {} }
+    toast(titulo + (corpo ? ' · ' + corpo : ''), 'Ver', irPara);
+  }
+
+  /* ---------- ações sobre um item ---------- */
+  function concluir(i) {
+    if (i.recurrence) { i.log = i.log || []; i.log.push({ doneAt: Date.now(), forDate: i.start }); i.start = rollNext(i.start, i.recurrence); return true; }
+    i.done = true; i.doneAt = Date.now(); return false;
+  }
+  function toggleDone(id) {
+    const i = item(id); if (!i) return;
+    ensureAudio();
+    if (!i.done && i.recurrence) { concluir(i); salvar(); refresh(); toast('Feito ✓ Próximo: ' + fmtDayLabel(i.start)); chime(); return; }
+    if (!i.done) {
+      // autoavaliação: fez hoje algo que não era a prioridade nº 1, e a nº 1 seguia pendente
+      const top = topId && topId !== id ? item(topId) : null;
+      if (top && !top.done && bucketOf(i, new Date()) === 'today') logEval('pri_miss', { fez: i.title });
+      concluir(i); chime();
+    } else { i.done = false; i.doneAt = null; }
+    if (openId === id) openId = null;
+    salvar(); refresh();
+  }
+  function delItem(id) {
+    const st = S(), i = item(id); if (!i) return;
+    if (!confirm('Excluir “' + i.title + '”?')) return;
+    if (i.isFollowup || i.pending) logEval('reject', { titulo: i.title, followup: !!i.isFollowup });
+    const pos = st.items.indexOf(i);
+    st.items.splice(pos, 1); if (editId === id) { editId = null; draft = ''; }
+    salvar(); refresh();
+    toast('Excluído', 'Desfazer', () => { if (!item(i.id)) { S().items.splice(Math.min(pos, S().items.length), 0, i); salvar(); refresh(); } });
+  }
+  function confirmItem(id) { const i = item(id); if (!i) return; i.pending = false; salvar(); refresh(); toast('Confirmado ✓'); }
+  function adiar(id, dias) {
+    const i = item(id); if (!i) return;
+    const antes = { start: i.start, adiado: i.adiado };
+    const velho = i.start ? new Date(i.start) : new Date(new Date().setHours(0, 0, 0, 0));
+    const novo = (dias > 1 && sod(velho) > sod(new Date())) ? new Date(velho) : new Date();
+    novo.setHours(velho.getHours(), velho.getMinutes(), 0, 0);
+    novo.setDate(novo.getDate() + dias);
+    i.start = novo.toISOString(); i.adiado = (i.adiado || 0) + 1;
+    salvar(); refresh();
+    toast('Adiado para ' + fmtDayLabel(i.start), 'Desfazer', () => { i.start = antes.start; i.adiado = antes.adiado; salvar(); refresh(); });
+  }
+  function editItem(id) {
+    const i = item(id); if (!i) return;
+    editId = id; draft = i.rawText || i.title; openId = null; sub = sub === 'calendario' ? 'calendario' : 'lista';
+    build();
+    const inp = document.getElementById('ag-input');
+    if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); inp.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+  }
+  function cancelEdit() { editId = null; draft = ''; build(); }
+
+  /* ---------- calendário do celular/computador (.ics) ---------- */
+  function icsDT(d) { return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + 'T' + pad(d.getHours()) + pad(d.getMinutes()) + '00'; }
+  function icsDATE(d) { return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()); }
+  function icsEscape(s) { return String(s).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n'); }
+  function rrule(rec) {
+    if (!rec) return null;
+    if (rec.freq === 'DAILY') return 'FREQ=DAILY';
+    if (rec.freq === 'MONTHLY') return 'FREQ=MONTHLY;BYMONTHDAY=' + rec.bymonthday;
+    if (rec.freq === 'WEEKLY') return rec.byday != null ? ('FREQ=WEEKLY;BYDAY=' + WD_ICS[rec.byday]) : 'FREQ=WEEKLY';
+    return null;
+  }
+  function exportICS(id) {
+    const i = item(id); if (!i || !i.start) return;
+    const d = new Date(i.start), u = new Date();
+    const utc = u.getUTCFullYear() + pad(u.getUTCMonth() + 1) + pad(u.getUTCDate()) + 'T' + pad(u.getUTCHours()) + pad(u.getUTCMinutes()) + '00Z';
+    const l = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Carteira Ativa//Agenda//PT-BR', 'CALSCALE:GREGORIAN', 'BEGIN:VEVENT', 'UID:' + i.id + '@carteira-ativa', 'DTSTAMP:' + utc];
+    if (i.allDay) { const end = new Date(d); end.setDate(end.getDate() + 1); l.push('DTSTART;VALUE=DATE:' + icsDATE(d), 'DTEND;VALUE=DATE:' + icsDATE(end)); }
+    else { const end = new Date(d); end.setHours(end.getHours() + 1); l.push('DTSTART:' + icsDT(d), 'DTEND:' + icsDT(end)); }
+    const rr = rrule(i.recurrence); if (rr) l.push('RRULE:' + rr);
+    l.push('SUMMARY:' + icsEscape(i.title));
+    if (i.local) l.push('LOCATION:' + icsEscape(i.local));
+    l.push('DESCRIPTION:' + icsEscape('Criado na Agenda · Carteira Ativa'));
+    l.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + icsEscape(i.title), i.allDay ? 'TRIGGER:PT9H' : 'TRIGGER:-PT' + (i.notifyBefore == null ? 0 : i.notifyBefore) + 'M', 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR');
+    const url = URL.createObjectURL(new Blob([l.join('\r\n')], { type: 'text/calendar;charset=utf-8' }));
+    const a = document.createElement('a'); a.href = url; a.download = (i.title.replace(/[^\wà-ÿ ]/gi, '').trim() || 'compromisso') + '.ics';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    toast('Abrindo no seu calendário…');
+  }
+
+  /* ---------- caixa de escrever ---------- */
+  function autoGrow(inp) { inp.style.height = 'auto'; inp.style.height = Math.min(inp.scrollHeight, 140) + 'px'; }
+  function tag(cls, icon, txt) { return '<span class="ag-tag' + (cls ? ' ' + cls : '') + '">' + (icon ? '<i class="ti ' + icon + '"></i>' : '') + txt + '</span>'; }
+  function liveParse() {
+    const inp = document.getElementById('ag-input'), prev = document.getElementById('ag-prev'), add = document.getElementById('ag-add'), hint = document.getElementById('ag-hint');
+    if (!inp || !prev) return;
+    const txt = inp.value.trim();
+    if (!txt) { prev.classList.add('hidden'); add.disabled = true; hint.textContent = 'Data, hora, repetição e aviso são identificados sozinhos.'; return; }
+    let p, a;
+    try { const norm = normalizeIncoming(txt); p = parse(norm); a = analyze(norm, p); }
+    catch (e) { prev.classList.add('hidden'); add.disabled = false; hint.textContent = 'Vou guardar como você escreveu.'; return; }
+    add.disabled = false; hint.textContent = a.msg;
+    const c = [];
+    c.push(a.band === 'auto' ? tag('ok', 'ti-check', 'entendi' + (a.dateScore != null ? ' · ' + a.dateScore + '%' : '')) : tag('warn', 'ti-help-circle', (a.band === 'ask' ? 'falta detalhe' : 'confira') + (a.dateScore != null ? ' · ' + a.dateScore + '%' : '')));
+    c.push(p.type === 'evento' ? tag('', 'ti-calendar-event', 'Evento') : tag('', 'ti-checkbox', 'Lembrete'));
+    c.push(p.start ? tag('', 'ti-calendar', cap(fmtDayLabel(p.start)) + (p.allDay ? '' : ' · ' + fmtTime(p.start))) : tag('', 'ti-calendar', 'sem data — vai para hoje'));
+    if (p.recurrence) c.push(tag('', 'ti-repeat', recLabel(p.recurrence)));
+    const nl = notifyLabel(p.notifyBefore, p.allDay); if (nl && p.start) c.push(tag('', 'ti-bell', nl));
+    const ar = inferArea(txt, p.title); if (ar) c.push('<span class="ag-tag area" style="--ac:' + areaCor(ar) + '"><i class="ti ' + areaObj(ar).icon + '"></i>' + areaNome(ar) + '</span>');
+    const lugar = extractPlace(txt); if (lugar) c.push(tag('', 'ti-map-pin', esc(lugar)));
+    if (isPromise(txt)) { const nm = extractContact(txt); if (nm) c.push(tag('', 'ti-user', esc(nm))); }
+    prev.innerHTML = '<span class="hint" style="margin-right:2px;">Entendi assim</span>' + c.join('');
+    prev.classList.remove('hidden');
+  }
+  function addItem() {
+    const inp = document.getElementById('ag-input');
+    const txt = (inp ? inp.value : draft).trim(); if (!txt) return;
+    const st = S();
+    let p, a;
+    try { const norm = normalizeIncoming(txt); p = parse(norm); a = analyze(norm, p); }
+    catch (e) { p = { type: 'lembrete', start: null, hasTime: false, allDay: false, recurrence: null, notifyBefore: null, title: cap(txt) }; a = { band: 'auto', dateScore: null }; }
+    let notifyApplied = false;
+    if (p.notifyBefore != null && p.notifyBefore > 0) recordNotifyPref(p.notifyBefore);
+    else if (p.start && !p.allDay && p.notifyBefore == null) { const ln = learnedNotify(); if (ln != null) { p.notifyBefore = ln; notifyApplied = true; } }
+    const noDate = !p.start, antigo = editId ? item(editId) : null;
+    const it = { id: uid(), type: p.type, title: p.title, rawText: txt,
+      start: noDate ? hojeISO() : p.start.toISOString(), allDay: noDate ? true : p.allDay,
+      recurrence: p.recurrence, notifyBefore: p.notifyBefore, done: false, createdAt: Date.now(),
+      pending: a.band === 'suggest', confidence: a.dateScore, autoToday: noDate, silent: noDate,
+      area: inferArea(txt, p.title), goalId: null, contactId: null, isFollowup: false, local: extractPlace(txt) };
+    if (antigo) {
+      // editar preserva o registro: mesma identidade, e a versão anterior fica no histórico
+      it.id = antigo.id; it.createdAt = antigo.createdAt; it.done = !!antigo.done; it.doneAt = antigo.doneAt || null; it.log = antigo.log; it.adiado = antigo.adiado;
+      if (noDate && antigo.start) { it.start = antigo.start; it.allDay = antigo.allDay; it.autoToday = antigo.autoToday; it.silent = antigo.silent; }
+      if (antigo.areaFixa) { it.area = antigo.area; it.areaFixa = true; }
+      const g = antigo.goalId && goalById(antigo.goalId); if (g && g.area === it.area) it.goalId = antigo.goalId;
+      it.editHistory = (antigo.editHistory || []).concat([{ title: antigo.title, rawText: antigo.rawText, at: Date.now() }]);
+    }
+    // conflito de horário: pergunta ANTES de gravar
+    const pre = findConflicts(it, it.id);
+    if (pre.length && !confirm('Deseja mesmo ' + (antigo ? 'salvar' : 'criar') + (it.type === 'evento' ? ' esse evento' : ' essa tarefa') + '?\n\nHá um conflito de agenda: “' + pre[0].title + '” já está marcado às ' + fmtTime(pre[0].start) + '.')) return;
+    // promessa a uma pessoa vira follow-up ligado ao contato
+    let followName = null;
+    if (isPromise(txt)) { const nm = extractContact(txt); if (nm) { const c = ensureContact(nm); it.contactId = c.id; it.isFollowup = true; followName = c.name; if (!it.area && corretorDe(c)) it.area = 'empresa'; } }
+    // "falar com X [data/hora]": além do evento, cria a tarefa da conversa para hoje
+    let dual = false;
+    if (!antigo && !noDate && !it.allDay && it.contactId && /(falar com|conversar com|tratar com|ver com|alinhar com|reunir com|discutir com|combinar com)\s/i.test(txt)) {
+      st.items.push({ id: uid(), type: 'lembrete', title: 'Falar com ' + followName, rawText: txt, start: hojeISO(), allDay: true, recurrence: null, notifyBefore: null,
+        done: false, createdAt: Date.now(), pending: false, confidence: null, autoToday: true, silent: true, area: it.area, goalId: null, contactId: it.contactId, isFollowup: true });
+      dual = true;
+    }
+    if (antigo) st.items[st.items.indexOf(antigo)] = it; else st.items.push(it);
+    editId = null; draft = ''; openId = null;
+    salvar(); build();
+    requestNotifPermission(); ensureAudio();
+    const pp = st.prefs, hr = it.allDay ? null : new Date(it.start).getHours();
+    const fora = hr != null && pp.workStart != null && pp.workEnd != null && (hr < pp.workStart || hr >= pp.workEnd);
+    const ov = overloadState();
+    if (antigo) toast('Alterações salvas ✓');
+    else if (dual) toast('Criei o evento e a tarefa “Falar com ' + followName + '”');
+    else if (ov.over && L().sobrecarga !== todayKey()) { Lset('sobrecarga', todayKey()); toast('Você já registrou ' + ov.criadosHoje + ' itens hoje' + (ov.media >= 2 ? ' (seu normal é ~' + Math.round(ov.media) + ')' : '') + '. Foco no essencial?', 'Ver painel', sheetPainel); }
+    else if (fora) toast('Fora do seu horário de trabalho (' + pp.workStart + 'h–' + pp.workEnd + 'h)');
+    else if (followName) toast('Follow-up com ' + followName + ' registrado', 'Ver pessoa', () => sheetPessoa(it.contactId));
+    else if (notifyApplied) toast('Adicionado ✓ — apliquei seu aviso habitual (' + notifyLabel(it.notifyBefore, false).replace('aviso ', '') + ')', 'Pôr no calendário', () => exportICS(it.id));
+    else if (!noDate) toast('Adicionado ✓', 'Pôr no calendário', () => exportICS(it.id));
+    else toast('Adicionado às tarefas de hoje');
+  }
+  // ditado por voz (quando o navegador oferece)
+  let recog = null, recognizing = false;
+  function voz() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { toast('Este navegador não tem ditado por voz. Use o microfone do teclado do celular.'); return; }
+    if (recognizing) { try { recog.stop(); } catch (e) {} return; }
+    const mic = () => document.getElementById('ag-mic');
+    if (!recog) {
+      recog = new SR(); recog.lang = 'pt-BR'; recog.interimResults = true; recog.continuous = false; recog.maxAlternatives = 1;
+      recog.onstart = () => { recognizing = true; if (mic()) mic().classList.add('rec'); const h = document.getElementById('ag-hint'); if (h) h.textContent = 'Ouvindo… fale naturalmente.'; };
+      recog.onerror = (e) => {
+        recognizing = false; if (mic()) mic().classList.remove('rec');
+        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') toast('Permita o microfone nas permissões do navegador');
+        else if (e.error === 'no-speech') toast('Não ouvi nada. Tente de novo.');
+        else if (e.error === 'network') toast('O ditado precisa de internet para transcrever');
+        else if (e.error === 'audio-capture') toast('Nenhum microfone disponível neste aparelho');
+        else if (e.error !== 'aborted') toast('Não consegui ouvir agora (' + e.error + ')');
+      };
+      recog.onend = () => { recognizing = false; if (mic()) mic().classList.remove('rec'); liveParse(); };
+      recog.onresult = (ev) => { let txt = ''; for (let k = 0; k < ev.results.length; k++) txt += ev.results[k][0].transcript; draft = txt; const inp = document.getElementById('ag-input'); if (inp) { inp.value = txt; autoGrow(inp); liveParse(); } };
+    }
+    try { ensureAudio(); recog.start(); } catch (e) { toast('Não consegui iniciar o microfone agora. Tente de novo.'); }
+  }
+  function colar() {
+    const inp = document.getElementById('ag-input'); if (!inp) return;
+    const falha = () => { inp.focus(); toast('Cole a mensagem no campo (Ctrl+V ou segurar e “Colar”)'); };
+    if (!navigator.clipboard || !navigator.clipboard.readText) { falha(); return; }
+    navigator.clipboard.readText().then(txt => {
+      if (txt && txt.trim()) { draft = txt.trim(); inp.value = draft; inp.focus(); autoGrow(inp); liveParse(); } else toast('Nada para colar');
+    }).catch(falha);
+  }
+
+  /* ---------- saudação da manhã (escolhida pelo contexto do dia) ---------- */
+  const FRASES = [
+    "Bom dia, {n}. Espero que tenha descansado bem. Já organizei tudo para você começar o dia com tranquilidade. Vamos conferir sua programação.",
+    "Olá, {n}. Como você está nesta manhã? Reuni todas as informações importantes para facilitar sua rotina.",
+    "Oi, {n}. É muito bom ter você por aqui. Sua agenda está pronta e organizada. Vamos começar pelo panorama do dia.",
+    "Bom dia, {n}. Espero que sua manhã esteja começando bem. Preparei um resumo para você saber exatamente o que vem pela frente.",
+    "Olá, {n}. Mais um dia começa e já deixei tudo organizado. Agora é só seguirmos passo a passo.",
+    "Bom dia, {n}. Que o seu dia comece de forma leve e produtiva. Estas são as prioridades e os compromissos programados.",
+    "Oi, {n}. Como você está hoje? Organizei as informações do dia para você focar apenas no que realmente importa.",
+    "Bom dia, {n}. Sua programação foi atualizada e está pronta. Vamos revisar juntos o planejamento de hoje.",
+    "Olá, {n}. É sempre um prazer acompanhar sua rotina. Vamos conferir o que está previsto para este dia.",
+    "Bom dia, {n}. Tudo pronto por aqui. Enquanto você se preparava, cuidei da organização da sua agenda.",
+    "Bom dia, {n}. Espero que tenha aproveitado bem o fim de semana. Vamos começar esta nova semana com organização e foco.",
+    "Olá, {n}. Segunda-feira chegou. Um novo ciclo começa hoje, e já preparei tudo para facilitar seu início de semana.",
+    "Bom dia, {n}. Bem-vindo a mais uma semana. Vamos começar revisando os compromissos e definindo o ritmo dos próximos dias.",
+    "Oi, {n}. Espero que tenha conseguido descansar. Agora é hora de retomar a rotina, e já organizei tudo para você.",
+    "Bom dia, {n}. Uma nova semana sempre traz novas oportunidades. Vamos começar pelo que é mais importante hoje.",
+    "Bom dia, {n}. Ontem foi apenas o começo da semana. Hoje vamos manter o ritmo e seguir avançando.",
+    "Olá, {n}. Espero que seu dia tenha começado bem. Sua agenda já está organizada e pronta para ser colocada em prática.",
+    "Bom dia, {n}. Terça-feira costuma ser um ótimo dia para ganhar velocidade. Vamos conferir sua programação.",
+    "Oi, {n}. Mais um dia para fazer progresso. Já organizei tudo para você aproveitar melhor o seu tempo.",
+    "Bom dia, {n}. Vamos manter o ritmo da semana. Estas são as prioridades preparadas para hoje.",
+    "Bom dia, {n}. Já chegamos à metade da semana. Vamos manter o foco e seguir com o planejamento.",
+    "Olá, {n}. Quarta-feira é um bom momento para revisar prioridades. Já fiz essa organização para você.",
+    "Bom dia, {n}. Metade da semana concluída. Agora vamos olhar para o que ainda precisa acontecer.",
+    "Oi, {n}. Espero que esteja tudo bem. Vamos aproveitar este meio de semana para manter tudo em dia.",
+    "Bom dia, {n}. Seguimos avançando. Aqui está um panorama completo do seu dia.",
+    "Bom dia, {n}. Estamos entrando na reta final da semana. Vamos conferir o que merece sua atenção hoje.",
+    "Olá, {n}. Quinta-feira chegou. Já organizei os compromissos para que o restante da semana seja ainda mais produtivo.",
+    "Bom dia, {n}. Falta pouco para concluir a semana. Vamos manter o foco nas prioridades.",
+    "Oi, {n}. Seu planejamento já está pronto. Agora é só seguirmos com as atividades do dia.",
+    "Bom dia, {n}. Tudo organizado por aqui. Vamos aproveitar bem mais um dia de trabalho.",
+    "Bom dia, {n}. Sexta-feira chegou. Vamos organizar as últimas prioridades para encerrar a semana da melhor forma.",
+    "Olá, {n}. Estamos chegando ao fim da semana. Aqui está tudo o que ainda precisa da sua atenção.",
+    "Bom dia, {n}. Que seja uma sexta-feira produtiva e tranquila. Sua agenda já está preparada.",
+    "Oi, {n}. Hoje é dia de concluir pendências e fechar a semana com sensação de dever cumprido.",
+    "Bom dia, {n}. Vamos revisar juntos os compromissos finais antes de encerrarmos esta semana.",
+    "Bom dia, {n}. Espero que tenha aproveitado o feriado para descansar. Vamos retomar a rotina com calma. Sua programação já está organizada.",
+    "Olá, {n}. Seja bem-vindo de volta. Organizei tudo para tornar essa retomada o mais simples possível.",
+    "Bom dia, {n}. Depois de uma pausa, é sempre bom voltar com clareza. Aqui está o resumo do seu dia.",
+    "Oi, {n}. Espero que o descanso tenha feito bem. Agora vamos retomar os compromissos, um passo de cada vez.",
+    "Bom dia, {n}. O feriado ficou para trás e um novo dia começa. Vamos conferir tudo o que está planejado para hoje.",
+    "Bom dia, {n}. Começamos um novo mês. Uma ótima oportunidade para organizar prioridades e dar sequência aos seus objetivos.",
+    "Olá, {n}. Um novo mês traz novas possibilidades. Sua agenda já está pronta para começarmos.",
+    "Bom dia, {n}. Seja bem-vindo ao início de mais um ciclo. Vamos revisar o planejamento do dia.",
+    "Bom dia, {n}. Estamos encerrando mais um mês. Vamos organizar os últimos compromissos antes de iniciar um novo ciclo.",
+    "Olá, {n}. Hoje é um bom momento para concluir pendências e preparar o caminho para o próximo mês.",
+    "Bom dia, {n}. Enquanto você descansava, organizei sua agenda, revisei as prioridades e deixei tudo preparado para o seu dia começar com clareza.",
+    "Olá, {n}. Meu objetivo é simplificar sua rotina, então já reuni tudo o que você precisa saber antes de começar.",
+    "Bom dia, {n}. Cada dia traz novas decisões. Cuidei da organização para você dedicar sua atenção apenas ao que realmente importa.",
+    "Olá, {n}. Sua agenda foi revisada, as prioridades estão definidas e tudo está pronto para seguirmos.",
+    "Bom dia, {n}. Seu dia começa agora, e estarei ao seu lado para que nenhuma informação importante passe despercebida."
+  ];
+  const FAIXAS = { generic: [1, 10], monday: [11, 15], tuesday: [16, 20], wednesday: [21, 25], thursday: [26, 30], friday: [31, 35], afterHoliday: [36, 40], monthStart: [41, 43], monthEnd: [44, 45], premium: [46, 50] };
+  function pascoa(y) {
+    const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+    const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+    return new Date(y, Math.floor((h + l - 7 * m + 114) / 31) - 1, ((h + l - 7 * m + 114) % 31) + 1);
+  }
+  const maisDias = (d, n) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
+  function feriado(d) {
+    const y = d.getFullYear(), p = pascoa(y);
+    return [new Date(y, 0, 1), maisDias(p, -47), maisDias(p, -2), maisDias(p, 60), new Date(y, 3, 21), new Date(y, 4, 1), new Date(y, 8, 7), new Date(y, 9, 12), new Date(y, 10, 2), new Date(y, 10, 15), new Date(y, 10, 20), new Date(y, 11, 25)].some(f => sod(f) === sod(d));
+  }
+  function fraseDoDia() {
+    const d = new Date(), doy = Math.floor((d - new Date(d.getFullYear(), 0, 0)) / DIA), dim = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    let faixa;
+    if (feriado(maisDias(d, -1)) || (d.getDay() === 1 && feriado(maisDias(d, -3)))) faixa = 'afterHoliday';
+    else if (d.getDate() <= 3) faixa = 'monthStart';
+    else if (d.getDate() > dim - 3) faixa = 'monthEnd';
+    else faixa = { 1: 'monday', 2: 'tuesday', 3: 'wednesday', 4: 'thursday', 5: 'friday' }[d.getDay()] || 'generic';
+    if (faixa !== 'afterHoliday' && doy % 6 === 0) faixa = 'premium';
+    const f = FAIXAS[faixa];
+    return FRASES[f[0] + (doy % (f[1] - f[0] + 1)) - 1].replace('{n}', primeiro(S().name));
+  }
+
+  /* ============================================================
+     TELA DA AGENDA
+     ============================================================ */
+  function tagArea(i, clicavel) {
+    const a = areaObj(i.area), dentro = '<i class="ti ' + (a ? a.icon : 'ti-point') + '"></i>' + (a ? a.nome : 'Geral');
+    return clicavel ? '<button class="ag-tag area" data-ag="area" data-id="' + i.id + '" style="--ac:' + areaCor(i.area) + '" title="Mudar a área">' + dentro + '</button>'
+                    : '<span class="ag-tag area" style="--ac:' + areaCor(i.area) + '">' + dentro + '</span>';
+  }
+  function itemHTML(i, now) {
+    if (i.area === undefined) i.area = inferArea(i.rawText || i.title, i.title);
+    const late = (i.start && !i.done) ? Math.round((sod(now) - sod(new Date(i.start))) / DIA) : 0;
+    const isTop = i.id === topId && !i.done, open = openId === i.id, d = ' data-id="' + i.id + '"';
+    const t = [];
+    if (isTop) t.push('<button class="ag-tag top" data-ag="why"' + d + '><i class="ti ti-star-filled"></i>comece por aqui</button>');
+    t.push(tagArea(i, true));
+    if (i.local && !i.done) t.push('<a class="ag-tag" href="' + mapsURL(i.local) + '" target="_blank" rel="noopener"><i class="ti ti-map-pin"></i>' + esc(i.local) + '</a>');
+    const g = i.goalId && goalById(i.goalId); if (g) t.push('<button class="ag-tag" data-ag="area"' + d + '><i class="ti ti-target"></i>' + esc(g.title) + '</button>');
+    const c = i.contactId && contactById(i.contactId); if (c) t.push('<button class="ag-tag" data-ag="contact"' + d + '><i class="ti ti-user"></i>' + esc(c.name) + '</button>');
+    if (late >= 1) t.push(tag('bad', '', late === 1 ? 'de ontem' : 'atrasada há ' + late + ' dias'));
+    if (i.recurrence) t.push(tag('', 'ti-repeat', recLabel(i.recurrence)));
+    if (i.pending && !i.done) t.push('<button class="ag-tag warn" data-ag="confirm"' + d + '><i class="ti ti-help-circle"></i>a confirmar · toque</button>');
+    if ((i.adiado || 0) >= 2 && !i.done) t.push(tag('warn', '', 'adiada ' + i.adiado + 'x'));
+    const nl = (i.silent || i.autoToday) ? null : notifyLabel(i.notifyBefore, i.allDay); if (nl && !i.done) t.push(tag('', 'ti-bell', nl));
+    let h = '<div class="ag-item' + (i.done ? ' done' : '') + (isTop ? ' top' : '') + '">' +
+      '<div class="ag-main"><button class="ag-check ' + (i.type === 'evento' ? 'ev' : 'rem') + '" data-ag="toggle"' + d + ' aria-label="' + (i.done ? 'Reabrir' : 'Concluir') + '"><i class="ti ti-check"></i></button>' +
+      '<div class="ag-body"><div>' + (i.start && !i.allDay ? '<span class="ag-time">' + fmtTime(i.start) + '</span>' : '') + '<span class="ag-title">' + esc(i.title) + '</span></div>' +
+      '<div class="ag-tags">' + t.join('') + '</div></div>' +
+      '<button class="btn btn-ghost btn-icon" data-ag="menu"' + d + ' aria-label="Opções"><i class="ti ti-dots"></i></button></div>';
+    if (open) {
+      const b = (act, icon, txt, extra) => '<button class="btn btn-sm' + (extra || '') + '" data-ag="' + act + '"' + d + '><i class="ti ' + icon + '"></i>' + txt + '</button>';
+      h += '<div class="ag-acts">' + b('toggle', i.done ? 'ti-arrow-back-up' : 'ti-check', i.done ? 'Reabrir' : 'Concluir', ' btn-accent');
+      if (!i.done) h += '<button class="btn btn-sm" data-ag="adiar" data-v="1"' + d + '><i class="ti ti-player-skip-forward"></i>Amanhã</button><button class="btn btn-sm" data-ag="adiar" data-v="7"' + d + '><i class="ti ti-calendar-plus"></i>+7 dias</button>';
+      if (i.start && !i.autoToday) h += b('cal', 'ti-calendar-share', 'Calendário');
+      h += b('why', 'ti-help-circle', 'Por quê?') + b('edit', 'ti-pencil', 'Editar') + b('del', 'ti-trash', 'Excluir', ' btn-danger') + '</div>';
+    }
+    return h + '</div>';
+  }
+  function secao(titulo, subt, itens, now, vazio) {
+    let h = '<div class="ag-sec"><div class="ag-sec-head"><b>' + titulo + '</b><span>' + subt + '</span>' + (itens.length ? '<em>' + itens.length + '</em>' : '') + '</div>';
+    if (!itens.length && vazio) h += '<div class="card empty"><i class="ti ti-clock" style="font-size:30px;display:block;margin-bottom:8px;opacity:.5;"></i>' + vazio + '</div>';
+    itens.forEach(i => h += itemHTML(i, now));
+    return h + '</div>';
+  }
+  function passaArea(i) { return !areaAtiva || (i.area || null) === areaAtiva || (areaAtiva === 'geral' && !i.area); }
+
+  function viewLista(now) {
+    const abertos = S().items.filter(i => !i.done), contagem = {}; let geral = 0;
+    abertos.forEach(i => { if (i.area) contagem[i.area] = (contagem[i.area] || 0) + 1; else geral++; });
+    let h = '';
+    const presentes = AREAS.filter(a => contagem[a.id]);
+    if (presentes.length + (geral ? 1 : 0) > 1 || areaAtiva) {
+      h += '<div class="chips" style="margin-top:12px;"><button class="chip' + (!areaAtiva ? ' active' : '') + '" data-ag="areaf" data-v="">Tudo</button>';
+      presentes.forEach(a => h += '<button class="chip' + (areaAtiva === a.id ? ' active' : '') + '" data-ag="areaf" data-v="' + a.id + '"><i class="ti ' + a.icon + '" style="margin-right:4px;"></i>' + a.nome + ' · ' + contagem[a.id] + '</button>');
+      if (geral) h += '<button class="chip' + (areaAtiva === 'geral' ? ' active' : '') + '" data-ag="areaf" data-v="geral">Geral · ' + geral + '</button>';
+      h += '</div>';
+    }
+    const b = { today: [], tomorrow: [], soon: [] };
+    abertos.filter(passaArea).forEach(i => b[bucketOf(i, now)].push(i));
+    b.today.sort((x, y) => priorityCmp(x, y, now)); b.tomorrow.sort(porHora); b.soon.sort(porHora);
+    h += secao('Hoje', dataLonga(now) + (b.today.length > 1 ? ' · por prioridade' : ''), b.today, now, 'Nada agendado para hoje.<br><span class="hint">Escreva acima o que precisar.</span>');
+    if (b.tomorrow.length) h += secao('Amanhã', dataLonga(maisDias(now, 1)), b.tomorrow, now);
+    const porDia = {};
+    b.soon.forEach(i => { const k = sod(new Date(i.start)); (porDia[k] = porDia[k] || []).push(i); });
+    Object.keys(porDia).map(Number).sort((x, y) => x - y).forEach(k => {
+      const dt = new Date(k), diff = Math.round((k - sod(now)) / DIA);
+      const nome = cap(dt.toLocaleDateString('pt-BR', { weekday: 'long' }).replace('-feira', '')), dm = pad(dt.getDate()) + '/' + pad(dt.getMonth() + 1);
+      h += secao(diff <= 7 ? nome : nome + ' ' + dm, diff <= 7 ? dm : dt.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' }), porDia[k], now);
+    });
+    return h;
+  }
+
+  function viewCalendario(now) {
+    if (!cal) cal = { y: now.getFullYear(), m: now.getMonth(), sel: sod(now) };
+    const y = cal.y, m = cal.m, first = new Date(y, m, 1), dim = new Date(y, m + 1, 0).getDate(), porDia = {};
+    S().items.forEach(i => { if (!i.start || i.done) return; const dt = new Date(i.start); if (dt.getFullYear() === y && dt.getMonth() === m) (porDia[dt.getDate()] = porDia[dt.getDate()] || []).push(i); });
+    let h = '<div class="card" style="margin-top:14px;"><div class="ag-cal-head"><button class="btn btn-icon" data-ag="calNav" data-v="-1" aria-label="Mês anterior"><i class="ti ti-chevron-left"></i></button><b>' +
+      cap(first.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })) + '</b><button class="btn btn-icon" data-ag="calNav" data-v="1" aria-label="Próximo mês"><i class="ti ti-chevron-right"></i></button></div>';
+    h += '<div class="ag-cal-grid">' + ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map(x => '<div class="ag-cal-dow">' + x + '</div>').join('');
+    for (let k = 0; k < first.getDay(); k++) h += '<div class="ag-cal-cell vazio"></div>';
+    for (let day = 1; day <= dim; day++) {
+      const ts = sod(new Date(y, m, day)), its = porDia[day] || [];
+      h += '<button class="ag-cal-cell' + (ts === sod(now) ? ' hoje' : '') + (ts === cal.sel ? ' sel' : '') + '" data-ag="calDia" data-v="' + day + '">' + day +
+        '<span class="ag-dots">' + its.slice(0, 4).map(i => '<i style="--ac:' + areaCor(i.area) + '"></i>').join('') + '</span></button>';
+    }
+    h += '</div></div>';
+    const sel = new Date(cal.sel);
+    const doDia = S().items.filter(i => i.start && !i.done && sod(new Date(i.start)) === cal.sel).sort((a, b) => { if (a.allDay !== b.allDay) return a.allDay ? -1 : 1; return new Date(a.start) - new Date(b.start); });
+    h += secao(cap(sel.toLocaleDateString('pt-BR', { weekday: 'long' })), sel.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' }), doDia, now);
+    if (!doDia.length) h += '<p class="hint" style="margin:0 4px 10px;">Nada agendado neste dia.</p>';
+    if (cal.sel >= sod(now)) h += '<button class="btn btn-sm" data-ag="calAdd"><i class="ti ti-plus"></i>Adicionar neste dia</button>';
+    return h;
+  }
+
+  function viewPessoas() {
+    const cs = S().contacts.slice().sort((a, b) => { const d = followupsOf(b.id, true).length - followupsOf(a.id, true).length; return d || a.name.localeCompare(b.name); });
+    let h = '<div class="ag-sec"><div class="ag-sec-head"><b>Pessoas</b><span>quem depende de você, e o que você deve a cada um</span></div>';
+    if (!cs.length) h += '<div class="card empty" style="font-size:13.5px;">Nenhuma pessoa registrada.<br><span class="hint">Ao escrever algo como “enviar proposta pro João”, a pessoa aparece aqui sozinha.</span></div>';
+    cs.forEach(c => {
+      const ab = followupsOf(c.id, true).length, subt = [c.note, c.phone].filter(Boolean).join(' · ');
+      h += '<button class="row" style="width:100%;cursor:pointer;text-align:left;font-family:inherit;color:inherit;" data-ag="pessoa" data-v="' + c.id + '"><div class="avatar">' + esc(c.name.charAt(0).toUpperCase()) + '</div>' +
+        '<div style="flex:1;min-width:0;"><div class="nm">' + esc(c.name) + '</div>' + (subt ? '<div class="hint" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(subt) + '</div>' : '') + '</div>' +
+        (ab ? tag('warn', '', ab + ' pend.') : tag('ok', '', 'em dia')) + '</button>';
+    });
+    h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;"><button class="btn btn-sm" data-ag="addPessoa"><i class="ti ti-user-plus"></i>Adicionar pessoa</button>' +
+      (navigator.contacts && navigator.contacts.select ? '<button class="btn btn-sm" data-ag="importPessoas"><i class="ti ti-address-book"></i>Importar do celular</button>' : '') + '</div></div>';
+    return h;
+  }
+
+  function viewObjetivos() {
+    const st = S();
+    let h = '<div class="ag-sec"><div class="ag-sec-head"><b>Áreas e objetivos</b><span>toda tarefa pode servir a um objetivo</span></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px;">';
+    AREAS.forEach(a => {
+      const gs = st.goals.filter(g => g.area === a.id), n = st.items.filter(i => i.area === a.id && !i.done).length;
+      h += '<div class="card" style="padding:18px;"><div class="sect-title" style="margin-bottom:12px;"><i class="ti ' + a.icon + '" style="background:rgb(' + a.cor + ' / .14);color:rgb(' + a.cor + ');"></i>' + a.nome + '<span class="hint" style="margin-left:auto;font-weight:500;">' + n + ' ativa' + (n !== 1 ? 's' : '') + '</span></div>';
+      gs.forEach(g => {
+        const pr = goalProgress(g.id), pct = pr.total ? Math.round(pr.done / pr.total * 100) : 0;
+        h += '<div style="margin-bottom:12px;"><div style="display:flex;align-items:center;gap:8px;"><i class="ti ti-target" style="color:rgb(' + a.cor + ');"></i><span style="flex:1;min-width:0;font-size:14px;font-weight:600;overflow-wrap:anywhere;">' + esc(g.title) + '</span>' +
+          '<button class="btn btn-ghost btn-icon btn-sm" data-ag="delGoal" data-v="' + g.id + '" aria-label="Excluir objetivo"><i class="ti ti-x"></i></button></div>' +
+          '<div class="jbar" style="margin-top:6px;"><div class="jbar-fill" style="width:' + pct + '%;"></div></div><div class="ag-meta">' + pr.done + '/' + pr.total + ' tarefas concluídas' + (pr.total ? ' · ' + pct + '%' : '') + '</div></div>';
+      });
+      h += '<button class="btn btn-sm btn-ghost" style="padding-left:0;" data-ag="addGoal" data-v="' + a.id + '"><i class="ti ti-plus"></i>Novo objetivo</button></div>';
+    });
+    return h + '</div></div>';
+  }
+
+  function viewConcluidos(now) {
+    const done = S().items.filter(i => i.done).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
+    if (!done.length) return '<div class="ag-sec"><div class="card empty">Nada concluído ainda.</div></div>';
+    const grupos = {}; let h = '';
+    done.slice(0, 200).forEach(i => { const k = i.doneAt ? sod(new Date(i.doneAt)) : 0; (grupos[k] = grupos[k] || []).push(i); });
+    Object.keys(grupos).map(Number).sort((a, b) => b - a).forEach(k => {
+      const diff = Math.round((sod(now) - k) / DIA), dt = new Date(k);
+      const nome = !k ? 'Sem data' : diff === 0 ? 'Hoje' : diff === 1 ? 'Ontem' : cap(dt.toLocaleDateString('pt-BR', { weekday: 'long' }));
+      h += secao(nome, k ? dt.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' }) : '', grupos[k], now);
+    });
+    if (done.length > 200) h += '<p class="hint" style="margin:10px 4px;">Mostrando os 200 mais recentes de ' + done.length + '.</p>';
+    return h;
+  }
+
+  function atencaoHTML(now) {
+    const st = S(), hoje = st.items.filter(i => !i.done && i.start && sod(new Date(i.start)) === sod(now)), out = [];
+    conflitosDoDia(hoje).forEach(p => out.push(['ti-alert-triangle', '<b>Conflito de horário:</b> “' + esc(p[0].title) + '” e “' + esc(p[1].title) + '” às ' + fmtTime(p[1].start) + '.']));
+    stalledFollowups(5).slice(0, 4).forEach(i => { const c = contactById(i.contactId); out.push(['ti-user-exclamation', '<b>Follow-up parado:</b> “' + esc(i.title) + '”' + (c ? ' (' + esc(c.name) + ')' : '') + ' há ' + daysSince(i.createdAt) + ' dias.']); });
+    const at = atrasados().length; if (at >= 4) out.push(['ti-trending-down', '<b>Acúmulo:</b> ' + at + ' itens vencidos em aberto. Vale concluir ou adiar antes de criar novos.']);
+    const pend = st.items.filter(i => i.pending && !i.done).length; if (pend) out.push(['ti-help-circle', '<b>' + pend + (pend > 1 ? ' itens aguardam' : ' item aguarda') + '</b> sua confirmação de data/hora.']);
+    auditGoals().slice(0, 2).forEach(a => out.push(['ti-target', 'Objetivo <b>“' + esc(a.title) + '”</b>: ' + a.msg + '.']));
+    return out;
+  }
+
+  function build() {
+    const v = document.getElementById('view'); if (!v) return;
+    const st = S(), now = new Date(), h0 = sod(now), hr = now.getHours();
+    const abertos = st.items.filter(i => !i.done);
+    const hojeL = abertos.filter(i => bucketOf(i, now) === 'today').sort((a, b) => priorityCmp(a, b, now));
+    topId = hojeL.length > 1 ? hojeL[0].id : null;
+    const prox7 = abertos.filter(i => { if (!i.start) return false; const dd = Math.round((sod(new Date(i.start)) - h0) / DIA); return dd >= 1 && dd <= 7; }).length;
+    const so = saudeOp(), manha = hr >= 5 && hr < 12;
+    const ola = hr < 5 ? 'Boa madrugada' : hr < 12 ? 'Bom dia' : hr < 18 ? 'Boa tarde' : 'Boa noite';
+    const bt = (act, icon, txt) => '<button class="btn btn-sm" data-ag="' + act + '"><i class="ti ' + icon + '"></i>' + txt + '</button>';
+
+    let h = '<div class="ag-top"><div style="min-width:0;"><div class="etiqueta">Agenda · ' + dataLonga(now) + '</div><h2 class="section-title">' + ola + ', ' + esc(primeiro(st.name)) + '</h2></div>' +
+      '<div class="ag-tools">' + bt('painel', 'ti-layout-dashboard', 'Painel') + bt('resumo', manha ? 'ti-sun' : 'ti-moon', manha ? 'Briefing do dia' : 'Balanço do dia') + bt('semana', 'ti-chart-bar', 'Semana') +
+      '<button class="btn btn-sm btn-icon" data-ag="ajustes" aria-label="Ajustes da agenda" title="Ajustes da agenda"><i class="ti ti-settings"></i></button></div></div>';
+
+    if (manha && L().saudou !== todayKey()) h += '<div class="ag-greet"><p>' + esc(fraseDoDia()) + '</p><button class="btn btn-sm" data-ag="greetOk">Começar o dia</button></div>';
+
+    h += '<div class="kpi-grid" style="grid-template-columns:repeat(4,minmax(0,1fr));">' + kpi(hojeL.length, 'Para hoje') + kpi(so.atras, 'Atrasadas', so.atras ? 'dados' : '') + kpi(prox7, 'Próximos 7 dias') + kpi(so.rate + '%', 'Execução em 7 dias', 'accent') + '</div>';
+
+    h += '<div class="ag-grid"><div style="min-width:0;">';
+    h += '<div class="card ag-comp' + (editId ? ' edit' : '') + '">' +
+      (editId ? '<div class="hint" style="margin-bottom:4px;color:rgb(var(--c-accent));"><i class="ti ti-pencil"></i> Editando — a versão anterior fica guardada no histórico do item.</div>' : '') +
+      '<div class="ag-comp-row"><textarea id="ag-input" rows="1" enterkeyhint="done" placeholder="Escreva o que precisa… ex.: reunião com a operadora quinta 15h, me avisa 1h antes"></textarea>' +
+      '<button class="btn btn-ghost btn-icon" id="ag-mic" data-ag="voz" title="Ditar por voz" aria-label="Ditar por voz"><i class="ti ti-microphone"></i></button>' +
+      '<button class="btn btn-ghost btn-icon" data-ag="colar" title="Colar mensagem" aria-label="Colar mensagem"><i class="ti ti-clipboard-text"></i></button></div>' +
+      '<div class="ag-prev hidden" id="ag-prev"></div>' +
+      '<div class="ag-comp-foot"><span class="hint" id="ag-hint"></span><span>' + (editId ? '<button class="btn btn-sm" data-ag="cancelEdit">Cancelar</button>' : '') +
+      '<button class="btn btn-accent btn-sm" id="ag-add" data-ag="add" disabled>' + (editId ? 'Salvar' : 'Adicionar') + '<i class="ti ti-arrow-right"></i></button></span></div></div>';
+
+    const nFollow = st.items.filter(i => i.contactId && !i.done).length, nDone = st.items.filter(i => i.done).length;
+    const ch = (k, icon, txt) => '<button class="chip' + (sub === k ? ' active' : '') + '" data-ag="sub" data-v="' + k + '"><i class="ti ' + icon + '" style="margin-right:4px;"></i>' + txt + '</button>';
+    h += '<div class="chips" style="margin-top:16px;">' + ch('lista', 'ti-list-check', 'Tarefas · ' + abertos.length) + ch('calendario', 'ti-calendar-month', 'Calendário') + ch('pessoas', 'ti-users', 'Pessoas' + (nFollow ? ' · ' + nFollow : '')) + ch('objetivos', 'ti-target', 'Objetivos') + ch('concluidos', 'ti-circle-check', 'Concluídos' + (nDone ? ' · ' + nDone : '')) + '</div>';
+    h += sub === 'calendario' ? viewCalendario(now) : sub === 'pessoas' ? viewPessoas() : sub === 'objetivos' ? viewObjetivos() : sub === 'concluidos' ? viewConcluidos(now) : viewLista(now);
+    h += '</div><div class="ag-side">';
+
+    h += '<div class="card"><div class="sect-title"><i class="ti ti-star"></i>Missão do dia</div>';
+    if (!hojeL.length) h += '<p class="hint" style="margin:0;">Nada prioritário hoje.</p>';
+    hojeL.slice(0, 3).forEach((i, ix) => h += '<div class="ag-row"><span class="n">' + (ix + 1) + '</span><span class="tt">' + esc(i.title) + '</span><span class="t" style="min-width:0;">' + (i.allDay ? '' : fmtTime(i.start)) + '</span></div>');
+    h += '</div>';
+    const at = atencaoHTML(now);
+    h += '<div class="card"><div class="sect-title"><i class="ti ti-radar-2"></i>Atenção</div>';
+    if (!at.length) h += '<p class="hint" style="margin:0;"><i class="ti ti-circle-check" style="color:rgb(var(--c-grow));"></i> Tudo sob controle: sem conflito, follow-up parado ou acúmulo.</p>';
+    at.forEach(x => h += '<div class="ag-ins plano"><i class="ti ' + x[0] + '" style="margin-right:6px;"></i>' + x[1] + '</div>');
+    h += '</div></div></div>';
+
+    v.innerHTML = h;
+    v.onclick = onClick;
+    const inp = document.getElementById('ag-input');
+    inp.value = draft; autoGrow(inp); liveParse();
+    inp.addEventListener('input', () => { draft = inp.value; autoGrow(inp); liveParse(); });
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (inp.value.trim()) addItem(); } });
+    chipsVisiveis();
+  }
+
+  /* ============================================================
+     JANELAS: painel, resumos, pessoa, classificar, ajustes
+     ============================================================ */
+  function fecharSheet() { document.querySelectorAll('.ag-ov').forEach(o => o.remove()); }
+  function sheet(titulo, subt, corpo) {
+    fecharSheet();
+    const ov = document.createElement('div');
+    ov.className = 'overlay ag-ov';
+    ov.onclick = (e) => { if (e.target === ov) { ov.remove(); return; } onClick(e); };
+    ov.innerHTML = '<div class="modal"><div class="modal-head"><div class="mh-title">' + titulo + '</div>' + (subt ? '<div class="mh-sub">' + subt + '</div>' : '') +
+      '<button class="modal-close" data-ag="fechar" aria-label="Fechar"><i class="ti ti-x"></i></button></div><div class="modal-body">' + corpo + '</div></div>';
+    document.body.appendChild(ov);
+    return ov;
+  }
+  const st2 = (icon, txt, n) => '<div class="sect-title"><i class="ti ' + icon + '"></i>' + txt + (n != null ? '<em>' + n + '</em>' : '') + '</div>';
+  const linha = (t, titulo, extra, cls) => '<div class="ag-row' + (cls ? ' ' + cls : '') + '"><span class="t">' + t + '</span><span class="tt">' + titulo + '</span>' + (extra || '') + '</div>';
+  const vazio = txt => '<p class="hint" style="margin:0 0 6px;">' + txt + '</p>';
+  const stat = (n, rot, cor) => '<div class="ag-stat"><b' + (cor ? ' style="color:rgb(var(' + cor + '));"' : '') + '>' + n + '</b><span>' + rot + '</span></div>';
+
+  function sheetPainel() {
+    const st = S(), now = new Date(), abertos = st.items.filter(i => !i.done);
+    const hoje = abertos.filter(i => i.start && sod(new Date(i.start)) === sod(now)).sort(porHora);
+    const top3 = abertos.filter(i => bucketOf(i, now) === 'today').sort((a, b) => priorityCmp(a, b, now)).slice(0, 3);
+    const atras = atrasados(), parados = stalledFollowups(5), velhos = temporalStalled(60).filter(i => !i.contactId && atras.indexOf(i) < 0), pend = abertos.filter(i => i.pending);
+    const audit = auditGoals(), board = strategicBoard(), so = saudeOp();
+    let h = st2('ti-star', 'Missão do dia');
+    if (!top3.length) h += vazio('Nada prioritário hoje.');
+    top3.forEach((i, ix) => h += '<div class="ag-row"><span class="n">' + (ix + 1) + '</span><span class="tt">' + esc(i.title) + '</span><span class="t" style="min-width:0;">' + (i.allDay ? 'hoje' : fmtTime(i.start)) + '</span></div>');
+    h += st2('ti-clock', 'Agenda de hoje', hoje.length);
+    conflitosDoDia(hoje).forEach(p => h += '<div class="ag-ins ruim"><b>Conflito:</b> “' + esc(p[0].title) + '” e “' + esc(p[1].title) + '” às ' + fmtTime(p[1].start) + '.</div>');
+    if (!hoje.length) h += vazio('Agenda limpa.');
+    hoje.forEach(i => h += linha(quando(i), esc(i.title)));
+    const risco = atras.length + parados.length + velhos.length;
+    h += st2('ti-alert-triangle', 'Riscos críticos', risco);
+    if (!risco) h += vazio('Nenhum risco em aberto.');
+    atras.slice(0, 5).forEach(i => h += linha(quando(i), esc(i.title), tag('bad', '', 'atrasado')));
+    if (atras.length > 5) h += vazio('+ ' + (atras.length - 5) + ' atrasados na lista.');
+    parados.slice(0, 5).forEach(i => { const c = contactById(i.contactId); h += linha('<i class="ti ti-user"></i>', esc(i.title) + (c ? ' · ' + esc(c.name) : ''), tag('warn', '', 'parado')); });
+    velhos.slice(0, 4).forEach(i => h += linha('·', esc(i.title), tag('warn', '', daysSince(i.createdAt) + 'd parado')));
+    if (pend.length) { h += st2('ti-help-circle', 'Aguardando você', pend.length); pend.forEach(i => h += linha('?', esc(i.title), tag('warn', '', 'confirmar'))); }
+    h += st2('ti-radar-2', 'Radar estratégico');
+    const radar = [];
+    if (board.top) radar.push('Seu esforço da semana concentrou-se em <b>' + areaNome(board.top[0] === 'geral' ? null : board.top[0]) + '</b>.');
+    board.negligenciadas.forEach(a => radar.push('<b>' + areaNome(a) + '</b> tem objetivo, mas nenhuma execução esta semana.'));
+    audit.slice(0, 4).forEach(a => radar.push('Objetivo “' + esc(a.title) + '”: ' + a.msg + '.'));
+    if (!radar.length) radar.push('Objetivos e execução alinhados. Sem desvios.');
+    radar.forEach(t => h += '<div class="ag-ins">' + t + '</div>');
+    h += st2('ti-activity', 'Saúde operacional') + '<div class="ag-stats">' + stat(so.done7, 'feitas (7 dias)') + stat(so.atras, 'em atraso', so.atras ? '--c-alert' : '--c-grow') + stat(so.rate + '%', 'execução') + '</div>';
+    sheet('Onde focar, ' + esc(primeiro(st.name)), 'Painel executivo · ' + dataLonga(now), h);
+  }
+
+  function sheetManha() {
+    const st = S(), now = new Date();
+    const hoje = st.items.filter(i => !i.done && i.start && sod(new Date(i.start)) === sod(now)).sort(porHora);
+    const atras = atrasados(), eventos = hoje.filter(i => i.type === 'evento'), primeiroH = hoje.find(i => !i.allDay);
+    let resumo = 'Nenhum compromisso hoje.';
+    if (hoje.length) { const p = [], lemb = hoje.length - eventos.length; if (eventos.length) p.push(eventos.length + ' compromisso' + (eventos.length > 1 ? 's' : '')); if (lemb > 0) p.push(lemb + ' lembrete' + (lemb > 1 ? 's' : '')); resumo = 'Você tem ' + p.join(' e ') + ' hoje.'; }
+    let h = '<p style="margin:0 0 12px;font-size:15px;line-height:1.45;">' + esc(fraseDoDia()) + '</p><div class="ag-ins bom"><b>' + resumo + '</b>' + (primeiroH ? ' Primeiro na agenda: <b>' + fmtTime(primeiroH.start) + '</b> — ' + esc(primeiroH.title) + '.' : '') + '</div>';
+    const at = atencaoHTML(now);
+    if (at.length) { h += st2('ti-alert-triangle', 'Atenção'); at.forEach(x => h += '<div class="ag-ins plano">' + x[1] + '</div>'); }
+    if (atras.length) { h += st2('ti-history', 'Ficou de trás', atras.length); atras.slice(0, 12).forEach(i => h += linha(quando(i), esc(i.title), tag('bad', '', 'atrasado'))); }
+    h += st2('ti-sun', 'Hoje', hoje.length);
+    if (!hoje.length) h += vazio('Agenda limpa.');
+    hoje.forEach(i => h += linha(quando(i), esc(i.title), i.area ? '<span class="ag-tag area" style="--ac:' + areaCor(i.area) + '"><i class="ti ' + areaObj(i.area).icon + '"></i></span>' : ''));
+    h += '<p class="hint" style="margin:14px 0 0;">O balanço do dia fica disponível a partir das 19:30.</p>';
+    sheet('Seu dia, ' + esc(primeiro(st.name)), 'Briefing · ' + dataLonga(now), h);
+  }
+
+  function sheetNoite() {
+    const st = S(), now = new Date(), h0 = sod(now), fez = [];
+    st.items.forEach(i => {
+      if (i.done && i.doneAt && sod(new Date(i.doneAt)) === h0) fez.push({ title: i.title, t: i.start && !i.allDay ? fmtTime(i.start) : '✓' });
+      (i.log || []).forEach(l => { if (sod(new Date(l.doneAt)) === h0) fez.push({ title: i.title, t: l.forDate && !i.allDay ? fmtTime(l.forDate) : '✓', rec: true }); });
+    });
+    const naoFez = st.items.filter(i => !i.done && i.start && sod(new Date(i.start)) <= h0).sort(porHora);
+    const futuro = st.items.filter(i => !i.done && i.start && sod(new Date(i.start)) > h0).sort(porHora);
+    let h = st2('ti-circle-check', 'Você concluiu', fez.length);
+    if (!fez.length) h += vazio('Nada marcado como feito hoje ainda — sem problema.');
+    fez.forEach(x => h += linha(x.t, esc(x.title), x.rec ? tag('', 'ti-repeat', 'rotina') : '', 'feito'));
+    h += st2('ti-alert-circle', 'Ficou pendente', naoFez.length);
+    if (!naoFez.length) h += vazio('Nada pendente hoje.');
+    naoFez.forEach(i => h += linha(quando(i), esc(i.title), (sod(new Date(i.start)) < h0 ? tag('bad', '', 'de antes') : '') + '<button class="btn btn-sm" data-ag="jafiz" data-id="' + i.id + '"><i class="ti ti-check"></i>Já fiz</button>'));
+    h += st2('ti-arrow-right', 'Pela frente', futuro.length + naoFez.length);
+    if (naoFez.length) h += '<div class="ag-ins ruim">' + naoFez.length + ' pendente' + (naoFez.length > 1 ? 's' : '') + ' de hoje segue' + (naoFez.length > 1 ? 'm' : '') + ' para amanhã.</div>';
+    if (!futuro.length && !naoFez.length) h += vazio('Nada agendado à frente.');
+    let ult = '';
+    futuro.slice(0, 15).forEach(i => { const dl = fmtDayLabel(i.start); h += linha(quando(i), esc(i.title), dl !== ult ? tag('', '', dl) : ''); ult = dl; });
+    if (futuro.length > 15) h += vazio('+ ' + (futuro.length - 15) + ' mais adiante.');
+    h += '<p class="hint" style="margin:14px 0 0;">Marcou como pendente algo que você fez? Toque em <b>Já fiz</b> — acerto o resumo na hora.</p>';
+    Lset('balanco', todayKey());
+    sheet('Balanço do dia', dataLonga(now), h);
+  }
+
+  function sheetSemana() {
+    const st = S(), now = Date.now(), wk = now - 7 * DIA, naSemana = ts => !!ts && ts >= wk;
+    let feitas = 0; const feitasArea = {}, soma = a => { const k = a || 'geral'; feitasArea[k] = (feitasArea[k] || 0) + 1; };
+    st.items.forEach(i => { if (i.done && naSemana(i.doneAt)) { feitas++; soma(i.area); } (i.log || []).forEach(l => { if (naSemana(l.doneAt)) { feitas++; soma(i.area); } }); });
+    const criadas = st.items.filter(i => naSemana(i.createdAt)).length, atras = atrasados();
+    const rate = (feitas + atras.length) ? Math.round(feitas / (feitas + atras.length) * 100) : 0;
+    const maior = o => Object.keys(o).map(k => [k, o[k]]).sort((a, b) => b[1] - a[1])[0];
+    const topFeita = maior(feitasArea), atrasArea = {}; atras.forEach(i => { const k = i.area || 'geral'; atrasArea[k] = (atrasArea[k] || 0) + 1; });
+    const topAtraso = maior(atrasArea), nomeA = k => areaNome(k === 'geral' ? null : k);
+    const ev = st.evalLog.filter(e => naSemana(e.at)), conta = t => ev.filter(e => e.t === t).length;
+    const areaFix = conta('area_fix'), rejeitos = conta('reject'), priMiss = conta('pri_miss');
+    const organizadas = st.items.filter(i => naSemana(i.createdAt) && i.area).length, follow = st.items.filter(i => i.contactId && !i.done).length;
+    const adiadas = st.items.filter(i => !i.done && (i.adiado || 0) >= 3).length;
+    let h = '<div class="ag-stats">' + stat(feitas, 'concluídas') + stat(criadas, 'criadas') + stat(atras.length, 'em atraso', atras.length ? '--c-alert' : '--c-grow') + '</div>' +
+      '<div style="display:flex;justify-content:space-between;font-size:13px;"><span>Taxa de conclusão</span><b>' + rate + '%</b></div><div class="jbar" style="margin:6px 0 4px;"><div class="jbar-fill" style="width:' + rate + '%;"></div></div>';
+    h += st2('ti-thumb-up', 'O que fiz bem');
+    const bem = [];
+    if (feitas) bem.push('Ajudei a concluir <b>' + feitas + '</b> ' + (feitas > 1 ? 'itens' : 'item') + '.');
+    if (organizadas) bem.push('Classifiquei <b>' + organizadas + '</b> ' + (organizadas > 1 ? 'itens' : 'item') + ' por área automaticamente.');
+    if (follow) bem.push('Mantive <b>' + follow + '</b> follow-up' + (follow > 1 ? 's' : '') + ' à vista.');
+    if (topFeita) bem.push('Sua área mais ativa foi <b>' + nomeA(topFeita[0]) + '</b>.');
+    if (!bem.length) bem.push('Semana sem atividade registrada ainda.');
+    bem.forEach(t => h += '<div class="ag-ins bom">' + t + '</div>');
+    h += st2('ti-alert-circle', 'Onde errei');
+    const erros = [];
+    if (areaFix) erros.push('Classifiquei <b>' + areaFix + '</b> ' + (areaFix > 1 ? 'itens' : 'item') + ' na área errada — você corrigiu.');
+    if (rejeitos) erros.push('Criei <b>' + rejeitos + '</b> ' + (rejeitos > 1 ? 'itens' : 'item') + ' que você removeu.');
+    if (priMiss) erros.push('Em <b>' + priMiss + '</b> ' + (priMiss > 1 ? 'vezes' : 'vez') + ' minha prioridade nº 1 não foi a que você fez primeiro.');
+    if (topAtraso && topAtraso[1] >= 2) erros.push('Deixei acumular <b>' + topAtraso[1] + '</b> itens vencidos em ' + nomeA(topAtraso[0]) + '.');
+    if (adiadas) erros.push('<b>' + adiadas + '</b> ' + (adiadas > 1 ? 'itens foram adiados' : 'item foi adiado') + ' 3 vezes ou mais.');
+    if (!erros.length) erros.push('Nenhum erro registrável esta semana.');
+    erros.forEach(t => h += '<div class="ag-ins ruim">' + t + '</div>');
+    h += st2('ti-bulb', 'Como vou melhorar');
+    const plano = [];
+    if (areaFix) plano.push('Observar melhor o assunto antes de definir a área.');
+    if (rejeitos) plano.push('Ser mais cauteloso ao criar follow-ups e itens automáticos.');
+    if (priMiss >= 2) plano.push('Reavaliar o peso das prioridades do dia.');
+    if (topAtraso && topAtraso[1] >= 2) plano.push('Destacar antes o que está prestes a vencer em ' + nomeA(topAtraso[0]) + '.');
+    if (adiadas) plano.push('O que foi adiado várias vezes sobe na prioridade: decida entre fazer, delegar ou excluir.');
+    if (rate < 40 && atras.length >= 3) plano.push('Sinalizar quando você estiver criando mais do que cabe no dia.');
+    if (!plano.length) plano.push('Sem ajustes necessários. Vou manter o comportamento atual.');
+    plano.forEach(t => h += '<div class="ag-ins plano">' + t + '</div>');
+    const audit = auditGoals();
+    if (audit.length) { h += st2('ti-target', 'Auditor: objetivos x execução', audit.length); audit.forEach(a => h += '<div class="ag-ins">Objetivo <b>“' + esc(a.title) + '”</b> — ' + a.msg + '.</div>'); }
+    Lset('semana', weekKey());
+    sheet('Como foi sua semana', 'Revisão · últimos 7 dias', h);
+  }
+
+  function sheetPorQue(id) {
+    const i = item(id); if (!i) return;
+    let h = '<div class="note-item"><div class="note-date">Você escreveu</div><div class="note-text"><b>“' + esc(i.rawText || i.title) + '”</b></div></div>';
+    explainItem(i).forEach(w => h += '<div class="ag-ins">' + w + '</div>');
+    if (!i.done) { const pr = priorityRank(i, new Date()); if (pr.fatores.length) h += st2('ti-flag', 'Prioridade hoje') + '<div class="ag-tags" style="margin-top:0;">' + pr.fatores.map(f => tag('', '', f)).join('') + '</div>'; }
+    if (i.editHistory && i.editHistory.length) { h += st2('ti-history', 'Versões anteriores (preservadas)'); i.editHistory.slice().reverse().forEach(e => h += linha(new Date(e.at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }), esc(e.title), '', 'feito')); }
+    h += '<p class="hint" style="margin:14px 0 0;">Não invento nada que você não disse. Se algo ficou errado, use <b>Editar</b> ou toque na <b>área</b> para ajustar.<br>Registrado em ' + new Date(i.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + '.</p>';
+    sheet('Por que entendi assim', '', h);
+  }
+
+  function sheetArea(id) {
+    const i = item(id); if (!i) return;
+    let h = '<div class="note-item"><div class="note-text"><b>“' + esc(i.title) + '”</b></div></div>' + st2('ti-category', 'Área') + '<div class="chips">';
+    AREAS.forEach(a => h += '<button class="chip' + (i.area === a.id ? ' active' : '') + '" data-ag="setArea" data-id="' + i.id + '" data-v="' + a.id + '"><i class="ti ' + a.icon + '" style="margin-right:4px;"></i>' + a.nome + '</button>');
+    h += '<button class="chip' + (!i.area ? ' active' : '') + '" data-ag="setArea" data-id="' + i.id + '" data-v="">Geral</button></div>';
+    const gs = i.area ? goalsOf(i.area) : [];
+    h += st2('ti-target', 'Vincular a um objetivo');
+    if (!i.area) h += vazio('Escolha uma área primeiro para ver os objetivos dela.');
+    else if (!gs.length) h += vazio('Nenhum objetivo em ' + areaNome(i.area) + ' ainda. Crie em “Objetivos”.');
+    else { h += '<div class="chips"><button class="chip' + (!i.goalId ? ' active' : '') + '" data-ag="setGoal" data-id="' + i.id + '" data-v="">Nenhum</button>'; gs.forEach(g => h += '<button class="chip' + (i.goalId === g.id ? ' active' : '') + '" data-ag="setGoal" data-id="' + i.id + '" data-v="' + g.id + '">' + esc(g.title) + '</button>'); h += '</div>'; }
+    sheet('Classificar', '', h);
+  }
+
+  const PERFIL = ['responde rápido', 'demora responder', 'prefere áudio', 'prefere WhatsApp', 'evita ligação', 'gosta de números', 'emocional', 'objetivo', 'paga em dia', 'fecha rápido', 'bom networking'];
+  function sheetPessoa(cid) {
+    const c = contactById(cid); if (!c) return;
+    const ab = followupsOf(cid, true).sort(porHora), feitos = followupsOf(cid, false).filter(i => i.done), cor = corretorDe(c);
+    const tel = c.phone || (cor && cor.dados && cor.dados.telefone) || '';
+    c.tags = c.tags || [];
+    let h = '';
+    if (cor) h += '<div class="ag-row"><span class="t" style="min-width:0;"><i class="ti ti-users"></i></span><span class="tt">Na carteira: <b>' + esc(cor.name) + '</b> · ' + esc(stageOf(cor).label) + '</span><button class="btn btn-sm" data-ag="abrirCorretor" data-v="' + cor.id + '">Abrir ficha</button></div>';
+    h += '<div class="field-grid" style="margin:12px 0 0;"><div><label>Celular</label><input type="tel" id="ag-c-tel" value="' + esc(c.phone || '') + '" placeholder="' + esc(tel || '(11) 90000-0000') + '"></div><div><label>E-mail</label><input type="email" id="ag-c-mail" value="' + esc(c.email || '') + '"></div></div>';
+    if (tel || c.email) h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">' + (tel ? '<a class="btn btn-sm" href="' + waURL(tel) + '" target="_blank" rel="noopener"><i class="ti ti-brand-whatsapp"></i>WhatsApp</a><a class="btn btn-sm" href="tel:' + esc(tel.replace(/[^\d+]/g, '')) + '"><i class="ti ti-phone"></i>Ligar</a>' : '') + (c.email ? '<a class="btn btn-sm" href="mailto:' + esc(c.email) + '"><i class="ti ti-mail"></i>E-mail</a>' : '') + '</div>';
+    h += st2('ti-id', 'Perfil · como lidar') + '<div class="ag-reptags">' + PERFIL.map(t => '<button class="chip' + (c.tags.indexOf(t) >= 0 ? ' active' : '') + '" data-ag="perfil" data-id="' + c.id + '" data-v="' + t + '">' + t + '</button>').join('') + '</div>' +
+      '<textarea id="ag-c-nota" placeholder="Outras observações: horários, temas sensíveis…">' + esc(c.note || '') + '</textarea>';
+    h += st2('ti-list-check', 'Compromissos em aberto', ab.length);
+    if (!ab.length) h += vazio('Nada pendente com ' + esc(primeiro(c.name)) + '.');
+    ab.forEach(i => h += linha(i.start && !i.allDay ? fmtTime(i.start) : pad(new Date(i.start).getDate()) + '/' + pad(new Date(i.start).getMonth() + 1), esc(i.title), '<button class="btn btn-sm" data-ag="fdone" data-id="' + i.id + '"><i class="ti ti-check"></i>Feito</button>'));
+    if (feitos.length) { h += st2('ti-history', 'Histórico', feitos.length); feitos.slice(0, 8).forEach(i => h += linha('✓', esc(i.title), '', 'feito')); }
+    h += '<button class="btn btn-sm btn-danger" style="margin-top:16px;" data-ag="delPessoa" data-v="' + c.id + '"><i class="ti ti-user-minus"></i>Remover pessoa</button>';
+    const ov = sheet(esc(c.name), ab.length ? ab.length + ' compromisso' + (ab.length > 1 ? 's' : '') + ' em aberto' : 'em dia', h);
+    const liga = (idEl, campo) => { const el = ov.querySelector(idEl); if (el) el.addEventListener('change', () => { c[campo] = el.value.trim(); salvar(); if (campo !== 'note') sheetPessoa(cid); else if (activeTab === 'agenda') build(); }); };
+    liga('#ag-c-tel', 'phone'); liga('#ag-c-mail', 'email'); liga('#ag-c-nota', 'note');
+  }
+
+  function sheetAjustes() {
+    const st = S(), ln = learnedNotify(), pw = st.prefs;
+    const notif = !('Notification' in window) ? 'não disponível neste navegador' : Notification.permission === 'granted' ? 'ativados ✓' : Notification.permission === 'denied' ? 'bloqueados — libere nas configurações do navegador' : 'toque para ativar';
+    const op = (act, icon, titulo, desc, perigo) => '<button class="ag-row" data-ag="' + act + '"' + (perigo ? ' style="color:rgb(var(--c-alert));"' : '') + '><span class="t" style="min-width:0;font-size:17px;"><i class="ti ' + icon + '"></i></span><span class="tt"><b>' + titulo + '</b><br><span class="hint">' + desc + '</span></span></button>';
+    let h = st2('ti-adjustments', 'Preferências') + op('ajNome', 'ti-user', 'Como te chamar', esc(st.name)) + op('ajNotif', 'ti-bell', 'Avisos do navegador', notif) +
+      op('ajTrabalho', 'ti-clock', 'Horário de trabalho', pw.workStart != null ? pw.workStart + 'h às ' + pw.workEnd + 'h · aviso quando marcar fora disso' : 'não definido · toque para definir');
+    if (ln != null) h += op('ajEsquecer', 'ti-bell-minus', 'Aviso habitual aprendido', 'aplico ' + notifyLabel(ln, false).replace('aviso ', '') + ' quando você não diz · toque para esquecer');
+    h += st2('ti-database', 'Dados') + '<p class="hint" style="margin:0 0 8px;">A agenda é salva junto com a carteira: vai para a nuvem, abre igual em todos os seus aparelhos e entra no backup da aba Relatório.</p>' +
+      op('ajImportar', 'ti-upload', 'Trazer dados do Polaris', 'use o arquivo de backup do Polaris (assessor-backup-….json)') +
+      op('ajApagar', 'ti-trash', 'Apagar toda a agenda', 'tarefas, pessoas e objetivos · não mexe nos corretores', true);
+    h += '<p class="hint" style="margin:14px 0 0;">Os avisos na hora tocam com esta página aberta. Para ser avisado com ela fechada, use o botão <b>Calendário</b> do item: ele vai para a agenda do celular, com alarme.</p>';
+    sheet('Ajustes da agenda', '', h);
+  }
+  function importarPolaris() {
+    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,application/json';
+    inp.onchange = (e) => {
+      const file = e.target.files[0]; if (!file) return;
+      const r = new FileReader();
+      r.onload = (ev) => {
+        try {
+          const obj = JSON.parse(ev.target.result);
+          const d = (obj && obj.data && Array.isArray(obj.data.items)) ? obj.data : (obj && Array.isArray(obj.items)) ? obj : (obj && obj.agenda && Array.isArray(obj.agenda.items)) ? obj.agenda : null;
+          if (!d) throw new Error('formato');
+          const st = S(), txt = x => typeof x === 'string' && x.trim().length > 0;
+          const novos = d.items.filter(i => i && typeof i === 'object' && txt(i.id) && txt(i.title) && !item(i.id));
+          const pessoas = (d.contacts || []).filter(c => c && txt(c.id) && txt(c.name) && !contactById(c.id));
+          const metas = (d.goals || []).filter(g => g && txt(g.id) && txt(g.title) && !goalById(g.id));
+          if (!novos.length && !pessoas.length && !metas.length) { alert('Nada novo neste arquivo: tudo o que está nele já existe na agenda.'); return; }
+          if (!confirm('Trazer do arquivo “' + file.name + '”?\n\n' + novos.length + ' tarefas e compromissos\n' + pessoas.length + ' pessoas\n' + metas.length + ' objetivos\n\nO que já existe na agenda é mantido.')) return;
+          novos.forEach(i => {
+            if (i.start && isNaN(new Date(i.start))) i.start = hojeISO();
+            if (!i.start) { i.start = hojeISO(); i.allDay = true; i.autoToday = true; i.silent = true; }
+            if (i.area && !areaObj(i.area)) i.area = null;
+            if (!i.createdAt) i.createdAt = Date.now();
+            delete i.why; delete i.notified;
+            st.items.push(i);
+          });
+          pessoas.forEach(c => st.contacts.push(c));
+          metas.forEach(g => st.goals.push(g));
+          if (d.name && st.name === 'Kalyl') st.name = String(d.name);
+          if (d.prefs && d.prefs.notifyCounts && !Object.keys(st.prefs.notifyCounts).length) st.prefs.notifyCounts = d.prefs.notifyCounts;
+          if (d.prefs && d.prefs.workStart != null && st.prefs.workStart == null) { st.prefs.workStart = d.prefs.workStart; st.prefs.workEnd = d.prefs.workEnd; }
+          // quem já está sendo importado não precisa disparar aviso atrasado
+          const map = L().notif || {}; novos.forEach(i => { map[i.id] = i.start; }); Lset('notif', map);
+          salvar(); fecharSheet(); refresh();
+          toast('Importado ✓ ' + novos.length + ' itens, ' + pessoas.length + ' pessoas, ' + metas.length + ' objetivos');
+        } catch (err) { alert('Não consegui ler este arquivo. Use o backup gerado pelo Polaris (Ajustes → Fazer backup agora).'); }
+      };
+      r.readAsText(file);
+    };
+    inp.click();
+  }
+
+  /* ---------- cliques (um só ouvinte para a tela e para as janelas) ---------- */
+  const ACOES = {
+    sub: (id, v) => { sub = v; openId = null; build(); },
+    areaf: (id, v) => { areaAtiva = v ? (areaAtiva === v ? null : v) : null; build(); },
+    toggle: id => toggleDone(id),
+    menu: id => { openId = openId === id ? null : id; build(); },
+    cal: id => exportICS(id),
+    why: id => sheetPorQue(id),
+    edit: id => editItem(id),
+    del: id => delItem(id),
+    confirm: id => confirmItem(id),
+    adiar: (id, v) => adiar(id, +v),
+    area: id => sheetArea(id),
+    contact: id => { const i = item(id); if (i && i.contactId) sheetPessoa(i.contactId); },
+    pessoa: (id, v) => sheetPessoa(v),
+    add: () => addItem(),
+    cancelEdit: () => cancelEdit(),
+    voz: () => voz(),
+    colar: () => colar(),
+    painel: () => sheetPainel(),
+    resumo: () => { if (new Date().getHours() < 12) sheetManha(); else sheetNoite(); },
+    semana: () => sheetSemana(),
+    ajustes: () => sheetAjustes(),
+    fechar: () => fecharSheet(),
+    greetOk: () => { Lset('saudou', todayKey()); build(); },
+    calNav: (id, v) => { cal.m += +v; if (cal.m < 0) { cal.m = 11; cal.y--; } else if (cal.m > 11) { cal.m = 0; cal.y++; } build(); },
+    calDia: (id, v) => { cal.sel = sod(new Date(cal.y, cal.m, +v)); openId = null; build(); },
+    calAdd: () => { const d = new Date(cal.sel); draft = 'dia ' + pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + ' '; build(); const inp = document.getElementById('ag-input'); inp.focus(); inp.setSelectionRange(0, 0); inp.scrollIntoView({ behavior: 'smooth', block: 'center' }); },
+    setArea: (id, v) => { const i = item(id); if (!i) return; const novo = v || null; if (i.area && novo && novo !== i.area) logEval('area_fix', { de: i.area, para: novo }); i.area = novo; i.areaFixa = true; const g = i.goalId && goalById(i.goalId); if (!g || g.area !== i.area) i.goalId = null; salvar(); refresh(); sheetArea(id); },
+    setGoal: (id, v) => { const i = item(id); if (!i) return; i.goalId = v || null; salvar(); fecharSheet(); refresh(); toast('Classificado ✓'); },
+    addGoal: (id, v) => { const t = prompt('Novo objetivo em ' + areaNome(v) + ':'); if (t && t.trim()) { S().goals.push({ id: uid(), area: v, title: t.trim(), createdAt: Date.now(), done: false }); salvar(); build(); } },
+    delGoal: (id, v) => { if (!confirm('Excluir este objetivo? As tarefas continuam, só perdem o vínculo.')) return; const st = S(); st.goals = st.goals.filter(g => g.id !== v); st.items.forEach(i => { if (i.goalId === v) i.goalId = null; }); salvar(); build(); },
+    addPessoa: () => { const n = prompt('Nome da pessoa:'); if (!n || !n.trim()) return; const c = ensureContact(n.trim()); salvar(); build(); sheetPessoa(c.id); },
+    importPessoas: () => {
+      navigator.contacts.select(['name', 'tel', 'email'], { multiple: true }).then(lista => {
+        if (!lista || !lista.length) return;
+        lista.forEach(p => { const c = ensureContact((p.name && p.name[0]) || (p.tel && p.tel[0]) || 'Sem nome'); if (p.tel && p.tel[0]) c.phone = p.tel[0]; if (p.email && p.email[0]) c.email = p.email[0]; });
+        salvar(); build(); toast(lista.length + (lista.length > 1 ? ' contatos importados' : ' contato importado'));
+      }).catch(() => toast('Não consegui abrir os contatos do celular. Use “Adicionar pessoa”.'));
+    },
+    perfil: (id, v, el) => { const c = contactById(id); if (!c) return; c.tags = c.tags || []; const ix = c.tags.indexOf(v); if (ix >= 0) c.tags.splice(ix, 1); else c.tags.push(v); salvar(); el.classList.toggle('active'); },
+    delPessoa: (id, v) => { const c = contactById(v); if (!c || !confirm('Remover ' + c.name + '? Os compromissos continuam na sua lista, só sem o vínculo.')) return; const st = S(); st.items.forEach(i => { if (i.contactId === v) { i.contactId = null; i.isFollowup = false; } }); st.contacts = st.contacts.filter(x => x.id !== v); salvar(); fecharSheet(); refresh(); },
+    fdone: id => { const i = item(id); if (!i) return; ensureAudio(); concluir(i); chime(); salvar(); refresh(); if (i.contactId) sheetPessoa(i.contactId); },
+    jafiz: id => { const i = item(id); if (!i) return; ensureAudio(); concluir(i); chime(); salvar(); refresh(); sheetNoite(); },
+    abrirCorretor: (id, v) => { fecharSheet(); openCard(+v); },
+    ajNome: () => { const v = prompt('Como quer ser chamado?', S().name); if (v && v.trim()) { S().name = v.trim().slice(0, 24); salvar(); refresh(); sheetAjustes(); } },
+    ajNotif: () => { if (!('Notification' in window)) return; ensureAudio(); try { const r = Notification.requestPermission(); if (r && r.then) r.then(sheetAjustes); } catch (e) {} },
+    ajEsquecer: () => { if (confirm('Esquecer o aviso habitual aprendido? Volto a não aplicar aviso automático.')) { S().prefs.notifyCounts = {}; salvar(); sheetAjustes(); toast('Preferência esquecida'); } },
+    ajTrabalho: () => {
+      const p = S().prefs, s = prompt('Início do horário de trabalho (0 a 23). Deixe vazio para remover:', p.workStart != null ? p.workStart : 9);
+      if (s == null) return;
+      if (s.trim() === '') { p.workStart = null; p.workEnd = null; salvar(); sheetAjustes(); return; }
+      const e = prompt('Fim do horário de trabalho (1 a 24):', p.workEnd != null ? p.workEnd : 19);
+      if (e == null) return;
+      const si = parseInt(s, 10), ei = parseInt(e, 10);
+      if (isNaN(si) || isNaN(ei) || si < 0 || si > 23 || ei < 1 || ei > 24 || ei <= si) { toast('Horário inválido'); return; }
+      p.workStart = si; p.workEnd = ei; salvar(); sheetAjustes(); toast('Horário de trabalho salvo');
+    },
+    ajImportar: () => importarPolaris(),
+    ajApagar: () => { if (!confirmStrong('Isto vai APAGAR todas as tarefas, compromissos, pessoas e objetivos da agenda. Os corretores não são afetados.')) return; const st = S(); st.items = []; st.goals = []; st.contacts = []; st.evalLog = []; editId = null; draft = ''; salvar(); fecharSheet(); refresh(); toast('Agenda apagada'); }
+  };
+  function onClick(e) {
+    const b = e.target.closest('[data-ag]'); if (!b) return;
+    const f = ACOES[b.getAttribute('data-ag')]; if (!f) return;
+    e.preventDefault();
+    f(b.getAttribute('data-id'), b.getAttribute('data-v'), b);
+  }
+
+  /* ---------- avisos com a página aberta (não gravam nada na carteira) ---------- */
+  function checkNotifs() {
+    const st = S(), agora = Date.now(), map = L().notif || {}; let mudou = false;
+    st.items.forEach(i => {
+      if (i.done || !i.start || i.silent || i.autoToday || map[i.id] === i.start) return;
+      const ini = new Date(i.start).getTime(), antes = (i.allDay || i.notifyBefore == null ? 0 : i.notifyBefore) * 60000;
+      if (ini - antes <= agora && ini > agora - DIA) {
+        map[i.id] = i.start; mudou = true;
+        fireNotif(i.title, i.allDay ? 'É hoje' : (antes && ini > agora ? 'Começa às ' + fmtTime(i.start) : 'É agora · ' + fmtTime(i.start)));
+      }
+    });
+    if (mudou) { const limpo = {}; st.items.forEach(i => { if (map[i.id]) limpo[i.id] = map[i.id]; }); Lset('notif', limpo); }
+    const d = new Date(), loc = L(), hoje = todayKey();
+    // véspera: às 19h avisa o que há amanhã
+    if (d.getHours() >= 19 && loc.vespera !== hoje) {
+      Lset('vespera', hoje);
+      const am = sod(d) + DIA, evs = st.items.filter(i => !i.done && i.start && !i.silent && !i.autoToday && sod(new Date(i.start)) === am).sort(porHora);
+      if (evs.length) { fireNotif('Amanhã você tem ' + evs.length + (evs.length > 1 ? ' compromissos' : ' compromisso'), evs.slice(0, 3).map(i => (i.allDay ? '' : fmtTime(i.start) + ' ') + i.title).join(' · ') + (evs.length > 3 ? ' (+' + (evs.length - 3) + ')' : '')); return; }
+    }
+    if (d.getHours() === 19 && d.getMinutes() >= 30 && loc.balanco !== hoje && loc.balancoAviso !== hoje && st.items.length) { Lset('balancoAviso', hoje); chime(); toast('Balanço do dia disponível', 'Ver', () => { irPara(); sheetNoite(); }); return; }
+    if (d.getDay() === 0 && d.getHours() >= 18 && loc.semana !== weekKey() && loc.semanaAviso !== weekKey() && st.items.length) { Lset('semanaAviso', weekKey()); chime(); toast('Revisão da semana pronta', 'Ver', () => { irPara(); sheetSemana(); }); return; }
+    // uma vez por dia: lembra do que ficou de dias anteriores
+    if (loc.cobranca !== hoje && activeTab !== 'agenda') {
+      Lset('cobranca', hoje);
+      const n = atrasados().length;
+      if (n) toast(n + (n > 1 ? ' tarefas de dias anteriores ainda pendentes' : ' tarefa de dia anterior ainda pendente') + ' na agenda', 'Ver', irPara);
+    }
+  }
+  let ultSinc = 0;
+  function tick() {
+    // só depois de a carteira estar carregada (no modo nuvem, depois do login e da primeira carga)
+    if (document.body.classList.contains('bloqueado') || (nuvemLigada() && !nuvemPronta && !nuvemFalhou)) return;
+    try { checkNotifs(); } catch (e) { console.error(e); }
+    // com a agenda aberta e parada, confere de minuto em minuto se outro aparelho salvou algo
+    if (activeTab === 'agenda' && !document.hidden && !draft.trim() && !editId && !document.querySelector('.overlay') && Date.now() - ultSinc > 60000) { ultSinc = Date.now(); nuvemVerificar(); }
+  }
+  setInterval(tick, 20000);
+  setTimeout(tick, 6000);
+
+  function pendentesHoje() { const now = new Date(); return S().items.filter(i => !i.done && bucketOf(i, now) === 'today').length; }
+  return { build: build, pendentesHoje: pendentesHoje };
+})();
+
+/* ============================================================
    RENDER + INIT
    ============================================================ */
 function render() {
@@ -3790,6 +5140,7 @@ function render() {
     else if (activeTab === 'followup') buildFollowup();
     else if (activeTab === 'lista') buildLista();
     else if (activeTab === 'relatorio') buildRelatorio();
+    else if (activeTab === 'agenda') Agenda.build();
     else if (activeTab === 'lixeira') buildLixeira();
   } catch (e) {
     // nunca deixar a tela em branco: mostra o erro e mantém o backup ao alcance
