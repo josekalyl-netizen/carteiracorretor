@@ -1,7 +1,7 @@
 {
-  "name": "Carteira Ativa · Grupo W3G",
-  "short_name": "Carteira Ativa",
-  "description": "Carteira de corretores — supervisor Kalyl Soares",
+  "name": "Ecossistema",
+  "short_name": "Ecossistema",
+  "description": "Carteira Ativa (Grupo W3G), Minhas Finanças e Compromissos",
   "lang": "pt-BR",
   "start_url": "./carteira-w3g.html",
   "scope": "./",
@@ -29,6 +29,41 @@
       "src": "assets/icone-app.svg",
       "sizes": "any",
       "type": "image/svg+xml"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Carteira Ativa",
+      "url": "./carteira-w3g.html#carteira",
+      "icons": [
+        {
+          "src": "assets/favicon-carteira.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Minhas Finanças",
+      "url": "./carteira-w3g.html#financas",
+      "icons": [
+        {
+          "src": "assets/favicon-financas.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Compromissos",
+      "url": "./carteira-w3g.html#compromissos",
+      "icons": [
+        {
+          "src": "assets/favicon-compromissos.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
     }
   ]
 }

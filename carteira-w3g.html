@@ -3,19 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Carteira Ativa · Grupo W3G</title>
-<meta name="description" content="Carteira de corretores — supervisor Kalyl Soares">
+<title>Ecossistema</title>
+<meta name="description" content="Ecossistema pessoal: Carteira Ativa (Grupo W3G), Minhas Finanças e Compromissos">
 <meta name="theme-color" content="#003C80" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#061A33" media="(prefers-color-scheme: dark)">
-<meta name="apple-mobile-web-app-title" content="Carteira Ativa">
+<meta name="apple-mobile-web-app-title" content="Ecossistema">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="icon" type="image/svg+xml" href="assets/favicon.svg?v=2">
-<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=2">
-<link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png?v=2">
-<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png?v=2">
-<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" id="fav-svg" type="image/svg+xml" href="assets/favicon.svg?v=3">
+<link rel="icon" id="fav-png" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=3">
+<link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png?v=3">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png?v=3">
+<link rel="manifest" href="manifest.webmanifest?v=3">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&family=Figtree:wght@400;500;600;700;800&family=Azeret+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -27,7 +27,7 @@
     if (t !== "escuro") document.documentElement.setAttribute("data-tema", "claro"); // claro é o padrão
   })();
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "22";
+  var VERSAO = "23";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -416,7 +416,7 @@ a{color:rgb(var(--c-primary-500))}a:hover{color:var(--ativa-turq-deep)}
 /* ---------- casca: rail lateral + cabeçalho ---------- */
 .wrap{max-width:2200px;margin:0;padding:14px 40px 48px calc(var(--rail-w) + 40px)}
 .nav{position:fixed;z-index:40;left:14px;top:14px;bottom:14px;width:var(--rail-w);margin:0;padding:96px 0 18px;display:flex;flex-direction:column;align-items:center;gap:6px;overflow:visible;background:var(--ativa-rail);border:0;border-radius:var(--r-xl);box-shadow:0 30px 60px -30px rgba(0,30,70,.55)}
-.nav::before{content:"";position:absolute;top:24px;left:50%;width:58px;height:32px;transform:translateX(-50%);background:url("assets/simbolo-fundo-escuro.svg") center/contain no-repeat}
+.nav::before{content:"";position:absolute;top:24px;left:50%;width:58px;height:32px;transform:translateX(-50%);background:url("assets/simbolo-ecossistema-fundo-escuro.svg") center/contain no-repeat}
 .nav-btn{flex-direction:column;justify-content:center;gap:5px;width:68px;height:62px;padding:0;border:0;border-radius:var(--r-md);background:transparent;color:rgb(var(--ativa-rail-ink) / .72);font:600 10.5px/1 var(--ativa-font-body);letter-spacing:0;position:relative;box-shadow:none}
 .nav-btn i{font-size:22px;margin:0!important}
 .nav-btn:hover{background:rgb(var(--ativa-rail-ink) / .1);color:#fff}
@@ -746,6 +746,7 @@ button.ag-row:hover{background:rgb(var(--c-paper))}
   .ag-side .card{padding:15px}
 }
 @media print{.nav,#ceu,#ag-toast{display:none}.wrap{padding:0}}
+.eco-login{display:flex;flex-direction:column;align-items:center;gap:6px;margin:0 0 14px;color:rgb(var(--c-primary))}.eco-login img{border-radius:22%;box-shadow:0 14px 30px -14px rgba(0,40,90,.55);margin-bottom:8px}.eco-login b{font:600 30px/1 var(--ativa-font-display);letter-spacing:-0.02em}
 </style>
 </head>
 <body>
@@ -3858,8 +3859,8 @@ function nuvemTelaLogin() {
   overlay.id = 'login-ov';
   overlay.style.alignItems = 'center';
   overlay.innerHTML = '<form class="modal" style="max-width:380px;" id="login-form"><div style="padding:1.8rem 1.6rem;">' +
-    '<div class="ativa-logo" aria-label="Carteira Ativa">' + document.querySelector('#brand-logo svg').outerHTML + '<span><b>carteira ativa</b><small>Grupo W3G</small></span></div>' +
-    '<p class="hint" style="margin:0 0 1.2rem;">Entre para carregar a sua carteira.</p>' +
+    '<div class="eco-login"><img src="assets/icone-app.svg?v=3" alt="" width="72" height="72"><b>ecossistema</b></div>' +
+    '<p class="hint" style="margin:0 0 1.2rem; text-align:center;">Entre com seu e-mail e senha.</p>' +
     '<label>E-mail</label><input type="email" id="login-email" autocomplete="username" required style="margin-bottom:0.8rem;">' +
     '<label>Senha</label><input type="password" id="login-senha" autocomplete="current-password" required style="margin-bottom:1rem;">' +
     '<p id="login-erro" style="color:rgb(var(--c-alert)); font-size:13px; margin:0 0 0.8rem; display:none;"></p>' +
@@ -8962,5 +8963,57 @@ function updateDate(){
 try { if (typeof render === 'function') render(); } catch (e) {}
 </script>
 <!-- FINANCAS:FIM -->
+<script id="identidade-area">
+/* ====== IDENTIDADE POR ÁREA (Carteira Ativa · Minhas Finanças · Compromissos) ======
+   O app/PWA e o rail usam o ícone do ECOSSISTEMA (sem nome).
+   Aba do navegador (título + favicon) e logo do cabeçalho mudam conforme a área aberta. */
+(function () {
+  var AREAS = {
+    carteira:     { nome: 'carteira ativa',  titulo: 'Carteira Ativa',  selo: 'Grupo W3G', fav: 'carteira',     svg: "<svg viewBox=\"-10 -10 420 240\" aria-hidden=\"true\"><rect x=\"9\" y=\"9\" width=\"382\" height=\"202\" rx=\"101\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"18\"/><path d=\"M70 74h78a14 14 0 0 1 14 14v34a14 14 0 0 1-14 14h-44l-22 18v-18h-12a14 14 0 0 1-14-14V88a14 14 0 0 1 14-14z\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"12\" stroke-linejoin=\"round\"/><circle cx=\"184\" cy=\"110\" r=\"7\" fill=\"currentColor\"/><circle cx=\"206\" cy=\"110\" r=\"7\" fill=\"currentColor\"/><circle cx=\"292\" cy=\"110\" r=\"72\" fill=\"currentColor\"/><path d=\"M264 70h40l18 18v62h-58z\" fill=\"#2EC4B6\"/><rect x=\"274\" y=\"100\" width=\"36\" height=\"7\" rx=\"3.5\" fill=\"currentColor\"/><rect x=\"274\" y=\"116\" width=\"36\" height=\"7\" rx=\"3.5\" fill=\"currentColor\"/><rect x=\"274\" y=\"132\" width=\"22\" height=\"7\" rx=\"3.5\" fill=\"currentColor\"/></svg>" },
+    financas:     { nome: 'minhas finanças', titulo: 'Minhas Finanças', selo: '', fav: 'financas',     svg: "<svg viewBox=\"-10 -10 420 240\" aria-hidden=\"true\"><rect x=\"9\" y=\"9\" width=\"382\" height=\"202\" rx=\"101\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"18\"/><rect x=\"70\" y=\"116\" width=\"22\" height=\"34\" rx=\"5\" fill=\"currentColor\"/><rect x=\"102\" y=\"96\" width=\"22\" height=\"54\" rx=\"5\" fill=\"currentColor\"/><rect x=\"134\" y=\"72\" width=\"22\" height=\"78\" rx=\"5\" fill=\"currentColor\"/><circle cx=\"292\" cy=\"110\" r=\"72\" fill=\"currentColor\"/><path d=\"M254 140l28-28 18 16 32-34\" fill=\"none\" stroke=\"#2EC4B6\" stroke-width=\"12\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M310 90h24v24\" fill=\"none\" stroke=\"#2EC4B6\" stroke-width=\"12\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>" },
+    compromissos: { nome: 'compromissos',    titulo: 'Compromissos',    selo: '', fav: 'compromissos', svg: "<svg viewBox=\"-10 -10 420 240\" aria-hidden=\"true\"><rect x=\"9\" y=\"9\" width=\"382\" height=\"202\" rx=\"101\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"18\"/><circle cx=\"114\" cy=\"110\" r=\"42\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"12\"/><path d=\"M114 86v24l18 10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"12\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><circle cx=\"292\" cy=\"110\" r=\"72\" fill=\"currentColor\"/><rect x=\"258\" y=\"80\" width=\"68\" height=\"62\" rx=\"10\" fill=\"#2EC4B6\"/><rect x=\"270\" y=\"68\" width=\"9\" height=\"22\" rx=\"4.5\" fill=\"#2EC4B6\"/><rect x=\"305\" y=\"68\" width=\"9\" height=\"22\" rx=\"4.5\" fill=\"#2EC4B6\"/><rect x=\"258\" y=\"94\" width=\"68\" height=\"6\" fill=\"currentColor\"/><rect x=\"268\" y=\"108\" width=\"11\" height=\"10\" rx=\"2.5\" fill=\"currentColor\"/><rect x=\"287\" y=\"108\" width=\"11\" height=\"10\" rx=\"2.5\" fill=\"currentColor\"/><rect x=\"306\" y=\"108\" width=\"11\" height=\"10\" rx=\"2.5\" fill=\"currentColor\"/><rect x=\"268\" y=\"124\" width=\"11\" height=\"10\" rx=\"2.5\" fill=\"currentColor\"/><rect x=\"287\" y=\"124\" width=\"11\" height=\"10\" rx=\"2.5\" fill=\"currentColor\"/></svg>" }
+  };
+  // Ajuste os nomes das abas se forem diferentes no seu código.
+  function areaDaAba(tab) {
+    tab = String(tab || '').toLowerCase();
+    if (/financ/.test(tab)) return 'financas';
+    if (/agend|compromis/.test(tab)) return 'compromissos';
+    return 'carteira'; // dashboard, pipeline, followup, carteira, relatorio, lixeira…
+  }
+  var atual = null;
+  window.aplicarArea = function (area) {
+    var a = AREAS[area] || AREAS.carteira;
+    document.documentElement.setAttribute('data-area', area);
+    document.title = a.selo ? a.titulo + ' · ' + a.selo : a.titulo; // só a Carteira Ativa é W3G
+    if (atual === area) return; atual = area;
+    var s = document.getElementById('fav-svg'), p = document.getElementById('fav-png');
+    if (s) s.href = 'assets/favicon-' + a.fav + '.svg';
+    if (p) p.href = 'assets/favicon-' + a.fav + '-32.png';
+    var logo = document.getElementById('brand-logo');
+    if (logo) { logo.setAttribute('aria-label', a.titulo); logo.innerHTML = a.svg + '<span><b>' + a.nome + '</b>' + (a.selo ? '<small>' + a.selo + '</small>' : '') + '</span>'; }
+  };
+  function bloqueado() { return !!document.getElementById('login-ov') || document.body.classList.contains('bloqueado'); }
+  function aplicarEcossistema() {
+    document.documentElement.setAttribute('data-area', 'ecossistema');
+    document.title = 'Ecossistema';
+    var s = document.getElementById('fav-svg'), p = document.getElementById('fav-png');
+    if (s) s.href = 'assets/favicon.svg';
+    if (p) p.href = 'assets/favicon-32.png';
+    atual = null; // força reaplicar a área depois do login
+  }
+  function sync() { try { if (bloqueado()) return aplicarEcossistema(); aplicarArea(areaDaAba(typeof activeTab !== 'undefined' ? activeTab : '')); } catch (e) {} }
+  new MutationObserver(function () { sync(); }).observe(document.body, { childList: true, attributes: true, attributeFilter: ['class'] });
+  if (typeof window.render === 'function') { var _r = window.render; window.render = function () { var o = _r.apply(this, arguments); sync(); return o; }; }
+  document.addEventListener('click', function () { setTimeout(sync, 0); }, true);
+  // atalhos do ícone do app (manifest): abre direto na área pedida
+  try {
+    var h = (location.hash || '').toLowerCase();
+    if (h === '#financas') activeTab = 'financas';
+    else if (h === '#compromissos') activeTab = 'agenda';
+    if (h === '#financas' || h === '#compromissos') { history.replaceState(null, '', location.pathname + location.search); if (typeof render === 'function') render(); }
+  } catch (e) {}
+  sync();
+})();
+</script>
 </body>
 </html>
