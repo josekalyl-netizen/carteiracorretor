@@ -26,6 +26,17 @@
     try { t = localStorage.getItem("w3g_tema"); } catch (e) {}
     if (t !== "escuro") document.documentElement.setAttribute("data-tema", "claro"); // claro é o padrão
   })();
+  // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
+  var VERSAO = "12";
+  (function () {
+    if (!/^https?:$/.test(location.protocol)) return;
+    try {
+      fetch("versao.txt?" + Date.now(), { cache: "no-store" }).then(function (r) { return r.ok ? r.text() : ""; }).then(function (v) {
+        v = (v || "").trim();
+        if (/^\d+$/.test(v) && v !== VERSAO && location.search.indexOf("v=" + v) < 0) location.replace("carteira-w3g.html?v=" + v);
+      }).catch(function () {});
+    } catch (e) {}
+  })();
 </script>
 <style>
 /* ====== TOKENS CARTEIRA ATIVA (Grupo W3G) ======
