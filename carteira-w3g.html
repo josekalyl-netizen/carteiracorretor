@@ -27,7 +27,7 @@
     if (t !== "escuro") document.documentElement.setAttribute("data-tema", "claro"); // claro é o padrão
   })();
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "12";
+  var VERSAO = "13";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -723,7 +723,7 @@ const STAGES = [
 /* ============================================================
    JORNADA DE CONTATOS — banco de mensagens e motor
    ============================================================
-   Cada etapa tem uma jornada de 12 contatos. Cada contato tem um TEMA
+   Cada etapa tem uma jornada de 28 contatos. Cada contato tem um TEMA
    e um banco de variações. O sistema escolhe uma variação que o corretor
    ainda não recebeu (não-repetição vitalícia por corretor). Alguns temas
    têm trava de dia da semana (fim de semana só segunda, etc).
@@ -749,8 +749,24 @@ const JORNADAS = {
     { n: 8, tema: 'sc2_o_que_falta', formato: 'texto', trava: null },
     { n: 9, tema: 'audio_sc_decisao', formato: 'audio', trava: null },
     { n: 10, tema: 'obj_entender', formato: 'texto', trava: null },
-    { n: 11, tema: 'sc2_ultimo_convite', formato: 'texto', trava: null },
-    { n: 12, tema: 'audio_break_up', formato: 'audio', trava: null },
+    { n: 11, tema: 'sc3_novas', formato: 'texto', trava: null },
+    { n: 12, tema: 'sc_reforcar_confianca', formato: 'texto', trava: null },
+    { n: 13, tema: 'sc2_proximo_passo', formato: 'texto', trava: null },
+    { n: 14, tema: 'sc3_novas', formato: 'texto', trava: null },
+    { n: 15, tema: 'audio_sc_convite', formato: 'audio', trava: null },
+    { n: 16, tema: 'sc2_e_simples', formato: 'texto', trava: null },
+    { n: 17, tema: 'toque_valor', formato: 'texto', trava: null },
+    { n: 18, tema: 'sc2_ganho', formato: 'texto', trava: null },
+    { n: 19, tema: 'sc3_novas', formato: 'texto', trava: null },
+    { n: 20, tema: 'audio_cuidado_contexto', formato: 'audio', trava: null },
+    { n: 21, tema: 'sc2_cliente_em_vista', formato: 'texto', trava: null },
+    { n: 22, tema: 'sc3_novas', formato: 'texto', trava: null },
+    { n: 23, tema: 'sc2_o_que_falta', formato: 'texto', trava: null },
+    { n: 24, tema: 'audio_sc_decisao', formato: 'audio', trava: null },
+    { n: 25, tema: 'cuidado_contexto', formato: 'texto', trava: null },
+    { n: 26, tema: 'sc3_novas', formato: 'texto', trava: null },
+    { n: 27, tema: 'sc2_ultimo_convite', formato: 'texto', trava: null },
+    { n: 28, tema: 'audio_break_up', formato: 'audio', trava: null },
   ],
   // objetivo da etapa: receber os dados do cadastro e concluir a abertura do código
   solicitado: [
@@ -764,8 +780,24 @@ const JORNADAS = {
     { n: 8, tema: 'sol_travou', formato: 'texto', trava: null },
     { n: 9, tema: 'audio_sol_destravar', formato: 'audio', trava: null },
     { n: 10, tema: 'obj_inseguro', formato: 'texto', trava: null },
-    { n: 11, tema: 'sol_ultimo', formato: 'texto', trava: null },
-    { n: 12, tema: 'audio_break_up', formato: 'audio', trava: null },
+    { n: 11, tema: 'sol3_novas', formato: 'texto', trava: null },
+    { n: 12, tema: 'disposicao', formato: 'texto', trava: null },
+    { n: 13, tema: 'sol_pendencia', formato: 'texto', trava: null },
+    { n: 14, tema: 'sol3_novas', formato: 'texto', trava: null },
+    { n: 15, tema: 'audio_sol_passo', formato: 'audio', trava: null },
+    { n: 16, tema: 'sol_facilitar', formato: 'texto', trava: null },
+    { n: 17, tema: 'cuidado_contexto', formato: 'texto', trava: null },
+    { n: 18, tema: 'sol_motivo', formato: 'texto', trava: null },
+    { n: 19, tema: 'sol3_novas', formato: 'texto', trava: null },
+    { n: 20, tema: 'audio_oferecer_ajuda', formato: 'audio', trava: null },
+    { n: 21, tema: 'sol_cliente_em_vista', formato: 'texto', trava: null },
+    { n: 22, tema: 'sol3_novas', formato: 'texto', trava: null },
+    { n: 23, tema: 'sol_travou', formato: 'texto', trava: null },
+    { n: 24, tema: 'audio_sol_destravar', formato: 'audio', trava: null },
+    { n: 25, tema: 'toque_valor', formato: 'texto', trava: null },
+    { n: 26, tema: 'sol3_novas', formato: 'texto', trava: null },
+    { n: 27, tema: 'sol_ultimo', formato: 'texto', trava: null },
+    { n: 28, tema: 'audio_break_up', formato: 'audio', trava: null },
   ],
   // objetivo da etapa: tirar a primeira cotação / proposta
   aberto: [
@@ -779,8 +811,24 @@ const JORNADAS = {
     { n: 8, tema: 'ab_destravar', formato: 'texto', trava: null },
     { n: 9, tema: 'audio_ab_cliente', formato: 'audio', trava: null },
     { n: 10, tema: 'obj_sem_oportunidade', formato: 'texto', trava: null },
-    { n: 11, tema: 'ab_meta_curta', formato: 'texto', trava: null },
-    { n: 12, tema: 'audio_break_up', formato: 'audio', trava: null },
+    { n: 11, tema: 'ab3_novas', formato: 'texto', trava: null },
+    { n: 12, tema: 'semana_vendas', formato: 'texto', trava: null },
+    { n: 13, tema: 'ab_primeira_cotacao', formato: 'texto', trava: null },
+    { n: 14, tema: 'ab3_novas', formato: 'texto', trava: null },
+    { n: 15, tema: 'audio_ab_cotacao', formato: 'audio', trava: null },
+    { n: 16, tema: 'ab_carteira_atual', formato: 'texto', trava: null },
+    { n: 17, tema: 'toque_valor', formato: 'texto', trava: null },
+    { n: 18, tema: 'ab_juntos', formato: 'texto', trava: null },
+    { n: 19, tema: 'ab3_novas', formato: 'texto', trava: null },
+    { n: 20, tema: 'audio_oferecer_ajuda', formato: 'audio', trava: null },
+    { n: 21, tema: 'ab_destravar', formato: 'texto', trava: null },
+    { n: 22, tema: 'ab3_novas', formato: 'texto', trava: null },
+    { n: 23, tema: 'oferecer_ajuda', formato: 'texto', trava: null },
+    { n: 24, tema: 'audio_ab_cliente', formato: 'audio', trava: null },
+    { n: 25, tema: 'cuidado_contexto', formato: 'texto', trava: null },
+    { n: 26, tema: 'ab3_novas', formato: 'texto', trava: null },
+    { n: 27, tema: 'ab_meta_curta', formato: 'texto', trava: null },
+    { n: 28, tema: 'audio_break_up', formato: 'audio', trava: null },
   ],
   // objetivo da etapa: fechar a proposta e criar recorrência (próximas propostas)
   proposta: [
@@ -794,8 +842,24 @@ const JORNADAS = {
     { n: 8, tema: 'pr_carteira', formato: 'texto', trava: null },
     { n: 9, tema: 'audio_pr_ritmo', formato: 'audio', trava: null },
     { n: 10, tema: 'pr_destravar', formato: 'texto', trava: null },
-    { n: 11, tema: 'pr_meta', formato: 'texto', trava: null },
-    { n: 12, tema: 'audio_break_up', formato: 'audio', trava: null },
+    { n: 11, tema: 'pr3_novas', formato: 'texto', trava: null },
+    { n: 12, tema: 'toque_valor', formato: 'texto', trava: null },
+    { n: 13, tema: 'pr_proxima', formato: 'texto', trava: null },
+    { n: 14, tema: 'pr3_novas', formato: 'texto', trava: null },
+    { n: 15, tema: 'audio_pr_fechamento', formato: 'audio', trava: null },
+    { n: 16, tema: 'pr_indicacao', formato: 'texto', trava: null },
+    { n: 17, tema: 'semana_vendas', formato: 'texto', trava: null },
+    { n: 18, tema: 'pr_rotina', formato: 'texto', trava: null },
+    { n: 19, tema: 'pr3_novas', formato: 'texto', trava: null },
+    { n: 20, tema: 'audio_oferecer_ajuda', formato: 'audio', trava: null },
+    { n: 21, tema: 'pr_carteira', formato: 'texto', trava: null },
+    { n: 22, tema: 'pr3_novas', formato: 'texto', trava: null },
+    { n: 23, tema: 'pr_acompanhar', formato: 'texto', trava: null },
+    { n: 24, tema: 'audio_pr_ritmo', formato: 'audio', trava: null },
+    { n: 25, tema: 'cuidado_contexto', formato: 'texto', trava: null },
+    { n: 26, tema: 'pr3_novas', formato: 'texto', trava: null },
+    { n: 27, tema: 'pr_meta', formato: 'texto', trava: null },
+    { n: 28, tema: 'audio_break_up', formato: 'audio', trava: null },
   ],
   // objetivo da etapa: manter o ritmo, crescer a produção e gerar indicações
   engajado: [
@@ -810,15 +874,31 @@ const JORNADAS = {
     { n: 9, tema: 'audio_cuidado_contexto', formato: 'audio', trava: null },
     { n: 10, tema: 'obj_feedback', formato: 'texto', trava: null },
     { n: 11, tema: 'cons_fortalecer', formato: 'texto', trava: null },
-    { n: 12, tema: 'audio_break_up', formato: 'audio', trava: null },
+    { n: 12, tema: 'en3_novas', formato: 'texto', trava: null },
+    { n: 13, tema: 'en_pipeline', formato: 'texto', trava: null },
+    { n: 14, tema: 'fid_lembrei', formato: 'texto', trava: null },
+    { n: 15, tema: 'audio_fidelizacao', formato: 'audio', trava: null },
+    { n: 16, tema: 'en3_novas', formato: 'texto', trava: null },
+    { n: 17, tema: 'en_crescer', formato: 'texto', trava: null },
+    { n: 18, tema: 'semana_vendas', formato: 'texto', trava: null },
+    { n: 19, tema: 'en3_novas', formato: 'texto', trava: null },
+    { n: 20, tema: 'audio_cuidado_contexto', formato: 'audio', trava: null },
+    { n: 21, tema: 'en_planejar', formato: 'texto', trava: null },
+    { n: 22, tema: 'en_indicar_corretor', formato: 'texto', trava: null },
+    { n: 23, tema: 'en3_novas', formato: 'texto', trava: null },
+    { n: 24, tema: 'audio_semana_vendas', formato: 'audio', trava: null },
+    { n: 25, tema: 'fid_oportunidade', formato: 'texto', trava: null },
+    { n: 26, tema: 'en3_novas', formato: 'texto', trava: null },
+    { n: 27, tema: 'cons_crescimento', formato: 'texto', trava: null },
+    { n: 28, tema: 'audio_fidelizacao', formato: 'audio', trava: null },
   ],
 };
 
 // objetivo de cada etapa — mostrado no card do follow-up para lembrar o "pra quê" da mensagem
 const OBJETIVO_ETAPA = {
   sem_codigo: 'Fazer o corretor pedir a abertura do código',
-  solicitado: 'Receber os dados e concluir a abertura do código',
-  aberto: 'Tirar a primeira cotação / proposta',
+  solicitado: 'Fazer o corretor enviar o código que já foi pedido',
+  aberto: 'Receber o primeiro contrato e tirar a parceria do papel',
   proposta: 'Fechar a proposta e puxar as próximas',
   engajado: 'Manter o ritmo, crescer e gerar indicações',
 };
@@ -832,6 +912,7 @@ const TEMAS_DIRETOS = new Set([
   'ab_primeiros_passos','ab_primeira_cotacao','ab_carteira_atual','ab_juntos','ab_destravar','ab_meta_curta',
   'pr_acompanhar','pr_proxima','pr_indicacao','pr_rotina','pr_carteira','pr_destravar','pr_meta',
   'en_pipeline','en_crescer','en_indicar_corretor','en_planejar',
+  'sc3_novas','sol3_novas','ab3_novas','pr3_novas','en3_novas',
 ]);
 
 // canal sugerido por número de contato (rotação multicanal, inspirado na
@@ -1498,6 +1579,8 @@ const MSG = {
     "Bom dia, {nome}, posso te pedir uma ajuda?\nVocê conhece algum colega corretor que combinaria com a nossa parceria?\nIndicação de quem já trabalha com a gente vale muito pra mim",
     "Olá, {nome}, você é o tipo de parceiro que eu gostaria de ter mais\nSe lembrar de algum corretor sério que possa se interessar, me apresenta\nEu cuido dele com o mesmo carinho",
     "Boa tarde, {nome}, tô buscando novos parceiros com o seu perfil\nTem alguém da sua rede que você indicaria?\nPode me passar o contato ou só me dizer o nome",
+    "Olá, {nome}, quem trabalha bem costuma andar com gente que trabalha bem\nTem algum corretor do seu convívio que você acha que se daria bem com a gente?\nMe apresenta que eu faço o primeiro contato",
+    "Bom dia, {nome}, uma indicação sua vale mais do que qualquer apresentação minha\nSe lembrar de um colega que poderia ser parceiro, me fala o nome\nEu procuro ele com todo o cuidado",
   ],
   en_planejar: [
     "Bom dia, {nome}, queria me alinhar com você\nQuais são as suas prioridades agora e como eu posso ajudar em cada uma?",
@@ -1506,46 +1589,124 @@ const MSG = {
     "Olá, {nome}, pra eu te atender cada vez melhor, me conta o que tá vindo por aí\nAlgum cliente grande, alguma meta, alguma ideia?\nQuero me preparar junto com você",
   ],
 
+  /* ----- 10 MENSAGENS NOVAS POR ETAPA (entram nos contatos 11 a 28 da jornada) ----- */
+  sc3_novas: [
+    "Bom dia, {nome}, tô fechando a lista de corretores que começam com a gente este mês e lembrei de você\nAinda dá tempo de incluir o seu código nessa leva\nPosso colocar o seu nome?",
+    "Olá, {nome}, uma pergunta rápida: hoje você trabalha com quantas opções pra oferecer pro cliente?\nCom o código aberto você ganha mais uma\nQuer que eu te explique como fica na prática?",
+    "Boa tarde, {nome}, abrir o código é só deixar o caminho pronto, você usa quando fizer sentido\nPor isso acho que vale resolver logo\nPosso encaminhar o seu?",
+    "Olá, {nome}, os corretores que começam bem com a gente têm uma coisa em comum: abriram o código antes de precisar\nQuando o cliente apareceu, já tava tudo pronto\nVamos deixar o seu assim também?",
+    "Bom dia, {nome}, se preferir, a gente faz diferente\nEu te ligo, tiro as dúvidas que ficaram e, se fizer sentido, já saio da ligação com o seu código encaminhado\nQual horário é melhor pra você?",
+    "Boa tarde, {nome}, fiquei com a sensação de que não expliquei tudo na nossa reunião\nTem algum ponto da parceria que ainda não ficou claro pra você?\nMe fala que eu esclareço antes de a gente falar em código",
+    "Olá, {nome}, pra abrir o seu código eu preciso de poucas informações e de uns minutos seus\nPosso te mandar agora a lista do que é necessário?\nAssim você já vê como é simples",
+    "Bom dia, {nome}, como tá o movimento de clientes por aí?\nPergunto porque é quando a demanda aparece que o código faz falta\nSe quiser, a gente deixa o seu pronto antes disso",
+    "Olá, {nome}, não quero que a nossa conversa fique só na reunião\nO que eu preciso de você é só um sinal verde pra encaminhar o código\nPosso seguir?",
+    "Boa tarde, {nome}, cada corretor tem o seu momento e eu respeito o seu\nSó me diz o que é melhor: abrir o código agora ou eu te procurar numa data que você escolher?\nAssim eu me organizo do jeito que for melhor pra você",
+  ],
+  sol3_novas: [
+    "Bom dia, {nome}, passando pra lembrar do seu código\nFiquei aguardando o seu envio e ainda não chegou nada por aqui\nConsegue me mandar hoje?",
+    "Olá, {nome}, sei que a semana aperta e o código acaba ficando pra depois\nPor isso vim te lembrar, falta só você me enviar\nSe mandar agora, eu dou andamento na mesma hora",
+    "Boa tarde, {nome}, não esqueci de você\nO seu código continua pendente do seu envio e eu queria resolver isso ainda essa semana\nQual dia você consegue me mandar?",
+    "Olá, {nome}, se ficou alguma dúvida sobre o que precisa enviar pro código, me fala\nEu te explico item por item pra não ter erro\nO que tá faltando do seu lado?",
+    "Bom dia, {nome}, quero muito tirar essa parceria do papel e o primeiro passo é o seu código\nJá tá tudo combinado, falta só o seu envio\nPosso contar com ele até amanhã?",
+    "Boa tarde, {nome}, separa cinco minutinhos hoje pra gente resolver o seu código?\nVocê me envia e eu cuido do resto\nDepois disso você já fica liberado pra trabalhar com a gente",
+    "Olá, {nome}, tô com o seu código anotado aqui como pendente e não queria deixar passar mais uma semana\nSe tiver alguma dificuldade pra enviar, me avisa que eu te ajudo\nComo a gente resolve?",
+    "Bom dia, {nome}, cada dia sem o código é um cliente que você não consegue atender com a gente\nPor isso tô te chamando de novo\nMe envia hoje e a gente já vira essa página",
+    "Olá, {nome}, prefere que eu te ligue pra gente resolver o envio do código junto?\nEm poucos minutos fica pronto e você não precisa parar pra pensar nisso depois\nMe diz um horário",
+    "Boa tarde, {nome}, me ajuda com uma resposta rápida\nVocê consegue me enviar o código essa semana ou prefere que eu te lembre numa data melhor?\nO que for mais fácil pra você, eu me adapto",
+  ],
+  ab3_novas: [
+    "Bom dia, {nome}, seu código já tá aberto, agora é fazer a parceria sair do papel\nTem algum contrato que a gente possa trabalhar junto essa semana?\nMe manda que eu te ajudo do início ao fim",
+    "Olá, {nome}, como tão as vendas por aí?\nSe tiver algum cliente em negociação, me manda o contrato que eu acompanho de perto\nQuero muito ver o seu primeiro negócio com a gente",
+    "Boa tarde, {nome}, o primeiro contrato é o que faz tudo engrenar\nQual cliente seu tá mais perto de fechar hoje?\nMe conta que a gente vê como encaixar com a gente",
+    "Olá, {nome}, tô com a agenda livre pra te ajudar essa semana\nSe aparecer qualquer cliente, me chama antes de fechar em outro lugar\nPosso te mostrar o que a gente consegue fazer por ele",
+    "Bom dia, {nome}, código aberto e parado não gera resultado pra você\nVamos colocar ele pra trabalhar?\nMe manda um cliente, mesmo pequeno, que a gente começa por ele",
+    "Boa tarde, {nome}, passando pra saber se entrou algum cliente novo nos últimos dias\nSe entrou, me envia o contrato dele que eu cuido do andamento\nAssim você ganha tempo pra vender",
+    "Olá, {nome}, muita gente espera o cliente ideal pra mandar o primeiro contrato e acaba demorando pra começar\nO melhor é começar com o que você tem hoje\nQuem você tá atendendo agora?",
+    "Bom dia, {nome}, queria te ajudar a bater a sua meta deste mês\nTem algum contrato em andamento que possa vir pra gente?\nMe fala o cenário que eu vejo o melhor caminho",
+    "Olá, {nome}, lembra do que a gente conversou quando abriu o código?\nA ideia era fazer negócio junto, e eu continuo com essa vontade\nO que falta pra você me enviar o primeiro contrato?",
+    "Boa tarde, {nome}, quando o cliente decide, quem responde rápido leva\nSe você tiver alguma negociação perto de fechar, me manda o contrato que eu priorizo\nVamos fazer esse primeiro juntos?",
+  ],
+  pr3_novas: [
+    "Bom dia, {nome}, o cliente daquela proposta já te deu um retorno?\nSe ele tiver em dúvida entre duas opções, me conta qual é a outra\nEu te ajudo a mostrar a diferença",
+    "Olá, {nome}, proposta parada costuma ser cliente esperando um empurrãozinho\nQue tal a gente combinar a abordagem do próximo contato com ele?\nMe fala em que pé tá",
+    "Boa tarde, {nome}, ficou alguma pendência de documento naquela proposta?\nSe ficou, me manda o que você tem que eu vou adiantando\nNão quero que o negócio esfrie por causa disso",
+    "Olá, {nome}, qual foi a objeção do cliente até agora?\nPreço, prazo ou comparação com outra opção?\nMe diz que eu te ajudo com o argumento certo pra responder",
+    "Bom dia, {nome}, enquanto o cliente pensa, vamos adiantar o próximo?\nMe manda outro contrato que você tem em vista\nAssim você não depende de uma negociação só",
+    "Boa tarde, {nome}, gostei de ver a sua proposta entrando e quero ver ela virar contrato\nPrecisa que eu confira alguma condição ou fale com alguém pra facilitar?\nÉ só pedir",
+    "Olá, {nome}, uma proposta só é o começo\nSe você me mandar mais um cliente essa semana, a gente já cria um ritmo\nQuem seria?",
+    "Bom dia, {nome}, quando o cliente demora pra responder, vale marcar uma data com ele\nVocê já combinou um dia pra ter a resposta?\nSe quiser, te ajudo a montar essa mensagem",
+    "Olá, {nome}, como você avalia a chance de fechar aquela proposta?\nSe tiver difícil, a gente pensa num plano B pro mesmo cliente\nMe conta o que você sentiu dele",
+    "Boa tarde, {nome}, quero te ajudar a transformar essa proposta na primeira de várias\nQuais clientes você vai atender nos próximos dias?\nMe avisa antes que eu já deixo o material pronto",
+  ],
+  en3_novas: [
+    "Bom dia, {nome}, passando pra alinhar a semana\nQual contrato é prioridade pra você agora?\nMe diz que eu acompanho ele de perto",
+    "Olá, {nome}, tem alguma coisa no nosso processo que poderia ser mais rápida pra você?\nQuero facilitar o seu dia a dia\nSua opinião me ajuda a melhorar",
+    "Boa tarde, {nome}, como tá a sua previsão de fechamento pra este mês?\nSe faltar pouco pra sua meta, me fala\nA gente vê junto de onde pode vir o que falta",
+    "Olá, {nome}, parceiro que produz tem prioridade comigo\nSe tiver algum contrato urgente, me avisa que eu passo ele na frente\nO que você tem pra hoje?",
+    "Bom dia, {nome}, que tal a gente olhar a sua carteira atrás de oportunidade nova?\nCliente antigo, bem atendido, costuma comprar de novo\nSepara alguns nomes que eu te ajudo",
+    "Boa tarde, {nome}, queria saber o que os seus clientes mais têm pedido ultimamente\nIsso me ajuda a te mandar o material certo\nMe conta o que tá saindo mais",
+    "Olá, {nome}, você tem algum cliente maior em vista, que precisa de uma atenção diferente?\nNesses casos eu gosto de entrar junto desde o começo\nMe fala se tiver",
+    "Bom dia, {nome}, obrigado pelos contratos que você tem mandado\nQuero retribuir com mais suporte\nO que eu posso fazer por você essa semana?",
+    "Olá, {nome}, tô organizando o meu mês e queria incluir as suas negociações\nQuais contratos você acha que fecham nos próximos dias?\nAssim eu já me preparo pra cada um",
+    "Boa tarde, {nome}, tem algum colega seu que vive reclamando de falta de suporte?\nSe tiver, me apresenta\nVocê sabe como eu trabalho e eu cuido bem de quem você indicar",
+  ],
+
   /* ----- ROTEIROS DE ÁUDIO POR ETAPA ----- */
   audio_sc_convite: [
     "Oi {nome}, tudo bem? Aqui é o Kalyl. Passando pra dar sequência na nossa conversa. O próximo passo é abrir o seu código, e é bem simples: você me passa os dados e eu cuido do resto. Me fala quando posso te mandar o que preciso. Um abraço.",
     "Olá {nome}. Kalyl aqui. Resolvi mandar um áudio porque fica mais fácil de explicar. Pra você começar a cotar com a gente falta só abrir o código. Se quiser, a gente faz isso junto, rapidinho. Me dá um retorno quando puder. Abraço.",
     "{nome}, bom dia. É o Kalyl. Fiquei pensando no que você me contou do seu trabalho e acho que vale a gente deixar seu código aberto, pra você já ter essa opção na mão quando o cliente aparecer. Posso encaminhar? Me avisa. Um abraço.",
+    "Oi {nome}, aqui é o Kalyl. Tô te mandando esse áudio pra retomar o nosso assunto. Queria deixar o seu código aberto pra você já ficar pronto pra atender com a gente. É rápido e eu faço junto com você. Me diz um horário bom. Abraço.",
+    "Olá {nome}, tudo bem? Kalyl falando. Lembrei de você hoje e não quis deixar a nossa conversa esfriar. Se fizer sentido, a gente abre o seu código essa semana. Me dá um sinal que eu te explico o passo a passo. Um abraço.",
   ],
   audio_sc_decisao: [
     "Oi {nome}, tudo certo? Aqui é o Kalyl. Queria te ouvir com sinceridade: o que falta pra gente abrir o seu código? Se for dúvida, eu esclareço. Se for tempo, eu faço quase tudo por você. E se não for o momento, tudo bem, só me avisa. Um abraço.",
     "Olá {nome}. Kalyl falando. Não quero ficar te mandando mensagem sem saber se faz sentido pra você. Então me conta: seguimos com o código agora ou prefere que eu te procure mais pra frente? Qualquer resposta me ajuda. Abraço.",
     "{nome}, boa tarde. É o Kalyl. Passando pra saber se você conseguiu pensar na parceria. Do meu lado tá tudo pronto, falta só o seu sinal e os seus dados pra abrir o código. Me fala o que você decidiu. Um abraço.",
+    "Oi {nome}, aqui é o Kalyl. Queria uma resposta sincera sua, sem compromisso. A parceria ainda faz sentido pra você? Se fizer, a gente abre o código. Se tiver alguma dúvida no caminho, me conta qual é. Um abraço.",
+    "Olá {nome}, tudo certo? Kalyl aqui. Sei que já te procurei algumas vezes, então vou ser breve. Se você quiser abrir o código, eu resolvo com você em poucos minutos. Se preferir outro momento, me fala quando. Abraço.",
   ],
   audio_sol_passo: [
     "Oi {nome}, tudo bem? Aqui é o Kalyl. Passando pra falar do seu código. Do meu lado tá tudo pronto, falta só você me passar os dados do cadastro. Pode mandar por aqui mesmo, do jeito que for mais fácil. Assim que chegar, eu encaminho a abertura. Um abraço.",
     "Olá {nome}. Kalyl aqui. Mandei áudio porque é mais rápido de explicar. Seu código tá a um passo de sair, só depende dos seus dados. Se preferir, me fala um horário que eu te ligo e a gente preenche junto em poucos minutos. Abraço.",
     "{nome}, bom dia. É o Kalyl. Queria fechar a abertura do seu código essa semana pra você já poder cotar. Me manda o que você tiver em mãos e o que faltar eu te peço depois. Combinado? Um abraço.",
+    "Oi {nome}, aqui é o Kalyl. Tô passando pra lembrar do seu código. Fiquei aguardando o seu envio e ainda não chegou por aqui. Consegue me mandar hoje? Assim eu já dou andamento. Um abraço.",
+    "Olá {nome}, tudo bem? Kalyl falando. Seu código continua pendente e eu queria resolver isso com você essa semana. Se tiver alguma dificuldade pra enviar, me avisa que eu te ajudo. Abraço.",
   ],
   audio_sol_destravar: [
     "Oi {nome}, tudo certo? Aqui é o Kalyl. Vi que seu código ainda tá parado e queria entender se travou em alguma coisa. Se for documento, dúvida ou falta de tempo, me fala que eu dou um jeito de facilitar. Não quero que você perca oportunidade por causa de cadastro. Um abraço.",
     "Olá {nome}. Kalyl falando. Passando pra saber se ainda faz sentido pra você abrir o código agora. Se sim, a gente resolve numa ligação rápida. Se preferir deixar mais pra frente, sem problema, só me avisa pra eu me organizar. Abraço.",
     "{nome}, boa tarde. É o Kalyl. Tô te procurando de novo porque falta muito pouco pro seu código sair. Me conta o que tá faltando do seu lado que eu te ajudo a resolver hoje mesmo. Um abraço.",
+    "Oi {nome}, aqui é o Kalyl. Queria entender o que aconteceu com o envio do seu código. Se foi correria, tudo bem, a gente resolve agora. Se surgiu alguma dúvida, me conta que eu esclareço. Um abraço.",
+    "Olá {nome}, tudo certo? Kalyl aqui. Não quero que a nossa parceria fique parada por causa do código. Me fala o que tá faltando do seu lado e a gente combina um dia pra fechar isso. Abraço.",
   ],
   audio_ab_cotacao: [
     "Oi {nome}, tudo bem? Aqui é o Kalyl. Agora que seu código tá ativo, queria te ajudar a tirar a primeira cotação. Se tiver algum cliente em vista, me manda o perfil dele que a gente monta junto. A primeira é sempre a mais importante. Um abraço.",
     "Olá {nome}. Kalyl aqui. Passando pra te propor uma coisa: escolhe um cliente da sua carteira que tenha renovação ou reajuste chegando e me manda. Eu preparo a cotação com você e a gente já testa na prática. Abraço.",
     "{nome}, bom dia. É o Kalyl. Queria marcar quinze minutinhos pra montar a sua primeira proposta junto com você, passo a passo. Me fala o melhor horário que eu me organizo. Um abraço.",
+    "Oi {nome}, aqui é o Kalyl. Seu código já tá aberto e eu queria fazer essa parceria sair do papel. Tem algum contrato que a gente possa trabalhar junto essa semana? Me manda que eu te ajudo em tudo. Um abraço.",
+    "Olá {nome}, tudo bem? Kalyl falando. Como tão as vendas por aí? Se tiver algum cliente perto de fechar, me chama antes. Quero muito fazer o primeiro contrato com você. Abraço.",
   ],
   audio_ab_cliente: [
     "Oi {nome}, tudo certo? Aqui é o Kalyl. Vi que ainda não saiu a primeira proposta e queria entender se posso ajudar em alguma coisa. Se for dúvida de produto, de tabela ou de sistema, me fala que eu resolvo com você. Um abraço.",
     "Olá {nome}. Kalyl falando. Tem algum cliente que ficou de pensar ou que não fechou por preço? Me conta, porque pode ser uma boa oportunidade de levar uma opção nossa pra ele. Eu te ajudo a montar. Abraço.",
     "{nome}, boa tarde. É o Kalyl. Minha proposta é simples: uma cotação essa semana, com o cliente que você escolher. Eu faço junto e te acompanho até o envio. Me dá um retorno. Um abraço.",
+    "Oi {nome}, aqui é o Kalyl. Passando pra saber quem você tá atendendo agora. Mesmo que seja um cliente pequeno, me manda, porque o primeiro contrato é o que faz tudo engrenar. Eu acompanho com você. Um abraço.",
+    "Olá {nome}, tudo certo? Kalyl aqui. Queria entender o que falta pra você me enviar o primeiro contrato. Se for cliente, a gente pensa junto onde buscar. Se for dúvida, eu esclareço. Me conta. Abraço.",
   ],
   audio_pr_fechamento: [
     "Oi {nome}, tudo bem? Aqui é o Kalyl. Passando pra saber como tá aquela proposta. Se o cliente tiver com alguma dúvida ou comparando com outra opção, me fala que eu te ajudo com os argumentos pra fechar. Um abraço.",
     "Olá {nome}. Kalyl aqui. Queria acompanhar de perto esse negócio com você. O que falta pra fechar? Se for documento ou alguma pendência, me manda que eu agilizo. Abraço.",
     "{nome}, bom dia. É o Kalyl. Enquanto aquela proposta anda, já queria pensar com você na próxima. Tem algum cliente em vista? Me manda o perfil que eu vou adiantando. Um abraço.",
+    "Oi {nome}, aqui é o Kalyl. O cliente daquela proposta já te respondeu? Se ele tiver em dúvida, me conta o que ele falou que eu te ajudo a responder. Quero ver esse contrato fechado. Um abraço.",
+    "Olá {nome}, tudo bem? Kalyl falando. Proposta parada às vezes só precisa de um novo contato. Que tal a gente combinar como você vai retomar com o cliente? Me fala em que pé tá. Abraço.",
   ],
   audio_pr_ritmo: [
     "Oi {nome}, tudo certo? Aqui é o Kalyl. Queria te propor um combinado simples: toda cotação nova que aparecer, você me manda junto. Assim você sempre leva mais uma opção pro cliente e a gente cria um ritmo. O que acha? Um abraço.",
     "Olá {nome}. Kalyl falando. Você já viu como funciona, agora é dar sequência. Tem algum cliente da sua carteira com renovação chegando? Me passa que eu preparo a cotação pra você. Abraço.",
     "{nome}, boa tarde. É o Kalyl. Queria saber o que faria você mandar mais propostas com a gente. Se tiver alguma coisa que eu possa melhorar no suporte, me fala com sinceridade. Um abraço.",
+    "Oi {nome}, aqui é o Kalyl. Queria manter o ritmo com você. Quais clientes você vai atender nos próximos dias? Me avisa antes que eu já deixo tudo pronto pra você levar. Um abraço.",
+    "Olá {nome}, tudo certo? Kalyl aqui. Uma proposta é só o começo. Se você me mandar mais um cliente essa semana, a gente já cria uma sequência boa. Quem seria o próximo? Abraço.",
   ],
   audio_agradecer_reuniao: [
     "Oi {nome}, bom dia. Aqui é o Kalyl. Passando rapidinho só pra agradecer pela nossa conversa. Gostei muito de conhecer seu trabalho e a forma como você atua. Fico à disposição pro que você precisar, viu? Um abraço e ótima semana.",
@@ -2534,7 +2695,7 @@ function buildFollowup() {
   if (items.length === 0) html += '<p class="empty">Nada para contatar com esse filtro. Bom trabalho!</p>';
   html += '</div>';
 
-  html += '<p class="hint" style="margin-top:1rem;">Cada corretor tem sua jornada de 12 contatos por etapa, com mensagem sugerida diferente a cada toque (nunca repete para o mesmo corretor). Ao avançar de etapa, a jornada recomeça e o momento é registrado no histórico. Marcar "Falei" avança o contato da jornada.</p>';
+  html += '<p class="hint" style="margin-top:1rem;">Cada corretor tem sua jornada de 28 contatos por etapa, com mensagem sugerida diferente a cada toque (nunca repete para o mesmo corretor). Ao avançar de etapa, a jornada recomeça e o momento é registrado no histórico. Marcar "Falei" avança o contato da jornada.</p>';
 
   v.innerHTML = html;
   chipsVisiveis();
