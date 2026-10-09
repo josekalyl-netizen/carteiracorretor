@@ -27,7 +27,7 @@
     if (t !== "escuro") document.documentElement.setAttribute("data-tema", "claro"); // claro é o padrão
   })();
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "26";
+  var VERSAO = "27";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -745,6 +745,19 @@ button.ag-row:hover{background:rgb(var(--c-paper))}
   .ag-cal-cell{height:46px;border-radius:11px;font-size:13px}
   .ag-side .card{padding:15px}
 }
+/* assistente e conexões */
+.cx-conv{display:flex;flex-direction:column;gap:8px;max-height:44vh;overflow-y:auto;padding:2px}
+.cx-msg{max-width:88%;padding:10px 13px;border-radius:16px;font-size:13.5px;line-height:1.45;overflow-wrap:anywhere}
+.cx-msg.eu{align-self:flex-end;background:var(--ativa-turq);color:var(--ativa-on-turq);border-bottom-right-radius:6px}
+.cx-msg.ia{align-self:flex-start;background:rgb(var(--c-paper));color:rgb(var(--c-ink));border-bottom-left-radius:6px}
+.cx-sugs{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 10px}
+.cx-form{display:flex;gap:8px}
+.cx-form input{flex:1;min-width:0;margin:0}
+.cx-item{border:1px solid rgb(var(--c-line));border-radius:16px;padding:13px 14px;margin-bottom:9px}
+.cx-top{display:flex;align-items:center;gap:8px;font-size:14px;color:rgb(var(--c-ink))}
+.cx-top i{font-size:18px;color:rgb(var(--c-primary))}
+.cx-estado{margin-left:auto;font-size:11.5px;font-weight:700;white-space:nowrap}
+.cx-btns{display:flex;flex-wrap:wrap;gap:6px}
 /* barra das abas de Trabalho (Carteira Ativa) */
 .subnav{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 20px}
 .subnav:empty{display:none}
@@ -799,6 +812,9 @@ button.ag-row:hover{background:rgb(var(--c-paper))}
       </div>
       <button class="icon-round hidden" id="logout-btn" title="Sair da conta neste aparelho" aria-label="Sair">
         <i class="ti ti-logout"></i>
+      </button>
+      <button class="icon-round" id="conexoes-btn" title="Assistente e conexões" aria-label="Assistente e conexões">
+        <i class="ti ti-sparkles"></i>
       </button>
       <button class="icon-round" id="autobackup-btn" title="Backup automático" aria-label="Backup automático">
         <i class="ti ti-cloud-off"></i>
@@ -3663,7 +3679,7 @@ function exportBackup() {
 // Agenda e Finanças entraram depois: um backup antigo não as tem.
 // Ao restaurar um arquivo sem elas, mantém o que existe hoje em vez de apagar.
 function preservarModulos(novo, antigo) {
-  ['agenda', 'financas'].forEach(k => { if (novo && antigo && novo[k] == null && antigo[k] != null) novo[k] = antigo[k]; });
+  ['agenda', 'financas', 'conexoes'].forEach(k => { if (novo && antigo && novo[k] == null && antigo[k] != null) novo[k] = antigo[k]; });
   return novo;
 }
 // confere se o arquivo é mesmo um backup da carteira antes de aceitar
@@ -9149,5 +9165,513 @@ try { if (typeof render === 'function') render(); } catch (e) {}
   sync();
 })();
 </script>
+<!-- CONEXOES:INICIO -->
+<script id="conexoes">
+/* ============================================================
+   CONEXÕES — assistente, notificação no celular e Google Agenda
+   ------------------------------------------------------------
+   Tudo aqui é opcional e entra desligado: enquanto as contas não
+   forem ativadas, nada muda no sistema. Este bloco só LÊ a
+   Carteira, a Agenda e as Finanças; a única coisa que ele grava é
+   data.conexoes (o ID do Google e o vínculo evento ↔ compromisso).
+   Segredos NUNCA ficam aqui: a chave da IA e a chave privada da
+   notificação moram no Supabase.
+   ============================================================ */
+var Conexoes = (function () {
+  var VAPID_PUB = 'BARY-XEPN5sxsnnMCvu8VaQSTb2mgb96I6OlKE8njqPElePOBWTKFTcvnpkO7tO-0Fib4bWwNrx5XNp_MNmRoO4';
+  var LOC = 'w3g_conexoes_local';   // por aparelho: se a notificação está ligada, último envio etc.
+  var DIA = 86400000;
+  var conversa = [];                // conversa com o assistente (só nesta sessão)
+  var iaEstado = null;              // null = não conferido · 'ok' · 'falta' · 'erro'
+  var pushServidor = null;          // null = não conferido · 'ok' · 'falta'
+  var gToken = null, gExpira = 0, gOcupado = false, gUltimo = '';
+
+  /* ---------- utilidades ---------- */
+  function L() { try { return JSON.parse(localStorage.getItem(LOC)) || {}; } catch (e) { return {}; } }
+  function Lset(k, v) { var o = L(); o[k] = v; try { localStorage.setItem(LOC, JSON.stringify(o)); } catch (e) {} }
+  function C() { return (data && data.conexoes && typeof data.conexoes === 'object') ? data.conexoes : {}; }
+  function Cgravar(fn) { if (!data.conexoes || typeof data.conexoes !== 'object') data.conexoes = {}; fn(data.conexoes); saveData(); }
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function isoDia(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function hora(d) { return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+  function diaCurto(d) { return d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }).replace(/\./g, ''); }
+  function hash(s) { var h = 5381; for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return String(h); }
+  function pronto() { return typeof nuvemPronta !== 'undefined' && nuvemPronta && typeof sb !== 'undefined' && !!sb; }
+  function itensAgenda() { return (data && data.agenda && Array.isArray(data.agenda.items)) ? data.agenda.items : []; }
+  function aviso(msg) {
+    var box = document.getElementById('ag-toast');
+    if (!box) { box = document.createElement('div'); box.id = 'ag-toast'; document.body.appendChild(box); }
+    box.innerHTML = '<span>' + esc(msg) + '</span>';
+    void box.offsetWidth; box.classList.add('show');
+    clearTimeout(aviso.t); aviso.t = setTimeout(function () { box.classList.remove('show'); }, 3600);
+  }
+
+  /* ============================================================
+     1) NOTIFICAÇÃO NO CELULAR (com o app fechado)
+     ============================================================ */
+  function pushSuporte() { return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }
+  function b64ParaBytes(b64) {
+    var s = (b64 + '='.repeat((4 - b64.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/');
+    var raw = atob(s), out = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+  function bytesParaB64(buf) {
+    var b = new Uint8Array(buf), s = '';
+    for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+    return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  var swReg = null;
+  function registrarSW() {
+    if (!pushSuporte() || !/^https?:$/.test(location.protocol)) return Promise.resolve(null);
+    if (swReg) return Promise.resolve(swReg);
+    return navigator.serviceWorker.register('sw.js').then(function (r) { swReg = r; return r; }).catch(function () { return null; });
+  }
+  function aparelho() {
+    var u = navigator.userAgent;
+    return (/iPhone|iPad/.test(u) ? 'iPhone' : /Android/.test(u) ? 'Android' : /Windows/.test(u) ? 'Windows' : /Mac/.test(u) ? 'Mac' : 'Navegador') +
+      (/Edg\//.test(u) ? ' · Edge' : /Chrome\//.test(u) ? ' · Chrome' : /Safari\//.test(u) ? ' · Safari' : /Firefox\//.test(u) ? ' · Firefox' : '');
+  }
+  function tabelaFalta(err) { return !!err && (err.code === '42P01' || err.code === 'PGRST205' || /does not exist|schema cache|not find the table/i.test(err.message || '')); }
+
+  async function pushAtivar() {
+    if (!pushSuporte()) { aviso('Este navegador não aceita notificação. No iPhone, instale o app na tela inicial primeiro.'); return; }
+    if (!pronto()) { aviso('Espere a nuvem conectar e tente de novo.'); return; }
+    var perm = Notification.permission;
+    if (perm === 'default') { try { perm = await Notification.requestPermission(); } catch (e) {} }
+    if (perm !== 'granted') { aviso('A notificação está bloqueada neste aparelho. Libere nas configurações do navegador.'); return; }
+    var reg = await registrarSW();
+    if (!reg) { aviso('Não consegui preparar a notificação neste aparelho.'); return; }
+    try {
+      await navigator.serviceWorker.ready;
+      var sub = await reg.pushManager.getSubscription();
+      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ParaBytes(VAPID_PUB) });
+      var r = await sb.from('push_subs').upsert({
+        endpoint: sub.endpoint, user_id: nuvemUid,
+        p256dh: bytesParaB64(sub.getKey('p256dh')), auth: bytesParaB64(sub.getKey('auth')), aparelho: aparelho()
+      }, { onConflict: 'endpoint' });
+      if (r.error) {
+        if (tabelaFalta(r.error)) { pushServidor = 'falta'; aviso('Falta ativar a notificação no Supabase (passo 1 do guia).'); }
+        else aviso('Não consegui registrar este aparelho na nuvem.');
+        abrir(); return;
+      }
+      pushServidor = 'ok';
+      Lset('push', true); Lset('lembHash', '');
+      await sincronizarLembretes(true);
+      aviso('Notificação ligada neste aparelho ✓');
+    } catch (e) { aviso('Não consegui ligar a notificação neste aparelho.'); }
+    abrir();
+  }
+  async function pushDesligar() {
+    try {
+      var reg = await registrarSW();
+      var sub = reg && await reg.pushManager.getSubscription();
+      if (sub) { if (pronto()) await sb.from('push_subs').delete().eq('endpoint', sub.endpoint); await sub.unsubscribe(); }
+    } catch (e) {}
+    Lset('push', false);
+    aviso('Notificação desligada neste aparelho');
+    abrir();
+  }
+  async function pushTestar() {
+    if (!pronto()) return;
+    var r = await sb.from('lembretes').upsert({
+      user_id: nuvemUid, id: 'teste|' + Date.now(), quando: new Date().toISOString(),
+      titulo: 'Teste do Ecossistema', corpo: 'Se você está lendo isto, a notificação funciona.', area: 'compromissos'
+    }, { onConflict: 'user_id,id' });
+    aviso(r.error ? 'Não consegui enviar o teste.' : 'Teste enviado. Deve chegar em até 1 minuto, mesmo com o app fechado.');
+  }
+
+  // monta a lista de lembretes dos próximos dias, a partir da Agenda e das Finanças
+  function montarLembretes() {
+    var agora = Date.now(), fim = agora + 30 * DIA, out = [], porDia = {};
+    itensAgenda().forEach(function (i) {
+      if (!i || i.done || !i.start || i.silent || i.autoToday) return;
+      var ini = new Date(i.start); if (isNaN(ini)) return;
+      var t = ini.getTime();
+      var chave = isoDia(ini);
+      if (t >= agora - DIA && t <= fim) (porDia[chave] = porDia[chave] || []).push(i);
+      var quando = i.allDay ? new Date(ini.getFullYear(), ini.getMonth(), ini.getDate(), 9, 0, 0).getTime()
+        : t - (i.notifyBefore == null ? 0 : i.notifyBefore) * 60000;
+      if (quando <= agora || quando > fim) return;
+      var antes = !i.allDay && i.notifyBefore > 0;
+      out.push({
+        id: 'ag|' + i.id + '|' + i.start, quando: new Date(quando).toISOString(), titulo: String(i.title || 'Compromisso').slice(0, 120),
+        corpo: i.allDay ? 'É hoje' : (antes ? 'Começa às ' + hora(ini) : 'É agora · ' + hora(ini)) + (i.local ? ' · ' + String(i.local).slice(0, 60) : ''),
+        area: 'compromissos'
+      });
+    });
+    // véspera: às 19h, o que há no dia seguinte
+    for (var k = 0; k < 14; k++) {
+      var d = new Date(); d.setHours(19, 0, 0, 0); d.setDate(d.getDate() + k);
+      if (d.getTime() <= agora) continue;
+      var am = new Date(d); am.setDate(am.getDate() + 1);
+      var evs = (porDia[isoDia(am)] || []).slice().sort(function (a, b) { return new Date(a.start) - new Date(b.start); });
+      if (!evs.length) continue;
+      out.push({
+        id: 'vesp|' + isoDia(d), quando: d.toISOString(),
+        titulo: 'Amanhã você tem ' + evs.length + (evs.length > 1 ? ' compromissos' : ' compromisso'),
+        corpo: evs.slice(0, 3).map(function (i) { return (i.allDay ? '' : hora(new Date(i.start)) + ' ') + i.title; }).join(' · ').slice(0, 160) + (evs.length > 3 ? ' (+' + (evs.length - 3) + ')' : ''),
+        area: 'compromissos'
+      });
+    }
+    // finanças: às 8h30, as contas que vencem no dia (só os nomes; valor não aparece na tela de bloqueio)
+    if (L().pushFin !== false && window.Financas && Financas.temPlano && Financas.temPlano()) {
+      for (var n = 0; n < 14; n++) {
+        var f = new Date(); f.setHours(8, 30, 0, 0); f.setDate(f.getDate() + n);
+        if (f.getTime() <= agora) continue;
+        var dd = null;
+        try { dd = Financas.dia(isoDia(f)); } catch (e) {}
+        if (!dd) continue;
+        var contas = dd.abertos.filter(function (x) { return x.mov === 'saida'; });
+        if (!contas.length) continue;
+        out.push({
+          id: 'fin|' + isoDia(f), quando: f.toISOString(),
+          titulo: contas.length + (contas.length > 1 ? ' contas vencem hoje' : ' conta vence hoje'),
+          corpo: contas.slice(0, 4).map(function (x) { return x.titulo; }).join(' · ').slice(0, 160) + (contas.length > 4 ? ' (+' + (contas.length - 4) + ')' : ''),
+          area: 'financas'
+        });
+      }
+    }
+    return out;
+  }
+  var lembOcupado = false;
+  async function sincronizarLembretes(forcar) {
+    if (lembOcupado || !pronto() || !L().push || pushServidor === 'falta') return;
+    if (document.body.classList.contains('bloqueado')) return;
+    var lista = montarLembretes();
+    var h = hash(JSON.stringify(lista));
+    if (!forcar && L().lembHash === h && Date.now() - (L().lembQuando || 0) < 6 * 3600000) return;
+    lembOcupado = true;
+    try {
+      lista.forEach(function (l) { l.user_id = nuvemUid; });
+      for (var i = 0; i < lista.length; i += 200) {
+        var r = await sb.from('lembretes').upsert(lista.slice(i, i + 200), { onConflict: 'user_id,id' });
+        if (r.error) { if (tabelaFalta(r.error)) pushServidor = 'falta'; throw r.error; }
+      }
+      pushServidor = 'ok';
+      // tira da fila o que ainda não foi enviado e deixou de existir (compromisso concluído, apagado ou com outra hora)
+      var ids = {}; lista.forEach(function (l) { ids[l.id] = 1; });
+      var q = await sb.from('lembretes').select('id').eq('user_id', nuvemUid).is('enviado_em', null).gt('quando', new Date().toISOString()).limit(2000);
+      if (!q.error && q.data) {
+        var sobra = q.data.map(function (x) { return x.id; }).filter(function (id) { return !ids[id] && id.indexOf('teste|') !== 0; });
+        for (var j = 0; j < sobra.length; j += 100) await sb.from('lembretes').delete().eq('user_id', nuvemUid).in('id', sobra.slice(j, j + 100));
+      }
+      Lset('lembHash', h); Lset('lembQuando', Date.now());
+    } catch (e) {}
+    lembOcupado = false;
+  }
+
+  /* ============================================================
+     2) GOOGLE AGENDA (os compromissos daqui aparecem lá)
+     ============================================================ */
+  var G_ESCOPO = 'https://www.googleapis.com/auth/calendar.events';
+  var G_API = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
+  function gId() { return String(C().googleClientId || '').trim(); }
+  function gConectado() { return !!gToken && Date.now() < gExpira - 60000; }
+  function gCarregar() {
+    if (window.google && google.accounts && google.accounts.oauth2) return Promise.resolve();
+    return new Promise(function (ok, falha) {
+      var s = document.createElement('script');
+      s.src = 'https://accounts.google.com/gsi/client'; s.onload = ok; s.onerror = falha;
+      document.head.appendChild(s);
+    });
+  }
+  function gColarId() {
+    var v = prompt('Cole aqui o "ID do cliente" do Google (termina com .apps.googleusercontent.com).\n\nEle não é segredo. Deixe vazio para remover.', gId());
+    if (v == null) return;
+    v = v.trim();
+    if (v && !/\.apps\.googleusercontent\.com$/.test(v)) { aviso('Esse texto não parece um ID do cliente do Google.'); return; }
+    Cgravar(function (c) { c.googleClientId = v; });
+    abrir();
+  }
+  async function gConectar() {
+    if (!gId()) { gColarId(); return; }
+    try { await gCarregar(); } catch (e) { aviso('Não consegui falar com o Google. Confira a internet.'); return; }
+    var cliente = google.accounts.oauth2.initTokenClient({
+      client_id: gId(), scope: G_ESCOPO,
+      callback: function (r) {
+        if (!r || !r.access_token) { aviso('O Google não liberou o acesso.'); return; }
+        gToken = r.access_token; gExpira = Date.now() + (Number(r.expires_in) || 3600) * 1000;
+        gSincronizar(true);
+      },
+      error_callback: function () { aviso('A janela do Google foi fechada antes de liberar.'); }
+    });
+    cliente.requestAccessToken({ prompt: '' });
+  }
+  function gEvento(i) {
+    var ini = new Date(i.start), ev = {
+      summary: String(i.title || 'Compromisso').slice(0, 300),
+      description: 'Criado no Ecossistema · Compromissos',
+      extendedProperties: { private: { ecossistema: '1', item: String(i.id) } },
+      reminders: { useDefault: false, overrides: (!i.allDay && i.notifyBefore != null && !i.silent) ? [{ method: 'popup', minutes: Math.max(0, Math.min(40320, i.notifyBefore)) }] : [] }
+    };
+    if (i.local) ev.location = String(i.local).slice(0, 300);
+    if (i.allDay) {
+      var fim = new Date(ini); fim.setDate(fim.getDate() + 1);
+      ev.start = { date: isoDia(ini) }; ev.end = { date: isoDia(fim) };
+    } else {
+      var f2 = new Date(ini.getTime() + (i.dur > 0 ? i.dur : 60) * 60000);
+      ev.start = { dateTime: ini.toISOString(), timeZone: 'America/Sao_Paulo' };
+      ev.end = { dateTime: f2.toISOString(), timeZone: 'America/Sao_Paulo' };
+    }
+    return ev;
+  }
+  async function gChamar(metodo, url, corpo) {
+    var r = await fetch(url, { method: metodo, headers: { Authorization: 'Bearer ' + gToken, 'Content-Type': 'application/json' }, body: corpo ? JSON.stringify(corpo) : undefined });
+    if (r.status === 401) { gToken = null; throw new Error('login'); }
+    return r;
+  }
+  // envia para o Google o que mudou: cria, atualiza e remove (só os eventos que este sistema criou)
+  async function gSincronizar(manual) {
+    if (gOcupado || !gConectado()) { if (manual && !gConectado()) gConectar(); return; }
+    gOcupado = true;
+    var mapa = JSON.parse(JSON.stringify(C().gcal || {})), mudou = false, criados = 0, atualizados = 0, removidos = 0, erros = 0;
+    try {
+      var limite = Date.now() - DIA, vivos = {};
+      var lista = itensAgenda().filter(function (i) { return i && !i.done && i.start && !isNaN(new Date(i.start)) && new Date(i.start).getTime() >= limite; }).slice(0, 300);
+      for (var k = 0; k < lista.length; k++) {
+        var i = lista[k], ev = gEvento(i), h = hash(JSON.stringify(ev)), m = mapa[i.id];
+        vivos[i.id] = 1;
+        if (m && m.h === h) continue;
+        var r;
+        if (m && m.ev) {
+          r = await gChamar('PATCH', G_API + '/' + encodeURIComponent(m.ev), ev);
+          if (r.status === 404 || r.status === 410) m = null; else if (r.ok) { mapa[i.id] = { ev: m.ev, h: h }; mudou = true; atualizados++; continue; } else { erros++; continue; }
+        }
+        r = await gChamar('POST', G_API, ev);
+        if (r.ok) { var j = await r.json(); mapa[i.id] = { ev: j.id, h: h }; mudou = true; criados++; } else erros++;
+      }
+      var ids = Object.keys(mapa);
+      for (var n = 0; n < ids.length; n++) {
+        if (vivos[ids[n]]) continue;
+        var rr = await gChamar('DELETE', G_API + '/' + encodeURIComponent(mapa[ids[n]].ev));
+        if (rr.ok || rr.status === 404 || rr.status === 410) { delete mapa[ids[n]]; mudou = true; removidos++; } else erros++;
+      }
+      gUltimo = hora(new Date()) + ' · ' + (criados + atualizados + removidos ? criados + ' novo(s), ' + atualizados + ' atualizado(s), ' + removidos + ' removido(s)' : 'tudo em dia') + (erros ? ' · ' + erros + ' falha(s)' : '');
+      if (manual) aviso('Google Agenda: ' + (criados + atualizados + removidos ? criados + ' novo(s), ' + atualizados + ' atualizado(s), ' + removidos + ' removido(s)' : 'tudo em dia'));
+    } catch (e) {
+      if (manual) aviso(e && e.message === 'login' ? 'O acesso ao Google venceu. Toque em Conectar de novo.' : 'Não consegui sincronizar com o Google agora.');
+    }
+    gOcupado = false;
+    if (mudou) Cgravar(function (c) { c.gcal = mapa; });
+    if (document.getElementById('cx-ov')) pintarConexoes();
+  }
+  async function gRemoverTudo() {
+    if (!gConectado()) { aviso('Conecte ao Google primeiro.'); return; }
+    if (!confirm('Remover do Google Agenda todos os eventos criados por este sistema?\n\nOs compromissos continuam aqui normalmente.')) return;
+    var mapa = JSON.parse(JSON.stringify(C().gcal || {})), ids = Object.keys(mapa), n = 0;
+    gOcupado = true;
+    try {
+      for (var k = 0; k < ids.length; k++) {
+        var r = await gChamar('DELETE', G_API + '/' + encodeURIComponent(mapa[ids[k]].ev));
+        if (r.ok || r.status === 404 || r.status === 410) { delete mapa[ids[k]]; n++; }
+      }
+    } catch (e) {}
+    gOcupado = false;
+    Cgravar(function (c) { c.gcal = mapa; c.gcalPausa = true; });
+    aviso(n + ' evento(s) removido(s) do Google. A sincronia ficou pausada.');
+    abrir();
+  }
+
+  /* ============================================================
+     3) ASSISTENTE (inteligência artificial)
+     ============================================================ */
+  // o retrato do dia: é isto (e só isto) que vai junto com a pergunta
+  function contexto(comFin) {
+    var agora = new Date(), h0 = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate()).getTime(), t = [];
+    t.push('Agora: ' + agora.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) + ', ' + hora(agora) + '.');
+
+    var its = itensAgenda().filter(function (i) { return i && !i.done && i.start && !isNaN(new Date(i.start)); })
+      .sort(function (a, b) { return new Date(a.start) - new Date(b.start); });
+    var semData = itensAgenda().filter(function (i) { return i && !i.done && !i.start; });
+    var linha = function (i) { var d = new Date(i.start); return '- ' + diaCurto(d) + (i.allDay ? '' : ' ' + hora(d)) + ' · ' + i.title + (i.local ? ' (' + i.local + ')' : '') + (i.urg ? ' [urgente]' : ''); };
+    var atras = its.filter(function (i) { return new Date(i.start).getTime() < h0; });
+    var hoje = its.filter(function (i) { var x = new Date(i.start).getTime(); return x >= h0 && x < h0 + DIA; });
+    var prox = its.filter(function (i) { var x = new Date(i.start).getTime(); return x >= h0 + DIA && x < h0 + 8 * DIA; });
+    t.push('\nCOMPROMISSOS (agenda pessoal)');
+    t.push('Hoje (' + hoje.length + '):' + (hoje.length ? '\n' + hoje.slice(0, 30).map(linha).join('\n') : ' nada marcado.'));
+    if (atras.length) t.push('Atrasados de dias anteriores (' + atras.length + '):\n' + atras.slice(0, 15).map(linha).join('\n'));
+    t.push('Próximos 7 dias (' + prox.length + '):' + (prox.length ? '\n' + prox.slice(0, 40).map(linha).join('\n') : ' nada marcado.'));
+    if (semData.length) t.push('Tarefas sem data (' + semData.length + '): ' + semData.slice(0, 15).map(function (i) { return i.title; }).join('; '));
+
+    try {
+      var lista = ativos(), porEtapa = STAGES.map(function (s) { return s.label + ': ' + lista.filter(function (c) { return c.stage === s.key; }).length; });
+      var due = lista.filter(dueOrHandledToday), feitos = due.filter(function (c) { return c.status === 'falei'; });
+      var faltam = due.filter(function (c) { return c.status !== 'falei'; });
+      var etapa = function (k) { var s = STAGES.find(function (x) { return x.key === k; }); return s ? s.label : k; };
+      t.push('\nCARTEIRA ATIVA (trabalho)');
+      t.push('Corretores ativos: ' + lista.length + '. Por etapa: ' + porEtapa.join(', ') + '.');
+      t.push('Follow-up de hoje: ' + due.length + ' no total, ' + feitos.length + ' já falados, ' + faltam.length + ' faltando.');
+      if (faltam.length) t.push('Faltam falar hoje: ' + faltam.slice(0, 30).map(function (c) { return primeiroNome(c.name) + ' (' + etapa(c.stage) + (isStar(c) ? ', estrela' : '') + ')'; }).join('; ') + (faltam.length > 30 ? ' e mais ' + (faltam.length - 30) : '') + '.');
+    } catch (e) {}
+
+    if (comFin && window.Financas && Financas.temPlano && Financas.temPlano()) {
+      try {
+        var d = Financas.dia(), hz = Financas.horizonte(7), m = Financas.moeda;
+        if (d) {
+          t.push('\nMINHAS FINANÇAS (pessoal)');
+          t.push('Caixa atual: ' + m(d.caixaAtual) + '. Hoje falta pagar ' + m(d.aPagar) + ' e receber ' + m(d.aReceber) + '. Caixa previsto no fim de hoje: ' + m(d.caixaFim) + '.');
+          if (d.abertos.length) t.push('Em aberto hoje: ' + d.abertos.slice(0, 20).map(function (x) { return x.titulo + ' ' + (x.mov === 'entrada' ? '+' : '-') + m(x.valor) + (x.vencido ? ' [vencido]' : ''); }).join('; ') + '.');
+          if (hz) t.push('Próximos 7 dias: sai ' + m(hz.pagar) + ', entra ' + m(hz.receber) + '.' + (hz.pior ? ' Menor caixa: ' + m(hz.pior.caixa) + ' em ' + hz.pior.data.split('-').reverse().join('/') + '.' : '') + (hz.vermelho ? ' Primeiro dia no vermelho: ' + hz.vermelho.data.split('-').reverse().join('/') + '.' : ' Nenhum dia no vermelho.'));
+        }
+      } catch (e) {}
+    } else if (!comFin) t.push('\n(As finanças não foram incluídas nesta conversa.)');
+    return t.join('\n');
+  }
+  async function iaChamar(corpo) {
+    var s = await sb.auth.getSession();
+    var tk = s && s.data && s.data.session && s.data.session.access_token;
+    if (!tk) throw new Error('login');
+    var r = await fetch(NUVEM.url + '/functions/v1/ia', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tk, apikey: NUVEM.key }, body: JSON.stringify(corpo)
+    });
+    var j = null; try { j = await r.json(); } catch (e) {}
+    return { status: r.status, j: j };
+  }
+  async function iaConferir() {
+    if (!pronto()) { iaEstado = 'falta'; return; }
+    try {
+      var r = await iaChamar({ teste: true });
+      iaEstado = (r.status === 200 && r.j && r.j.ok) ? 'ok' : (r.status === 404 || (r.j && /GEMINI_API_KEY/.test(r.j.erro || ''))) ? 'falta' : 'erro';
+    } catch (e) { iaEstado = 'falta'; }
+  }
+  async function perguntar(texto) {
+    texto = String(texto || '').trim();
+    if (!texto) return;
+    conversa.push({ de: 'eu', texto: texto });
+    if (iaEstado !== 'ok') {
+      // sem a IA ligada, respondo com o retrato do dia montado aqui mesmo (sem enviar nada para fora)
+      conversa.push({ de: 'ia', texto: 'A inteligência artificial ainda não está ativada, então não consigo interpretar a pergunta. Este é o retrato do seu dia, montado aqui no próprio sistema:\n\n' + contexto(true), local: true });
+      pintarConversa(); return;
+    }
+    conversa.push({ de: 'ia', texto: '…', espera: true });
+    pintarConversa();
+    var resp;
+    try {
+      var hist = conversa.filter(function (c) { return !c.espera && !c.local; }).slice(0, -1).map(function (c) { return { de: c.de, texto: c.texto }; });
+      var r = await iaChamar({ pergunta: texto, contexto: contexto(L().iaFin === true), historico: hist });
+      if (r.status === 200 && r.j && r.j.ok) resp = r.j.texto;
+      else if (r.j && r.j.erro === 'limite') resp = 'O limite gratuito da IA foi atingido por agora. Tente de novo daqui a pouco.';
+      else if (r.status === 401) resp = 'Sua sessão venceu. Saia e entre de novo no sistema.';
+      else resp = 'A IA não respondeu agora. Tente de novo em instantes.';
+    } catch (e) { resp = 'Não consegui falar com a IA. Confira a internet.'; }
+    conversa = conversa.filter(function (c) { return !c.espera; });
+    conversa.push({ de: 'ia', texto: resp });
+    pintarConversa();
+  }
+
+  /* ============================================================
+     JANELA: assistente + conexões
+     ============================================================ */
+  function fechar() { var o = document.getElementById('cx-ov'); if (o) o.remove(); }
+  function pintarConversa() {
+    var box = document.getElementById('cx-conv'); if (!box) return;
+    if (!conversa.length) {
+      box.innerHTML = '<p class="hint" style="margin:0;">Pergunte sobre o seu dia: compromissos, follow-up da carteira e, se você ligar abaixo, as finanças. O assistente só lê; ele não altera nada no sistema.</p>';
+    } else {
+      box.innerHTML = conversa.map(function (c) { return '<div class="cx-msg ' + (c.de === 'eu' ? 'eu' : 'ia') + '">' + esc(c.texto).replace(/\n/g, '<br>') + '</div>'; }).join('');
+      box.scrollTop = box.scrollHeight;
+    }
+  }
+  function linhaCx(icone, titulo, estado, cor, texto, botoes) {
+    return '<div class="cx-item"><div class="cx-top"><i class="ti ' + icone + '"></i><b>' + titulo + '</b><span class="cx-estado" style="color:rgb(var(' + cor + '));">' + estado + '</span></div>' +
+      '<p class="hint" style="margin:6px 0 8px;">' + texto + '</p><div class="cx-btns">' + botoes + '</div></div>';
+  }
+  var bt = function (acao, rotulo, icone, cls) { return '<button type="button" class="btn btn-sm' + (cls ? ' ' + cls : '') + '" data-cx="' + acao + '"><i class="ti ' + icone + '"></i>' + rotulo + '</button>'; };
+  function pintarConexoes() {
+    var box = document.getElementById('cx-lista'); if (!box) return;
+    var loc = L(), h = '';
+    // assistente
+    h += linhaCx('ti-sparkles', 'Inteligência artificial',
+      iaEstado === 'ok' ? 'Ativa' : iaEstado === null ? 'Conferindo…' : 'Falta ativar', iaEstado === 'ok' ? '--c-grow' : '--c-warn',
+      iaEstado === 'ok' ? 'Cada pergunta envia ao Google Gemini um retrato do seu dia (compromissos e resumo da carteira, só com o primeiro nome dos corretores). ' + (loc.iaFin === true ? 'As finanças estão incluídas.' : 'As finanças NÃO são enviadas.')
+        : 'Enquanto não for ativada, o assistente mostra o retrato do dia montado aqui mesmo, sem enviar nada para fora.',
+      iaEstado === 'ok' ? bt('iaFin', loc.iaFin === true ? 'Parar de incluir finanças' : 'Incluir finanças nas perguntas', 'ti-wallet') : bt('iaConferir', 'Conferir de novo', 'ti-refresh'));
+    // notificação
+    var temPerm = pushSuporte() && Notification.permission === 'granted';
+    var pEstado = !pushSuporte() ? 'Não disponível aqui' : pushServidor === 'falta' ? 'Falta ativar' : (loc.push && temPerm) ? 'Ligada neste aparelho' : 'Desligada';
+    h += linhaCx('ti-bell-ringing', 'Notificação no celular', pEstado, (loc.push && temPerm && pushServidor !== 'falta') ? '--c-grow' : '--c-warn',
+      !pushSuporte() ? 'Este navegador não aceita notificação. No iPhone, abra pelo Safari, toque em Compartilhar → "Adicionar à Tela de Início" e abra o app por lá.'
+        : 'Avisa na hora de cada compromisso, às 19h com o que há amanhã e às 8h30 com as contas do dia' + (loc.pushFin === false ? ' (finanças desligadas)' : '') + ', mesmo com o app fechado. Ligue em cada aparelho que deve avisar.',
+      !pushSuporte() ? '' : (loc.push && temPerm)
+        ? bt('pushTestar', 'Enviar teste', 'ti-send') + bt('pushFin', loc.pushFin === false ? 'Avisar das contas' : 'Não avisar das contas', 'ti-wallet') + bt('pushDesligar', 'Desligar', 'ti-bell-off', 'btn-ghost')
+        : bt('pushAtivar', 'Ligar neste aparelho', 'ti-bell-plus', 'btn-accent'));
+    // google
+    var n = Object.keys(C().gcal || {}).length;
+    h += linhaCx('ti-brand-google', 'Google Agenda', !gId() ? 'Falta o ID do cliente' : gConectado() ? 'Conectada' : 'Pronta para conectar', gConectado() ? '--c-grow' : '--c-warn',
+      !gId() ? 'Os compromissos daqui passam a aparecer na sua Google Agenda. Falta colar o "ID do cliente" (passo 3 do guia).'
+        : 'Envia para a sua Google Agenda os compromissos com data. ' + (n ? n + ' evento(s) vinculados. ' : '') + (gUltimo ? 'Última sincronia: ' + gUltimo + '. ' : '') + 'O Google pede para reconectar de tempos em tempos; enquanto estiver conectada, as mudanças vão sozinhas.',
+      !gId() ? bt('gColarId', 'Colar o ID do cliente', 'ti-key', 'btn-accent')
+        : (gConectado() ? bt('gSync', 'Sincronizar agora', 'ti-refresh', 'btn-accent') : bt('gConectar', 'Conectar', 'ti-plug-connected', 'btn-accent')) + (n ? bt('gRemover', 'Remover eventos do Google', 'ti-trash', 'btn-ghost') : '') + bt('gColarId', 'Trocar o ID', 'ti-key', 'btn-ghost'));
+    box.innerHTML = h;
+  }
+  var ACOES = {
+    fechar: fechar,
+    enviar: function () { var i = document.getElementById('cx-in'); if (!i) return; var v = i.value; i.value = ''; perguntar(v); },
+    sug: function (b) { perguntar(b.textContent); },
+    limpar: function () { conversa = []; pintarConversa(); },
+    iaFin: function () { Lset('iaFin', L().iaFin === true ? false : true); pintarConexoes(); },
+    iaConferir: function () { iaEstado = null; pintarConexoes(); iaConferir().then(pintarConexoes); },
+    pushAtivar: pushAtivar, pushDesligar: pushDesligar, pushTestar: pushTestar,
+    pushFin: function () { Lset('pushFin', L().pushFin === false ? true : false); Lset('lembHash', ''); sincronizarLembretes(true); pintarConexoes(); },
+    gColarId: gColarId, gConectar: function () { Cgravar(function (c) { c.gcalPausa = false; }); gConectar(); },
+    gSync: function () { Cgravar(function (c) { c.gcalPausa = false; }); gSincronizar(true); }, gRemover: gRemoverTudo
+  };
+  function abrir() {
+    fechar();
+    var ov = document.createElement('div');
+    ov.className = 'overlay'; ov.id = 'cx-ov';
+    ov.onclick = function (e) {
+      if (e.target === ov) { fechar(); return; }
+      var b = e.target.closest('[data-cx]'); if (!b) return;
+      var f = ACOES[b.getAttribute('data-cx')]; if (f) { e.preventDefault(); f(b); }
+    };
+    ov.innerHTML = '<div class="modal" style="max-width:560px;"><div class="modal-head"><div class="mh-title"><i class="ti ti-sparkles"></i>Assistente</div>' +
+      '<div class="mh-sub">Inteligência e conexões do ecossistema</div><button class="modal-close" data-cx="fechar" aria-label="Fechar"><i class="ti ti-x"></i></button></div>' +
+      '<div class="modal-body">' +
+      '<div id="cx-conv" class="cx-conv"></div>' +
+      '<div class="cx-sugs"><button type="button" class="chip" data-cx="sug">Como está o meu dia?</button><button type="button" class="chip" data-cx="sug">O que é mais urgente agora?</button><button type="button" class="chip" data-cx="sug">O que tenho nos próximos 7 dias?</button></div>' +
+      '<div class="cx-form"><input id="cx-in" type="text" placeholder="Escreva a sua pergunta" autocomplete="off"><button type="button" class="btn btn-accent" data-cx="enviar"><i class="ti ti-send"></i>Enviar</button></div>' +
+      '<div class="sect-title" style="margin-top:1.4rem;"><i class="ti ti-plug-connected"></i>Conexões</div>' +
+      '<div id="cx-lista"></div>' +
+      '</div></div>';
+    document.body.appendChild(ov);
+    var inp = document.getElementById('cx-in');
+    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); ACOES.enviar(); } });
+    pintarConversa(); pintarConexoes();
+    if (iaEstado !== 'ok') iaConferir().then(pintarConexoes);
+  }
+
+  /* ---------- ligações com o resto do sistema ---------- */
+  var tSalvar = null;
+  function aposSalvar() {
+    clearTimeout(tSalvar);
+    tSalvar = setTimeout(function () {
+      sincronizarLembretes(false);
+      if (gConectado() && !C().gcalPausa) gSincronizar(false);
+    }, 4000);
+  }
+  function iniciar() {
+    try {
+      // toda vez que o sistema salva, os lembretes e o Google são atualizados (com um pequeno atraso)
+      if (typeof window.saveData === 'function') { var _s = window.saveData; window.saveData = function () { var o = _s.apply(this, arguments); try { aposSalvar(); } catch (e) {} return o; }; }
+      var b = document.getElementById('conexoes-btn'); if (b) b.onclick = abrir;
+      registrarSW();
+      if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', function (e) {
+        var d = e.data || {};
+        if (d.tipo !== 'abrir-area' || document.body.classList.contains('bloqueado')) return;
+        activeTab = d.area === 'financas' ? 'financas' : d.area === 'carteira' ? 'followup' : 'agenda';
+        render(); window.scrollTo(0, 0);
+      });
+      // os dados também mudam quando chegam de outro aparelho: confere de tempos em tempos
+      setInterval(function () { if (!document.hidden) sincronizarLembretes(false); }, 5 * 60000);
+      setTimeout(function () { sincronizarLembretes(false); }, 15000);
+    } catch (e) {}
+  }
+  iniciar();
+  return { abrir: abrir, contexto: contexto, montarLembretes: montarLembretes, sincronizarLembretes: sincronizarLembretes };
+})();
+</script>
+<!-- CONEXOES:FIM -->
 </body>
 </html>
