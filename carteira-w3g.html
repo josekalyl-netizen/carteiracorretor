@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "41";
+  var VERSAO = "42";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -6168,6 +6168,7 @@ input[type="checkbox"]{width:16px;height:16px;padding:0;flex:none;accent-color:#
       <div class="fin-ponte" id="finPonte"></div>
     </div>
     <div class="fin-tools">
+      <button class="btn" id="menusBtn" type="button"><i class="ti ti-arrows-maximize"></i><span>Expandir tudo</span></button>
       <button class="btn" id="importBtn" type="button"><i class="ti ti-upload"></i>Importar JSON</button>
       <button class="btn" id="exportBtn" type="button"><i class="ti ti-download"></i>Exportar backup (.json)</button>
       <button class="btn gear" id="gearBtn" type="button" title="Ajustes e calculadora"><i class="ti ti-settings"></i></button>
@@ -8314,6 +8315,20 @@ if(document.getElementById('dpBtn')){
     const tit = e.target.closest('.composer-title,.rf-title,.cron-title,.sec-head,.cf-toggle');
     const bx = tit && tit.closest('.bx');
     if(bx && !bx.classList.contains('hero')) bx.classList.toggle('aberto');
+  });
+  // botao do topo: abre ou fecha todos os quadros de uma vez (clica no titulo de cada um, pra manter tudo em sincronia)
+  const menusBtn = document.getElementById('menusBtn');
+  if(menusBtn) menusBtn.addEventListener('click', ()=>{
+    const bxs = Array.from(menusBtn.closest('.fin').querySelectorAll('.bx:not(.hero)')).filter(b=>b.firstElementChild);
+    const abrir = bxs.some(b=>!b.classList.contains('aberto'));
+    bxs.forEach(b=>{
+      if(b.classList.contains('aberto')===abrir) return;
+      const tit = b.querySelector('.composer-title,.rf-title,.cron-title,.sec-head,.cf-toggle');
+      if(tit) tit.click();
+      if(b.classList.contains('aberto')!==abrir) b.classList.toggle('aberto', abrir);
+    });
+    menusBtn.querySelector('span').textContent = abrir ? 'Diminuir tudo' : 'Expandir tudo';
+    menusBtn.querySelector('i').className = abrir ? 'ti ti-arrows-minimize' : 'ti ti-arrows-maximize';
   });
   document.getElementById('dpBtn').addEventListener('click', ()=>{
     const titulo = document.getElementById('dpTitulo').value.trim();
