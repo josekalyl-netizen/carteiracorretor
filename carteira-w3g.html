@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "33";
+  var VERSAO = "34";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -6124,7 +6124,8 @@ input[type="checkbox"]{width:16px;height:16px;padding:0;flex:none;accent-color:#
 .cf-sai .cf-row .v{color:rgb(var(--c-alert)) !important}
 .cf-vazio{font-size:12px;color:rgb(var(--c-muted));padding:6px 2px}
 .rf-row .rf-voltar{margin-left:2px;padding:11px 14px}
-@media (max-width:860px){ .cf-grupos{grid-template-columns:1fr} }`;
+@media (max-width:860px){ .cf-grupos{grid-template-columns:1fr} }
+.cf-mes{font:600 11.5px/1.35 var(--ativa-font-body);color:rgb(var(--c-ink2));margin-top:3px}`;
   var FIN_SHELL = `<div class="fin">
   <div class="fin-top">
     <div>
@@ -6856,10 +6857,11 @@ function custoFixoDoDia(d, semPendencias){
     if(ex.diaMes==='ultimo-util'){
       ehHoje = (iso===isoOf(ultimoDiaUtilMes(y,m)));
     } else if(ex.ajusteDiaUtil){
-      const dataNatural = new Date(y, m-1, ex.diaMes);
+      const dataNatural = new Date(y, m-1, Math.min(ex.diaMes, ultimoDiaMes(y,m).getDate())); // mes mais curto: usa o ultimo dia
+
       ehHoje = (dataNatural.getMonth()===m-1) && (iso===isoOf(ajustarParaDiaUtilAnterior(dataNatural))); // getMonth confere que o dia existe nesse mes (ex: dia 31 em fev)
     } else {
-      ehHoje = (d.getDate()===ex.diaMes);
+      ehHoje = (d.getDate()===Math.min(ex.diaMes, ultimoDiaMes(y,m).getDate())); // dia 30 em fevereiro: cai no ultimo dia do mes
     }
     if(d>=inicioFixoExtra(ex) && ehHoje){
       const nomeChip = ex.titulo+' (fixo)';
@@ -8693,7 +8695,7 @@ function resumoCustoFixoDeTabela(){
 function renderResumoCustoFixo(){
   const el = document.getElementById('cfResumo');
   if(!el) return;
-  // conta simples: soma do que entra menos soma do que sai, pelos valores da lista (o colchao segue com a media dele)
+  // conta simples do mes atual: tudo que entra menos tudo que sai (o colchao segue com a media dele)
   const r = cfSoma || resumoCustoFixoMensal();
   const sobra = r.saldo >= 0;
   const pctComprometido = r.entrada>0 ? Math.min(100, r.saida/r.entrada*100) : 0;
@@ -8703,7 +8705,7 @@ function renderResumoCustoFixo(){
     <div class="cfr-bar"><div class="cfr-fill ${pctComprometido>90?'cfr-alerta':''}" style="width:${pctComprometido.toFixed(1)}%"></div></div>
     <div class="cfr-pct">${pctComprometido.toFixed(0)}% da renda já comprometida com custo fixo</div>
     <div class="cfr-linha cfr-saldo"><span>${sobra?'Sobra por mês':'Falta por mês'}</span><span class="${sobra?'cfr-in':'cfr-out'}">${sobra?'':'-'}${fmtBR(Math.abs(r.saldo))}</span></div>
-    <div class="cfr-nota">Conta simples: a soma do que entra menos a soma do que sai, pelos valores da lista acima (cada item conta uma vez). Recalcula sozinho quando você adiciona, tira ou muda um item.</div>`;
+    <div class="cfr-nota">Conta de ${parseISO(todayISO()).toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}: tudo que entra menos tudo que sai. O que cai mais de uma vez no mês (toda semana, todo dia útil) conta todas as vezes. Recalcula sozinho quando você adiciona, tira ou muda um item.</div>`;
 }
 function renderCustoFixo(){
   const cf = DADOS_BASE.custoFixo;
@@ -9045,6 +9047,25 @@ function inicioFixoExtra(ex){
 /* ---------- CUSTO FIXO DO MES: o que entra de um lado, o que sai do outro ----------
    So muda a arrumacao da lista e soma os valores que estao nela. Nao mexe em cronograma nem em caixa. */
 let cfSoma = null;
+// tudo de custo fixo que cai no mes atual, pelo valor de tabela (sem datas movidas, puladas ou valor trocado num dia so)
+function custoFixoDoMesAtual(){
+  const reais = [state.custoFixoMovidas, state.custoFixoPuladosData, state.custoFixoOverridesData];
+  state.custoFixoMovidas = {}; state.custoFixoPuladosData = []; state.custoFixoOverridesData = {};
+  const por = {}, tot = {entrada:0, saida:0};
+  try{
+    const h = parseISO(todayISO());
+    const fim = ultimoDiaMes(h.getFullYear(), h.getMonth()+1).getDate();
+    for(let dia=1; dia<=fim; dia++){
+      custoFixoDoDia(new Date(h.getFullYear(), h.getMonth(), dia), true).det.forEach(f=>{ // true = sem trazer pra hoje o que venceu antes
+        if(f[2]!=='entrada' && f[2]!=='saida') return;
+        const k = f[3] ? 'id:'+f[3] : 'n:'+(f[0]===R.lav2 ? R.lav : f[0]);
+        const o = por[k] = por[k] || {n:0, total:0};
+        o.n++; o.total += f[1]; tot[f[2]] += f[1];
+      });
+    }
+  } finally { state.custoFixoMovidas = reais[0]; state.custoFixoPuladosData = reais[1]; state.custoFixoOverridesData = reais[2]; }
+  return {por:por, entrada:r2(tot.entrada), saida:r2(tot.saida)};
+}
 function agruparCustoFixo(){
   const lista = document.getElementById('cfList');
   if(!lista) return;
@@ -9052,9 +9073,19 @@ function agruparCustoFixo(){
   const num = r => parseFloat(txt(r).replace(/[^0-9,]/g,'').replace(',','.')) || 0;
   const grupos = {entra:[], sai:[]};
   Array.from(lista.querySelectorAll('.cf-row')).forEach(r=>{ (txt(r).charAt(0)==='+' ? grupos.entra : grupos.sai).push(r); });
-  const soma = a => r2(a.reduce((s,r)=>s+num(r), 0));
-  cfSoma = {entrada: soma(grupos.entra), saida: soma(grupos.sai)};
-  cfSoma.saldo = r2(cfSoma.entrada - cfSoma.saida);
+  // cada item conta quantas vezes cai no mes atual (semanal = 4 ou 5 vezes, dia util = todos os dias uteis...)
+  const mes = custoFixoDoMesAtual();
+  cfSoma = {entrada: mes.entrada, saida: mes.saida, saldo: r2(mes.entrada - mes.saida)};
+  grupos.entra.concat(grupos.sai).forEach(r=>{
+    const chip = r.querySelector('.chip-edit');
+    if(!chip) return;
+    const o = mes.por[chip.dataset.id ? 'id:'+chip.dataset.id : 'n:'+chip.dataset.nome];
+    let nota = '';
+    if(!o) nota = 'não cai neste mês';
+    else if(o.n>1) nota = o.n+' vezes neste mês = '+fmtBR(r2(o.total));
+    else if(Math.abs(o.total-num(r))>0.005) nota = 'neste mês: '+fmtBR(r2(o.total));
+    if(nota){ const d = document.createElement('div'); d.className = 'cf-mes'; d.textContent = nota; r.firstElementChild.appendChild(d); }
+  });
   const wrap = document.createElement('div');
   wrap.className = 'cf-grupos';
   [['entra','Entra','ti-arrow-down-left','+',cfSoma.entrada],['sai','Sai','ti-arrow-up-right','-',cfSoma.saida]].forEach(g=>{
@@ -9328,7 +9359,6 @@ function abrirParcelamentoRec(id){
   el('Cada').addEventListener('click', ()=>abrirEditorParcelas('rec', id));
   resumo();
 }
-
 function datasSeguindoEntrada(dataEntrada, n){
   const base = parseISO(dataEntrada), out = [];
   for(let i=1;i<=n;i++) out.push(isoOf(addMonths(base, i)));
@@ -9746,7 +9776,7 @@ function updateDate(){
       aberto: function () { return overlay.classList.contains('show'); },
       estado: function () { return state; },
       raiz: RAIZ,
-      F: {load: load, METAS_PADRAO: METAS_PADRAO, save: save, garantirSeeds: garantirSeeds, fmtBR: fmtBR, parseISO: parseISO, isoOf: isoOf, addMonths: addMonths, fmtDataCurta: fmtDataCurta, fmtDataComAno: fmtDataComAno, mesLabel: mesLabel, ultimoDiaMes: ultimoDiaMes, ultimoDiaUtilMes: ultimoDiaUtilMes, ajustarParaDiaUtilAnterior: ajustarParaDiaUtilAnterior, sextoDiaUtil: sextoDiaUtil, proximoPagamento: proximoPagamento, primeiroSabado: primeiroSabado, diasEntre: diasEntre, todayISO: todayISO, inicioLedger: inicioLedger, cfv: cfv, cfvData: cfvData, custoFixoDoDia: custoFixoDoDia, construirLedger: construirLedger, todasOcorrenciasFuturas: todasOcorrenciasFuturas, construirCaixaDiarioCompleto: construirCaixaDiarioCompleto, melhorDataParaValor: melhorDataParaValor, sugerirAntecipacao: sugerirAntecipacao, sugerirMelhorDataBidirecional: sugerirMelhorDataBidirecional, aplicarNovaDataCompromisso: aplicarNovaDataCompromisso, abrirMoverData: abrirMoverData, custoFixoMensalMedio: custoFixoMensalMedio, colchaoAlvo: colchaoAlvo, rendaMensal: rendaMensal, aindaTemPendencias: aindaTemPendencias, distribuir203050: distribuir203050, aplicarNasMetas: aplicarNasMetas, construirCronograma: construirCronograma, todasTasks: todasTasks, tasksPendentes: tasksPendentes, tasksConcluidas: tasksConcluidas, recorrentesAtivos: recorrentesAtivos, catLabel: catLabel, updateHero: updateHero, iconCheck: iconCheck, cardHTML: cardHTML, recorrenteEventoHTML: recorrenteEventoHTML, escapeHTML: escapeHTML, fmtDataLonga: fmtDataLonga, renderRecorrentes: renderRecorrentes, renderAll: renderAll, diaEstaConcluido: diaEstaConcluido, renderCronograma: renderCronograma, custoFixoChipHTML: custoFixoChipHTML, compromissoChipHTML: compromissoChipHTML, bindChips: bindChips, valorTotalTask: valorTotalTask, acharFixoPago: acharFixoPago, htmlFixosPagos: htmlFixosPagos, voltarFixoPago: voltarFixoPago, renderResumoFinal: renderResumoFinal, renderTotaisLista: renderTotaisLista, ultimaParcelaProjetada: ultimaParcelaProjetada, tabelaRD: tabelaRD, renderRegras: renderRegras, renderMetas: renderMetas, planoVermelho: planoVermelho, htmlPlanoVermelho: htmlPlanoVermelho, montarPlanoVermelho: montarPlanoVermelho, renderDiasNegativos: renderDiasNegativos, abrirSugestaoNegativo: abrirSugestaoNegativo, renderRelatorioDatas: renderRelatorioDatas, aplicarConclusaoTask: aplicarConclusaoTask, toggleDone: toggleDone, delExtra: delExtra, aplicarPagamentoParcela: aplicarPagamentoParcela, pagamentoAnterior: pagamentoAnterior, desfazerUltimaParcela: desfazerUltimaParcela, pagarParcela: pagarParcela, toast: toast, renderMensal: renderMensal, calcularFundoReserva: calcularFundoReserva, totalReservaProgramado: totalReservaProgramado, renderReserva: renderReserva, coletarGastosRealizados: coletarGastosRealizados, chaveGasto: chaveGasto, categorizarGasto: categorizarGasto, categoriaDoEvento: categoriaDoEvento, categorizarAuto: categorizarAuto, renderGastoMensal: renderGastoMensal, abrirRotularGasto: abrirRotularGasto, resumoCustoFixoMensal: resumoCustoFixoMensal, resumoCustoFixoDeTabela: resumoCustoFixoDeTabela, renderResumoCustoFixo: renderResumoCustoFixo, renderCustoFixo: renderCustoFixo, openSheet: openSheet, closeSheet: closeSheet, melhorPeriodoParaParcelamento: melhorPeriodoParaParcelamento, applyTheme: applyTheme, abrirEditSheet: abrirEditSheet, renderLinhasParcelasEdit: renderLinhasParcelasEdit, lerLinhasParcelasEdit: lerLinhasParcelasEdit, abrirEditorParcelas: abrirEditorParcelas, r2: r2, inicioFixoExtra: inicioFixoExtra, agruparCustoFixo: agruparCustoFixo, parcPorMes: parcPorMes, renderParcMes: renderParcMes, sugerirParcelada: sugerirParcelada, usarSugestao: usarSugestao, htmlSugestoes: htmlSugestoes, abrirParcelamentoRec: abrirParcelamentoRec, datasSeguindoEntrada: datasSeguindoEntrada, valoresDasParcelas: valoresDasParcelas, gravarCamposTask: gravarCamposTask, seguirEntrada: seguirEntrada, lerParcelada: lerParcelada, ligarCamposParcelada: ligarCamposParcelada, abrirParcelamento: abrirParcelamento, abrirEdicaoTask: abrirEdicaoTask, abrirEdicaoRecorrente: abrirEdicaoRecorrente, estornarPagoFixo: estornarPagoFixo, estornarPagosPorNome: estornarPagosPorNome, migrarMarcacaoPago: migrarMarcacaoPago, valorEfetivoNoDia: valorEfetivoNoDia, abrirEdicaoFixo: abrirEdicaoFixo, abrirEdicaoFixoExtra: abrirEdicaoFixoExtra, updateDate: updateDate}
+      F: {load: load, METAS_PADRAO: METAS_PADRAO, save: save, garantirSeeds: garantirSeeds, fmtBR: fmtBR, parseISO: parseISO, isoOf: isoOf, addMonths: addMonths, fmtDataCurta: fmtDataCurta, fmtDataComAno: fmtDataComAno, mesLabel: mesLabel, ultimoDiaMes: ultimoDiaMes, ultimoDiaUtilMes: ultimoDiaUtilMes, ajustarParaDiaUtilAnterior: ajustarParaDiaUtilAnterior, sextoDiaUtil: sextoDiaUtil, proximoPagamento: proximoPagamento, primeiroSabado: primeiroSabado, diasEntre: diasEntre, todayISO: todayISO, inicioLedger: inicioLedger, cfv: cfv, cfvData: cfvData, custoFixoDoDia: custoFixoDoDia, construirLedger: construirLedger, todasOcorrenciasFuturas: todasOcorrenciasFuturas, construirCaixaDiarioCompleto: construirCaixaDiarioCompleto, melhorDataParaValor: melhorDataParaValor, sugerirAntecipacao: sugerirAntecipacao, sugerirMelhorDataBidirecional: sugerirMelhorDataBidirecional, aplicarNovaDataCompromisso: aplicarNovaDataCompromisso, abrirMoverData: abrirMoverData, custoFixoMensalMedio: custoFixoMensalMedio, colchaoAlvo: colchaoAlvo, rendaMensal: rendaMensal, aindaTemPendencias: aindaTemPendencias, distribuir203050: distribuir203050, aplicarNasMetas: aplicarNasMetas, construirCronograma: construirCronograma, todasTasks: todasTasks, tasksPendentes: tasksPendentes, tasksConcluidas: tasksConcluidas, recorrentesAtivos: recorrentesAtivos, catLabel: catLabel, updateHero: updateHero, iconCheck: iconCheck, cardHTML: cardHTML, recorrenteEventoHTML: recorrenteEventoHTML, escapeHTML: escapeHTML, fmtDataLonga: fmtDataLonga, renderRecorrentes: renderRecorrentes, renderAll: renderAll, diaEstaConcluido: diaEstaConcluido, renderCronograma: renderCronograma, custoFixoChipHTML: custoFixoChipHTML, compromissoChipHTML: compromissoChipHTML, bindChips: bindChips, valorTotalTask: valorTotalTask, acharFixoPago: acharFixoPago, htmlFixosPagos: htmlFixosPagos, voltarFixoPago: voltarFixoPago, renderResumoFinal: renderResumoFinal, renderTotaisLista: renderTotaisLista, ultimaParcelaProjetada: ultimaParcelaProjetada, tabelaRD: tabelaRD, renderRegras: renderRegras, renderMetas: renderMetas, planoVermelho: planoVermelho, htmlPlanoVermelho: htmlPlanoVermelho, montarPlanoVermelho: montarPlanoVermelho, renderDiasNegativos: renderDiasNegativos, abrirSugestaoNegativo: abrirSugestaoNegativo, renderRelatorioDatas: renderRelatorioDatas, aplicarConclusaoTask: aplicarConclusaoTask, toggleDone: toggleDone, delExtra: delExtra, aplicarPagamentoParcela: aplicarPagamentoParcela, pagamentoAnterior: pagamentoAnterior, desfazerUltimaParcela: desfazerUltimaParcela, pagarParcela: pagarParcela, toast: toast, renderMensal: renderMensal, calcularFundoReserva: calcularFundoReserva, totalReservaProgramado: totalReservaProgramado, renderReserva: renderReserva, coletarGastosRealizados: coletarGastosRealizados, chaveGasto: chaveGasto, categorizarGasto: categorizarGasto, categoriaDoEvento: categoriaDoEvento, categorizarAuto: categorizarAuto, renderGastoMensal: renderGastoMensal, abrirRotularGasto: abrirRotularGasto, resumoCustoFixoMensal: resumoCustoFixoMensal, resumoCustoFixoDeTabela: resumoCustoFixoDeTabela, renderResumoCustoFixo: renderResumoCustoFixo, renderCustoFixo: renderCustoFixo, openSheet: openSheet, closeSheet: closeSheet, melhorPeriodoParaParcelamento: melhorPeriodoParaParcelamento, applyTheme: applyTheme, abrirEditSheet: abrirEditSheet, renderLinhasParcelasEdit: renderLinhasParcelasEdit, lerLinhasParcelasEdit: lerLinhasParcelasEdit, abrirEditorParcelas: abrirEditorParcelas, r2: r2, inicioFixoExtra: inicioFixoExtra, custoFixoDoMesAtual: custoFixoDoMesAtual, agruparCustoFixo: agruparCustoFixo, parcPorMes: parcPorMes, renderParcMes: renderParcMes, sugerirParcelada: sugerirParcelada, usarSugestao: usarSugestao, htmlSugestoes: htmlSugestoes, abrirParcelamentoRec: abrirParcelamentoRec, datasSeguindoEntrada: datasSeguindoEntrada, valoresDasParcelas: valoresDasParcelas, gravarCamposTask: gravarCamposTask, seguirEntrada: seguirEntrada, lerParcelada: lerParcelada, ligarCamposParcelada: ligarCamposParcelada, abrirParcelamento: abrirParcelamento, abrirEdicaoTask: abrirEdicaoTask, abrirEdicaoRecorrente: abrirEdicaoRecorrente, estornarPagoFixo: estornarPagoFixo, estornarPagosPorNome: estornarPagosPorNome, migrarMarcacaoPago: migrarMarcacaoPago, valorEfetivoNoDia: valorEfetivoNoDia, abrirEdicaoFixo: abrirEdicaoFixo, abrirEdicaoFixoExtra: abrirEdicaoFixoExtra, updateDate: updateDate}
     };
   }
 
