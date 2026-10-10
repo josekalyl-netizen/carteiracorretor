@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "44";
+  var VERSAO = "45";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -6188,7 +6188,18 @@ input[type="checkbox"]{width:16px;height:16px;padding:0;flex:none;accent-color:#
 .rg-bar-t small{display:block;font-size:11.5px;color:rgb(var(--c-muted));margin-top:2px}
 .rg-b{border-radius:999px;padding:11px 18px;font:700 13px/1 var(--ativa-font-body);cursor:pointer;border:1px solid var(--ln);background:transparent;color:rgb(var(--c-ink))}
 .rg-b.rg-ok{background:rgb(var(--c-alert));border-color:rgb(var(--c-alert));color:#fff}
-#reorgBtn:disabled{opacity:.5;cursor:default}`;
+#reorgBtn:disabled{opacity:.5;cursor:default}
+/* antecipar */
+.rf-ant{border-color:rgb(var(--c-grow));color:rgb(var(--c-grow))}
+#antSugBtn{margin-bottom:8px}
+#antSugBtn .ti{margin-right:4px}
+.ant-lista{margin-top:10px}
+.ant-it{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:9px 0;border-bottom:1px solid var(--ln)}
+.ant-it:last-child{border-bottom:0}
+.ant-i{min-width:0}
+.ant-i b{display:block;font-weight:700;font-size:13.5px;color:rgb(var(--c-ink));overflow-wrap:break-word}
+.ant-i span{display:block;font-size:12px;line-height:1.4;color:rgb(var(--c-ink2));margin-top:2px}
+.ant-v{font:700 13.5px/1.2 var(--ativa-font-display);color:rgb(var(--c-ink));white-space:nowrap}`;
   var FIN_SHELL = `<div class="fin">
   <div class="fin-top">
     <div>
@@ -6769,7 +6780,6 @@ function METAS_PADRAO(){
 }
 let reorgDemo = null; // demonstracao da reorganizacao em curso: enquanto existir, nada e gravado
 function save(){ if(reorgDemo) return; FIN_GRAVAR(state); }
-
 let state = load();
 const uid = () => 'x'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 
@@ -7881,6 +7891,7 @@ function renderResumoFinal(){
       if(el.dataset.tipo==='rec') abrirParcelamentoRec(el.dataset.id); else abrirParcelamento(el.dataset.id);
     });
   });
+  try{ antMarcarLinhas(); }catch(e){}
 
   let htmlPago = pago.map(t=>{
     const ehParc = t.tipo==='entrada' && t.parcelas;
@@ -8986,6 +8997,8 @@ LABEL_PARA_CFKEY[R.lav2] = K.lav;
 let editContexto = null;
 
 function abrirEditSheet(titulo, camposHTML, temExcluir, aoSalvar, aoExcluir){
+  document.getElementById('editSalvarBtn').textContent = 'Salvar'; // quem precisa de outro nome troca depois de abrir
+
   document.getElementById('editTitulo').textContent = titulo;
   document.getElementById('editCampos').innerHTML = camposHTML;
   const btnExcluir = document.getElementById('editExcluirBtn');
@@ -9196,10 +9209,10 @@ let pmLinhas = null, pmTodos = false, pmAberto = {};
 function parcPorMes(L){
   // a vista so e divida se estiver marcado em state.dividaVista; quem valida e o dono, fora da tela (sem botao).
   // os codigos abaixo sao so identificadores internos dos lancamentos ja validados por ele (rodada 1).
-  if((state.dividaVistaV||0) < 1){
+  if((state.dividaVistaV||0) < 2){
     state.dividaVista = state.dividaVista || {};
-    't5,t6,t9,t13,t14,t15,t22,t27,t29,t30,t31,t32,t33,t34,t36,t37,t38,t39,t40,t41,t42,t43,t44,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,xmtu4op09ngxby,xmtn7xjq1j07r4'.split(',').forEach(i=>{ state.dividaVista[i] = 1; });
-    state.dividaVistaV = 1;
+    't5,t6,t9,t13,t14,t15,t22,t27,t29,t30,t31,t32,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t44,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,xmtu4op09ngxby,xmtn7xjq1j07r4'.split(',').forEach(i=>{ state.dividaVista[i] = 1; });
+    state.dividaVistaV = 2;
   }
   const m = {}, dv = state.dividaVista || {};
   L.forEach(l=>l.compromissos.forEach(ev=>{
@@ -9469,6 +9482,118 @@ function reorgSair(aplicar){
   }
   renderCustoFixo(); renderAll(); reorgTela();
   toast(aplicar ? 'Reorganização aplicada e gravada.' : 'Cancelado. O sistema ficou como estava.', null);
+}
+
+/* ---------- ANTECIPAR: o que da pra pagar HOJE, com o caixa de hoje, sem deixar nenhum dia no vermelho ----------
+   So calcula e sugere. Pagar usa as mesmas funcoes do toque normal (toggleDone / pagarParcela).
+   Pagar hoje o que venceria no dia D tira o valor do caixa de hoje ate a vespera de D; de D em diante nada muda.
+   Entao so cabe se o caixa de todos esses dias aguentar o valor. */
+function antDias(){ return construirCaixaDiarioCompleto(1500); }
+function antPossivel(tipo, id, dias, gasto){
+  const hojeD = parseISO(dias[0].data), N = dias.length;
+  let pags;
+  if(tipo==='task'){
+    const t = tasksPendentes().find(x=>x.id===id);
+    if(!t || !t.data || t.tipoMov==='entrada') return null;
+    pags = [{data:t.data, valor:t.valor}];
+  } else {
+    const r = recorrentesAtivos().find(x=>x.id===id);
+    if(!r) return null;
+    pags = todasOcorrenciasFuturas(r);
+  }
+  const need = new Array(N).fill(0);
+  let n = 0, total = 0, adiantadas = 0;
+  for(let i=0;i<pags.length;i++){
+    const d = Math.min(N, Math.max(0, diasEntre(hojeD, parseISO(pags[i].data))));
+    let ok = true;
+    for(let j=0;j<d;j++){
+      if(dias[j].data>=PERMITE_NEG_DE && dias[j].data<=PERMITE_NEG_ATE) continue;
+      if(dias[j].caixa - (gasto?gasto[j]:0) - need[j] - pags[i].valor < -0.005){ ok = false; break; }
+    }
+    if(!ok) break;
+    for(let j=0;j<d;j++) need[j] += pags[i].valor;
+    n++; total += pags[i].valor; if(d>0) adiantadas++;
+  }
+  if(!adiantadas) return null;
+  return {n:n, total:r2(total), need:need, ate:pags[n-1].data, primeira:pags[0].data, restam:pags.length-n};
+}
+function antCandidatos(){
+  const dv = state.dividaVista || {}, c = [];
+  tasksPendentes().forEach(t=>{
+    if(!t.data || t.tipoMov==='entrada') return;
+    const parc = !!(t.tipo==='entrada' && t.parcelas);
+    if(parc || dv[t.id]) c.push({tipo:'task', id:t.id, titulo:t.titulo, data:t.data, parc:parc});
+  });
+  recorrentesAtivos().forEach(r=>{ c.push({tipo:'rec', id:r.id, titulo:r.titulo, data:r.proximaData||'', parc:false}); });
+  c.sort((a,b)=> a.data<b.data ? -1 : a.data>b.data ? 1 : 0);
+  return c;
+}
+function antMarcarLinhas(){
+  // poe o botao Antecipar so nas dividas que da pra adiantar hoje
+  parcPorMes([]);
+  const linhas = Array.from(document.querySelectorAll('.rf-row[data-act="rfMover"]'));
+  if(!linhas.length) return;
+  let dias = null;
+  const ehDivida = {};
+  antCandidatos().forEach(c=>{ ehDivida[c.tipo+':'+c.id] = 1; });
+  linhas.forEach(row=>{
+    const tipo = row.dataset.tipo, id = row.dataset.id;
+    if(!ehDivida[tipo+':'+id]) return;
+    dias = dias || antDias();
+    if(!antPossivel(tipo, id, dias, null)) return;
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'rf-voltar rf-ant'; b.textContent = 'Antecipar';
+    b.addEventListener('click', e=>{ e.stopPropagation(); abrirAntecipar(tipo, id); });
+    const ref = row.querySelector('[data-act="rfParc"]');
+    if(ref) row.insertBefore(b, ref); else row.appendChild(b);
+  });
+  const primeira = linhas[0];
+  if(primeira && !document.getElementById('antSugBtn')){
+    const s = document.createElement('button');
+    s.type = 'button'; s.className = 'rf-mais'; s.id = 'antSugBtn';
+    s.innerHTML = '<i class="ti ti-player-track-next"></i> Sugerir o que dá para antecipar com o caixa de hoje';
+    s.addEventListener('click', abrirSugestaoAntecipar);
+    primeira.parentNode.insertBefore(s, primeira);
+  }
+}
+function antTextoItem(c, r){
+  if(c.tipo==='task') return (c.parc ? 'a entrada' : 'inteira')+' · estava para '+fmtDataComAno(r.primeira);
+  return r.n+(r.n===1?' parcela':' parcelas')+(r.n>1 ? ' (até a de '+fmtDataComAno(r.ate)+')' : ' · estava para '+fmtDataComAno(r.primeira))+(r.restam ? ' · ficam faltando '+r.restam : ' · quita tudo');
+}
+function abrirAntecipar(tipo, id){
+  const c = antCandidatos().find(x=>x.tipo===tipo && x.id===id);
+  const r = c && antPossivel(tipo, id, antDias(), null);
+  if(!r){ toast('Com o caixa de hoje não dá para antecipar isso sem deixar algum dia no vermelho.', null); return; }
+  let h = `<div class="calc-ok">Seu caixa hoje: <b>${fmtBR(state.caixaAtual)}</b>.<br>Dá para pagar agora <b>${fmtBR(r.total)}</b> desta dívida: ${antTextoItem(c, r)}.<br>Nenhum dia do fluxo fica no vermelho por causa disso.</div>`;
+  if(tipo==='rec' && r.n>1) h += `<div class="field" style="margin-top:12px"><label>Quantas parcelas pagar agora (de 1 a ${r.n})</label><input id="antQtd" type="number" min="1" max="${r.n}" step="1" value="${r.n}" inputmode="numeric"></div>`;
+  if(c.parc) h += `<div class="rd-sub" style="margin-top:10px">Pagando a entrada, as parcelas continuam nas datas em que já estão.</div>`;
+  h += `<div class="rd-sub" style="margin-top:10px">Ao apertar o botão abaixo o valor sai do caixa agora, como quando você marca um pagamento no cronograma.</div>`;
+  abrirEditSheet('Antecipar: '+c.titulo, h, false, ()=>{
+    if(tipo==='task'){ toggleDone(id); return; }
+    let q = r.n; const el = document.getElementById('antQtd');
+    if(el){ q = parseInt(el.value, 10); if(isNaN(q) || q<1 || q>r.n){ toast('Quantidade inválida. Nada foi pago.', null); return; } }
+    pagarParcela(id, q);
+  }, null);
+  document.getElementById('editSalvarBtn').textContent = 'Pagar agora';
+}
+function abrirSugestaoAntecipar(){
+  const dias = antDias(), gasto = new Array(dias.length).fill(0), lista = [];
+  antCandidatos().forEach(c=>{
+    const r = antPossivel(c.tipo, c.id, dias, gasto);
+    if(!r) return;
+    for(let j=0;j<gasto.length;j++) gasto[j] += r.need[j];
+    lista.push({c:c, r:r});
+  });
+  const total = r2(lista.reduce((s,x)=>s+x.r.total, 0));
+  let h = `<div class="rd-sub" style="margin:0 0 10px">Conta feita com o caixa de hoje (<b>${fmtBR(state.caixaAtual)}</b>) e todo o fluxo que já está lançado. Ordem: a dívida com a data mais próxima primeiro. Nada é pago aqui: é só a sugestão.</div>`;
+  if(!lista.length) h += `<div class="calc-erro">Com o caixa de hoje não dá para antecipar nenhuma dívida sem deixar algum dia no vermelho.</div>`;
+  else {
+    h += `<div class="calc-ok">Dá para antecipar <b>${fmtBR(total)}</b> em ${lista.length} ${lista.length===1?'dívida':'dívidas'}, todas juntas, sem nenhum dia ficar no vermelho.</div><div class="ant-lista">`;
+    lista.forEach(x=>{ h += `<div class="ant-it"><div class="ant-i"><b>${escapeHTML(x.c.titulo)}</b><span>${antTextoItem(x.c, x.r)}</span></div><div class="ant-v">${fmtBR(x.r.total)}</div></div>`; });
+    h += `</div><div class="rd-sub" style="margin-top:10px">Para pagar, feche aqui e toque em <b>Antecipar</b> na dívida que quiser. Depois de cada pagamento a conta é refeita.</div>`;
+  }
+  abrirEditSheet('O que dá para antecipar hoje', h, false, ()=>{}, null);
+  document.getElementById('editSalvarBtn').textContent = 'Fechar';
 }
 
 /* ---------- SUGESTAO DE PARCELAMENTO QUE NAO DEIXA NENHUM DIA NO VERMELHO ----------
@@ -10105,7 +10230,7 @@ function updateDate(){
       aberto: function () { return overlay.classList.contains('show'); },
       estado: function () { return state; },
       raiz: RAIZ,
-      F: {load: load, METAS_PADRAO: METAS_PADRAO, save: save, garantirSeeds: garantirSeeds, fmtBR: fmtBR, parseISO: parseISO, isoOf: isoOf, addMonths: addMonths, fmtDataCurta: fmtDataCurta, fmtDataComAno: fmtDataComAno, mesLabel: mesLabel, ultimoDiaMes: ultimoDiaMes, ultimoDiaUtilMes: ultimoDiaUtilMes, ajustarParaDiaUtilAnterior: ajustarParaDiaUtilAnterior, sextoDiaUtil: sextoDiaUtil, proximoPagamento: proximoPagamento, primeiroSabado: primeiroSabado, diasEntre: diasEntre, todayISO: todayISO, inicioLedger: inicioLedger, cfv: cfv, cfvData: cfvData, custoFixoDoDia: custoFixoDoDia, construirLedger: construirLedger, todasOcorrenciasFuturas: todasOcorrenciasFuturas, construirCaixaDiarioCompleto: construirCaixaDiarioCompleto, melhorDataParaValor: melhorDataParaValor, sugerirAntecipacao: sugerirAntecipacao, sugerirMelhorDataBidirecional: sugerirMelhorDataBidirecional, aplicarNovaDataCompromisso: aplicarNovaDataCompromisso, abrirMoverData: abrirMoverData, custoFixoMensalMedio: custoFixoMensalMedio, colchaoAlvo: colchaoAlvo, rendaMensal: rendaMensal, aindaTemPendencias: aindaTemPendencias, distribuir203050: distribuir203050, aplicarNasMetas: aplicarNasMetas, construirCronograma: construirCronograma, todasTasks: todasTasks, tasksPendentes: tasksPendentes, tasksConcluidas: tasksConcluidas, recorrentesAtivos: recorrentesAtivos, catLabel: catLabel, updateHero: updateHero, iconCheck: iconCheck, cardHTML: cardHTML, recorrenteEventoHTML: recorrenteEventoHTML, escapeHTML: escapeHTML, fmtDataLonga: fmtDataLonga, renderRecorrentes: renderRecorrentes, renderAll: renderAll, diaEstaConcluido: diaEstaConcluido, renderCronograma: renderCronograma, custoFixoChipHTML: custoFixoChipHTML, compromissoChipHTML: compromissoChipHTML, bindChips: bindChips, valorTotalTask: valorTotalTask, acharFixoPago: acharFixoPago, htmlFixosPagos: htmlFixosPagos, voltarFixoPago: voltarFixoPago, renderResumoFinal: renderResumoFinal, renderTotaisLista: renderTotaisLista, ultimaParcelaProjetada: ultimaParcelaProjetada, tabelaRD: tabelaRD, renderRegras: renderRegras, renderMetas: renderMetas, planoVermelho: planoVermelho, htmlPlanoVermelho: htmlPlanoVermelho, montarPlanoVermelho: montarPlanoVermelho, renderDiasNegativos: renderDiasNegativos, abrirSugestaoNegativo: abrirSugestaoNegativo, renderRelatorioDatas: renderRelatorioDatas, aplicarConclusaoTask: aplicarConclusaoTask, toggleDone: toggleDone, delExtra: delExtra, aplicarPagamentoParcela: aplicarPagamentoParcela, pagamentoAnterior: pagamentoAnterior, desfazerUltimaParcela: desfazerUltimaParcela, pagarParcela: pagarParcela, toast: toast, renderMensal: renderMensal, calcularFundoReserva: calcularFundoReserva, totalReservaProgramado: totalReservaProgramado, renderReserva: renderReserva, coletarGastosRealizados: coletarGastosRealizados, chaveGasto: chaveGasto, categorizarGasto: categorizarGasto, categoriaDoEvento: categoriaDoEvento, categorizarAuto: categorizarAuto, renderGastoMensal: renderGastoMensal, abrirRotularGasto: abrirRotularGasto, resumoCustoFixoMensal: resumoCustoFixoMensal, resumoCustoFixoDeTabela: resumoCustoFixoDeTabela, renderResumoCustoFixo: renderResumoCustoFixo, renderCustoFixo: renderCustoFixo, openSheet: openSheet, closeSheet: closeSheet, melhorPeriodoParaParcelamento: melhorPeriodoParaParcelamento, applyTheme: applyTheme, abrirEditSheet: abrirEditSheet, renderLinhasParcelasEdit: renderLinhasParcelasEdit, lerLinhasParcelasEdit: lerLinhasParcelasEdit, abrirEditorParcelas: abrirEditorParcelas, r2: r2, inicioFixoExtra: inicioFixoExtra, custoFixoDoMesAtual: custoFixoDoMesAtual, custoFixoDoMes: custoFixoDoMes, agruparCustoFixo: agruparCustoFixo, parcPorMes: parcPorMes, renderParcMes: renderParcMes, reorgUnidades: reorgUnidades, reorgRetrato: reorgRetrato, reorgPlano: reorgPlano, reorgGravar: reorgGravar, reorgTela: reorgTela, reorgEntrar: reorgEntrar, reorgSair: reorgSair, sugerirParcelada: sugerirParcelada, usarSugestao: usarSugestao, htmlSugestoes: htmlSugestoes, abrirParcelamentoRec: abrirParcelamentoRec, datasSeguindoEntrada: datasSeguindoEntrada, valoresDasParcelas: valoresDasParcelas, gravarCamposTask: gravarCamposTask, seguirEntrada: seguirEntrada, lerParcelada: lerParcelada, ligarCamposParcelada: ligarCamposParcelada, abrirParcelamento: abrirParcelamento, abrirEdicaoTask: abrirEdicaoTask, abrirEdicaoRecorrente: abrirEdicaoRecorrente, estornarPagoFixo: estornarPagoFixo, estornarPagosPorNome: estornarPagosPorNome, migrarMarcacaoPago: migrarMarcacaoPago, valorEfetivoNoDia: valorEfetivoNoDia, abrirEdicaoFixo: abrirEdicaoFixo, abrirEdicaoFixoExtra: abrirEdicaoFixoExtra, updateDate: updateDate}
+      F: {load: load, METAS_PADRAO: METAS_PADRAO, save: save, garantirSeeds: garantirSeeds, fmtBR: fmtBR, parseISO: parseISO, isoOf: isoOf, addMonths: addMonths, fmtDataCurta: fmtDataCurta, fmtDataComAno: fmtDataComAno, mesLabel: mesLabel, ultimoDiaMes: ultimoDiaMes, ultimoDiaUtilMes: ultimoDiaUtilMes, ajustarParaDiaUtilAnterior: ajustarParaDiaUtilAnterior, sextoDiaUtil: sextoDiaUtil, proximoPagamento: proximoPagamento, primeiroSabado: primeiroSabado, diasEntre: diasEntre, todayISO: todayISO, inicioLedger: inicioLedger, cfv: cfv, cfvData: cfvData, custoFixoDoDia: custoFixoDoDia, construirLedger: construirLedger, todasOcorrenciasFuturas: todasOcorrenciasFuturas, construirCaixaDiarioCompleto: construirCaixaDiarioCompleto, melhorDataParaValor: melhorDataParaValor, sugerirAntecipacao: sugerirAntecipacao, sugerirMelhorDataBidirecional: sugerirMelhorDataBidirecional, aplicarNovaDataCompromisso: aplicarNovaDataCompromisso, abrirMoverData: abrirMoverData, custoFixoMensalMedio: custoFixoMensalMedio, colchaoAlvo: colchaoAlvo, rendaMensal: rendaMensal, aindaTemPendencias: aindaTemPendencias, distribuir203050: distribuir203050, aplicarNasMetas: aplicarNasMetas, construirCronograma: construirCronograma, todasTasks: todasTasks, tasksPendentes: tasksPendentes, tasksConcluidas: tasksConcluidas, recorrentesAtivos: recorrentesAtivos, catLabel: catLabel, updateHero: updateHero, iconCheck: iconCheck, cardHTML: cardHTML, recorrenteEventoHTML: recorrenteEventoHTML, escapeHTML: escapeHTML, fmtDataLonga: fmtDataLonga, renderRecorrentes: renderRecorrentes, renderAll: renderAll, diaEstaConcluido: diaEstaConcluido, renderCronograma: renderCronograma, custoFixoChipHTML: custoFixoChipHTML, compromissoChipHTML: compromissoChipHTML, bindChips: bindChips, valorTotalTask: valorTotalTask, acharFixoPago: acharFixoPago, htmlFixosPagos: htmlFixosPagos, voltarFixoPago: voltarFixoPago, renderResumoFinal: renderResumoFinal, renderTotaisLista: renderTotaisLista, ultimaParcelaProjetada: ultimaParcelaProjetada, tabelaRD: tabelaRD, renderRegras: renderRegras, renderMetas: renderMetas, planoVermelho: planoVermelho, htmlPlanoVermelho: htmlPlanoVermelho, montarPlanoVermelho: montarPlanoVermelho, renderDiasNegativos: renderDiasNegativos, abrirSugestaoNegativo: abrirSugestaoNegativo, renderRelatorioDatas: renderRelatorioDatas, aplicarConclusaoTask: aplicarConclusaoTask, toggleDone: toggleDone, delExtra: delExtra, aplicarPagamentoParcela: aplicarPagamentoParcela, pagamentoAnterior: pagamentoAnterior, desfazerUltimaParcela: desfazerUltimaParcela, pagarParcela: pagarParcela, toast: toast, renderMensal: renderMensal, calcularFundoReserva: calcularFundoReserva, totalReservaProgramado: totalReservaProgramado, renderReserva: renderReserva, coletarGastosRealizados: coletarGastosRealizados, chaveGasto: chaveGasto, categorizarGasto: categorizarGasto, categoriaDoEvento: categoriaDoEvento, categorizarAuto: categorizarAuto, renderGastoMensal: renderGastoMensal, abrirRotularGasto: abrirRotularGasto, resumoCustoFixoMensal: resumoCustoFixoMensal, resumoCustoFixoDeTabela: resumoCustoFixoDeTabela, renderResumoCustoFixo: renderResumoCustoFixo, renderCustoFixo: renderCustoFixo, openSheet: openSheet, closeSheet: closeSheet, melhorPeriodoParaParcelamento: melhorPeriodoParaParcelamento, applyTheme: applyTheme, abrirEditSheet: abrirEditSheet, renderLinhasParcelasEdit: renderLinhasParcelasEdit, lerLinhasParcelasEdit: lerLinhasParcelasEdit, abrirEditorParcelas: abrirEditorParcelas, r2: r2, inicioFixoExtra: inicioFixoExtra, custoFixoDoMesAtual: custoFixoDoMesAtual, custoFixoDoMes: custoFixoDoMes, agruparCustoFixo: agruparCustoFixo, parcPorMes: parcPorMes, renderParcMes: renderParcMes, reorgUnidades: reorgUnidades, reorgRetrato: reorgRetrato, reorgPlano: reorgPlano, reorgGravar: reorgGravar, reorgTela: reorgTela, reorgEntrar: reorgEntrar, reorgSair: reorgSair, antDias: antDias, antPossivel: antPossivel, antCandidatos: antCandidatos, antMarcarLinhas: antMarcarLinhas, antTextoItem: antTextoItem, abrirAntecipar: abrirAntecipar, abrirSugestaoAntecipar: abrirSugestaoAntecipar, sugerirParcelada: sugerirParcelada, usarSugestao: usarSugestao, htmlSugestoes: htmlSugestoes, abrirParcelamentoRec: abrirParcelamentoRec, datasSeguindoEntrada: datasSeguindoEntrada, valoresDasParcelas: valoresDasParcelas, gravarCamposTask: gravarCamposTask, seguirEntrada: seguirEntrada, lerParcelada: lerParcelada, ligarCamposParcelada: ligarCamposParcelada, abrirParcelamento: abrirParcelamento, abrirEdicaoTask: abrirEdicaoTask, abrirEdicaoRecorrente: abrirEdicaoRecorrente, estornarPagoFixo: estornarPagoFixo, estornarPagosPorNome: estornarPagosPorNome, migrarMarcacaoPago: migrarMarcacaoPago, valorEfetivoNoDia: valorEfetivoNoDia, abrirEdicaoFixo: abrirEdicaoFixo, abrirEdicaoFixoExtra: abrirEdicaoFixoExtra, updateDate: updateDate}
     };
   }
 
