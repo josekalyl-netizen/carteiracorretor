@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "64";
+  var VERSAO = "65";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -8289,6 +8289,15 @@ function toggleDone(id){
   save(); renderAll();
 }
 function delExtra(id){
+  { // guarda o que foi apagado, para poder restaurar em Excluidos (reserva automatica nao: ela e refeita sozinha)
+    const ap = state.extras.find(x=>x.id===id);
+    if(ap && !ap.reservaDivAuto && !ap.reservaDivUso){
+      state.extrasExcluidos = state.extrasExcluidos || [];
+      state.extrasExcluidos.push({item: JSON.parse(JSON.stringify(ap)), pago: state.doneIds.includes(id), quando: todayISO()});
+      if(state.extrasExcluidos.length > 200) state.extrasExcluidos.shift();
+    }
+  }
+
   state.extras = state.extras.filter(x=>x.id!==id);
   state.doneIds = state.doneIds.filter(x=>x!==id);
   save(); renderAll();
@@ -9688,6 +9697,11 @@ function listaExcluidos(){
     const x = Object.assign({}, b, state.taskOverrides[id]||{});
     o.push({tipo:'task', id:id, titulo:x.titulo, valor:x.valor, txt:(x.tipoMov==='entrada'?'entrada':'saída')+(x.data ? ' · '+fmtDataComAno(x.data) : '')});
   });
+  // compromissos criados por ele e apagados: ficam guardados aqui
+  (state.extrasExcluidos||[]).forEach(g=>{
+    const x = g.item;
+    o.push({tipo:'extra', id:x.id, titulo:x.titulo, valor:x.valor, txt:(x.tipoMov==='entrada'?'entrada':'saída')+(x.data ? ' · '+fmtDataComAno(x.data) : '')+(g.pago ? ' · estava marcado como pago' : '')+(x.tipo==='entrada'&&x.parcelas ? ' · com '+x.parcelas+' parcelas' : '')});
+  });
   return o;
 }
 function exclBotao(){
@@ -9709,7 +9723,11 @@ function abrirExcluidos(){
   document.querySelectorAll('[data-excl]').forEach(b=>b.addEventListener('click', ()=>{
     const x = l[+b.dataset.excl];
     if(!confirm('Restaurar "'+x.titulo+'" ('+fmtBR(x.valor)+')?\n\nVolta a aparecer no cronograma e a contar no fluxo.')) return;
-    if(x.tipo==='rec') state.recorrentesRemovidos = state.recorrentesRemovidos.filter(i=>i!==x.id);
+    if(x.tipo==='extra'){
+      const g = (state.extrasExcluidos||[]).find(z=>z.item.id===x.id);
+      if(g){ state.extrasExcluidos = state.extrasExcluidos.filter(z=>z!==g); state.extras.push(g.item); if(g.pago && !state.doneIds.includes(x.id)) state.doneIds.push(x.id); }
+    }
+    else if(x.tipo==='rec') state.recorrentesRemovidos = state.recorrentesRemovidos.filter(i=>i!==x.id);
     else state.tasksRemovidos = state.tasksRemovidos.filter(i=>i!==x.id);
     save(); closeSheet(); renderAll();
     toast('Restaurado — caixa e fluxo recalculados', null);
