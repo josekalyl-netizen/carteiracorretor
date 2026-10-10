@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "32";
+  var VERSAO = "33";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -6085,7 +6085,46 @@ input[type="checkbox"]{width:16px;height:16px;padding:0;flex:none;accent-color:#
 .dp-resumo{font-size:12.5px;line-height:1.45;color:rgb(var(--c-ink2));background:var(--pp);border-radius:12px;padding:10px 12px;margin:2px 0 10px}
 .dp-resumo:empty{display:none}
 .dp-resumo b{color:rgb(var(--c-ink))}
-.dp-erro{color:rgb(var(--c-alert))}`;
+.dp-erro{color:rgb(var(--c-alert))}
+/* ---------- sugestao de parcelamento e parcelado por mes ---------- */
+.dp-sugerir{width:100%;cursor:pointer;border:1px solid var(--ativa-turq);background:transparent;color:rgb(var(--c-ink));font:700 13.5px/1.25 var(--ativa-font-body);padding:12px 16px;border-radius:999px;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:2px}
+.dp-sugerir:hover{background:var(--pp)}
+.dp-sug{margin-top:8px}
+.dp-sug:empty{display:none}
+.sg{border:1px solid rgb(var(--c-grow) / .4);background:rgb(var(--c-grow) / .07);border-radius:14px;padding:12px 13px;margin-bottom:8px}
+.sg.sg-nao{border-color:rgb(var(--c-alert) / .35);background:rgb(var(--c-alert) / .06)}
+.sg-tit{font:700 13.5px/1.2 var(--ativa-font-display);color:rgb(var(--c-ink));margin-bottom:4px}
+.sg-txt{font-size:12.5px;line-height:1.45;color:rgb(var(--c-ink2));margin-top:4px}
+.sg-txt b{color:rgb(var(--c-ink))}
+.sg .rf-mais{margin:9px 0 0}
+.pm{margin-top:16px;border-top:1px solid var(--ln);padding-top:12px}
+.pm:empty{display:none}
+.pm-tit{font:700 14px/1.2 var(--ativa-font-display);color:rgb(var(--c-ink))}
+.pm-sub{font-size:11.5px;color:rgb(var(--c-muted));line-height:1.4;margin:3px 0 8px}
+.pm-row{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--pp);border-radius:12px;padding:9px 12px;margin-top:6px}
+.pm-info{flex:1;min-width:0}
+.pm-mes{font:600 13.5px/1.25 var(--ativa-font-body);color:rgb(var(--c-ink));text-transform:capitalize}
+.pm-q{font-size:12px;color:rgb(var(--c-muted));margin-top:2px}
+.pm-v{font:700 14.5px/1.2 var(--ativa-font-display);color:rgb(var(--c-ink));white-space:nowrap;text-align:right}
+.pm-v small{display:block;font:500 10.5px/1.3 var(--ativa-font-body);color:rgb(var(--c-muted))}
+.pm-nova{font-size:12px;line-height:1.4;color:rgb(var(--c-ink2));padding:4px 12px 2px}
+.pm-nova b{color:rgb(var(--c-ink))}
+/* ---------- custo fixo: entra de um lado, sai do outro ---------- */
+.cf-grupos{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
+.cf-grupo{border-radius:14px;padding:10px 10px 8px;min-width:0}
+.cf-grupo.cf-entra{background:rgb(var(--c-grow) / .08);border:1px solid rgb(var(--c-grow) / .35)}
+.cf-grupo.cf-sai{background:rgb(var(--c-alert) / .06);border:1px solid rgb(var(--c-alert) / .3)}
+.cf-gtit{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:2px 2px 4px;font:700 14px/1.2 var(--ativa-font-display);color:rgb(var(--c-ink))}
+.cf-gtit span{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.cf-gtit small{font:500 11.5px/1.2 var(--ativa-font-body);color:rgb(var(--c-muted))}
+.cf-gtit b{white-space:nowrap}
+.cf-entra .cf-gtit i,.cf-entra .cf-gtit b{color:rgb(var(--c-grow))}
+.cf-sai .cf-gtit i,.cf-sai .cf-gtit b{color:rgb(var(--c-alert))}
+.cf-grupo .cf-row{background:rgb(var(--c-card))}
+.cf-sai .cf-row .v{color:rgb(var(--c-alert)) !important}
+.cf-vazio{font-size:12px;color:rgb(var(--c-muted));padding:6px 2px}
+.rf-row .rf-voltar{margin-left:2px;padding:11px 14px}
+@media (max-width:860px){ .cf-grupos{grid-template-columns:1fr} }`;
   var FIN_SHELL = `<div class="fin">
   <div class="fin-top">
     <div>
@@ -6206,7 +6245,11 @@ input[type="checkbox"]{width:16px;height:16px;padding:0;flex:none;accent-color:#
           <div class="field"><label>Valor de cada parcela (R$)</label><input id="dpParcela" type="number" step="0.01" placeholder="0,00" inputmode="decimal"></div>
         </div>
         <div id="dpResumo" class="dp-resumo"></div>
+        <button class="dp-sugerir" id="dpSugerir" type="button"><i class="ti ti-bulb"></i>Sugerir um parcelamento que não deixa no vermelho</button>
+        <div class="rd-sub" style="margin:6px 0 0">Preencha só o total (o resto é opcional) e eu sugiro data, entrada e parcelas.</div>
+        <div id="dpSug" class="dp-sug"></div>
         <button class="add-btn" id="dpBtn" type="button">Adicionar dívida parcelada</button>
+        <div id="dpMeses" class="pm"></div>
       </div>
 
       <div class="bx" style="order:5">
@@ -6818,7 +6861,7 @@ function custoFixoDoDia(d, semPendencias){
     } else {
       ehHoje = (d.getDate()===ex.diaMes);
     }
-    if(d>=parseISO(ex.inicio) && ehHoje){
+    if(d>=inicioFixoExtra(ex) && ehHoje){
       const nomeChip = ex.titulo+' (fixo)';
       if(puladoHoje(nomeChip)) return;
       if(movidas[iso+'|'+nomeChip]) return; // essa ocorrencia foi movida pra outro dia
@@ -7748,7 +7791,7 @@ function renderResumoFinal(){
   ativos.forEach(r=>{
     const restante = r.parcelasValores.reduce((s,v)=>s+v,0);
     totalFalta += restante;
-    htmlFalta += `<div class="rf-row rf-click" data-act="rfMover" data-tipo="rec" data-id="${r.id}"><div class="rf-info"><div class="rf-nome">${escapeHTML(r.titulo)}</div><div class="rf-sub">${r.parcelasValores.length} de ${r.totalParcelas} parcelas &middot; próxima ${fmtDataCurta(r.proximaData)} · toque pra mudar a data</div></div><div class="rf-val">${fmtBR(restante)}</div></div>`;
+    htmlFalta += `<div class="rf-row rf-click" data-act="rfMover" data-tipo="rec" data-id="${r.id}"><div class="rf-info"><div class="rf-nome">${escapeHTML(r.titulo)}</div><div class="rf-sub">${r.parcelasValores.length} de ${r.totalParcelas} parcelas &middot; próxima ${fmtDataCurta(r.proximaData)} · toque pra mudar a data</div></div><div class="rf-val">${fmtBR(restante)}</div><button type="button" class="rf-voltar" data-act="rfParc" data-tipo="rec" data-id="${r.id}">Editar</button></div>`;
   });
   falta.forEach(t=>{
     const total = valorTotalTask(t);
@@ -7758,11 +7801,17 @@ function renderResumoFinal(){
     const detalhe = ehParc
       ? `Entrada ${fmtBR(t.valor)} + ${t.parcelas}x ${fmtBR((t.parcelasCustomValores&&t.parcelasCustomValores[0])||t.valorParcela)} · vence ${fmtDataCurta(t.data)}`
       : (ehEntrada ? `Dinheiro entrando em ${fmtDataCurta(t.data)} · toque pra mudar a data` : `Vence ${fmtDataCurta(t.data)} · toque pra mudar a data`);
-    htmlFalta += `<div class="rf-row rf-click" data-act="rfMover" data-tipo="task" data-id="${t.id}"><div class="rf-info"><div class="rf-nome">${escapeHTML(t.titulo)} <span class="tag">${t.pessoa}</span></div><div class="rf-sub">${detalhe}</div></div><div class="rf-val ${ehEntrada?'rf-val-in':''}">${ehEntrada?'+':''}${fmtBR(total)}</div></div>`;
+    htmlFalta += `<div class="rf-row rf-click" data-act="rfMover" data-tipo="task" data-id="${t.id}"><div class="rf-info"><div class="rf-nome">${escapeHTML(t.titulo)} <span class="tag">${t.pessoa}</span></div><div class="rf-sub">${detalhe}</div></div><div class="rf-val ${ehEntrada?'rf-val-in':''}">${ehEntrada?'+':''}${fmtBR(total)}</div>${ehEntrada?'':`<button type="button" class="rf-voltar" data-act="rfParc" data-tipo="task" data-id="${t.id}">${ehParc?'Editar':'Parcelar'}</button>`}</div>`;
   });
   document.getElementById('rfFalta').innerHTML = htmlFalta || `<div class="empty"><p>Nada em aberto.</p></div>`;
   document.querySelectorAll('[data-act="rfMover"]').forEach(el=>{
     el.addEventListener('click', ()=> abrirMoverData(el.dataset.tipo, el.dataset.id));
+  });
+  document.querySelectorAll('[data-act="rfParc"]').forEach(el=>{
+    el.addEventListener('click', e=>{
+      e.stopPropagation();
+      if(el.dataset.tipo==='rec') abrirParcelamentoRec(el.dataset.id); else abrirParcelamento(el.dataset.id);
+    });
   });
 
   let htmlPago = pago.map(t=>{
@@ -7953,6 +8002,7 @@ function montarPlanoVermelho(linhas){
 }
 function renderDiasNegativos(){
   const linhas = construirCronograma();
+  renderParcMes(linhas);
   const negativos = linhas.filter(l => l.caixa < -0.005 && !(l.data>=PERMITE_NEG_DE && l.data<=PERMITE_NEG_ATE));
   const el = document.getElementById('negConteudo');
   if(!el) return;
@@ -8222,6 +8272,8 @@ document.getElementById('segRepete').querySelectorAll('button').forEach(b=>{
 /* ---------- NOVA DIVIDA PARCELADA (entrada + parcelas no mesmo dia do mes) ---------- */
 if(document.getElementById('dpBtn')){
   ligarCamposParcelada('dp');
+  document.getElementById('dpBox').addEventListener('input', ()=>renderParcMes());
+  if(document.getElementById('dpSugerir')) document.getElementById('dpSugerir').addEventListener('click', sugerirParcelada);
   document.getElementById('dpBtn').addEventListener('click', ()=>{
     const titulo = document.getElementById('dpTitulo').value.trim();
     if(!titulo){ toast('Preencha o que é a dívida', null); return; }
@@ -8270,7 +8322,8 @@ document.getElementById('addBtn').addEventListener('click', ()=>{
     state.custoFixoExtra.push({ id: uid(), titulo, valor: Math.abs(valor), diaMes: 'ultimo-util', inicio, tipoMov: movEfetivo, catGasto: catEscolhida, reserva: ehReserva });
     save();
     document.getElementById('inTitulo').value=''; document.getElementById('inValor').value=''; document.getElementById('inData').value='';
-    toast('Custo fixo criado — todo último dia útil do mês, caixa recalculado', null);
+    { const i0 = inicioFixoExtra({diaMes:'ultimo-util', inicio:inicio});
+      toast('Custo fixo criado — todo último dia útil do mês, o primeiro em '+fmtDataCurta(isoOf(ultimoDiaUtilMes(i0.getFullYear(), i0.getMonth()+1)))+'. Caixa recalculado', null); }
     renderAll();
     return;
   }
@@ -8640,7 +8693,8 @@ function resumoCustoFixoDeTabela(){
 function renderResumoCustoFixo(){
   const el = document.getElementById('cfResumo');
   if(!el) return;
-  const r = resumoCustoFixoMensal();
+  // conta simples: soma do que entra menos soma do que sai, pelos valores da lista (o colchao segue com a media dele)
+  const r = cfSoma || resumoCustoFixoMensal();
   const sobra = r.saldo >= 0;
   const pctComprometido = r.entrada>0 ? Math.min(100, r.saida/r.entrada*100) : 0;
   el.innerHTML = `
@@ -8649,7 +8703,7 @@ function renderResumoCustoFixo(){
     <div class="cfr-bar"><div class="cfr-fill ${pctComprometido>90?'cfr-alerta':''}" style="width:${pctComprometido.toFixed(1)}%"></div></div>
     <div class="cfr-pct">${pctComprometido.toFixed(0)}% da renda já comprometida com custo fixo</div>
     <div class="cfr-linha cfr-saldo"><span>${sobra?'Sobra por mês':'Falta por mês'}</span><span class="${sobra?'cfr-in':'cfr-out'}">${sobra?'':'-'}${fmtBR(Math.abs(r.saldo))}</span></div>
-    <div class="cfr-nota">Média de 12 meses, então ciclos que não caem todo mês${X.notaCiclos||''} entram na proporção certa. Atualiza sozinho quando você edita, adiciona ou remove qualquer item da lista acima.</div>`;
+    <div class="cfr-nota">Conta simples: a soma do que entra menos a soma do que sai, pelos valores da lista acima (cada item conta uma vez). Recalcula sozinho quando você adiciona, tira ou muda um item.</div>`;
 }
 function renderCustoFixo(){
   const cf = DADOS_BASE.custoFixo;
@@ -8690,6 +8744,7 @@ function renderCustoFixo(){
     </div>`;
   });
   document.getElementById('cfList').innerHTML = html;
+  agruparCustoFixo();
   document.querySelectorAll('#cfList [data-act="chipEditarFixoGeral"]').forEach(b=>b.addEventListener('click',()=>abrirEdicaoFixo(b.dataset.nome)));
   document.querySelectorAll('#cfList [data-act="chipEditarFixoExtra"]').forEach(b=>b.addEventListener('click',()=>abrirEdicaoFixoExtra(b.dataset.id)));
   renderResumoCustoFixo();
@@ -8973,6 +9028,307 @@ function abrirEditorParcelas(tipo, id, entradaOverride){
    Por baixo usa o mesmo mecanismo das "parcelas com valor e data proprios" que o painel ja tinha;
    a marca parcSegueEntrada diz que, se a data da entrada mudar, as datas das parcelas sao refeitas. */
 function r2(v){ return Math.round(v*100)/100; }
+
+/* ---------- CUSTO FIXO EXTRA: de quando ele comeca a valer ----------
+   "Ultimo dia util" (ou "dia util anterior") com a data escolhida num fim de semana: a ocorrencia daquele mes cai
+   ANTES da data escolhida e era pulada. Aqui o comeco recua pro dia util em que ela de fato cai. */
+function inicioFixoExtra(ex){
+  const ini = parseISO(ex.inicio);
+  if(ex.diaMes==='ultimo-util'){
+    const u = ultimoDiaUtilMes(ini.getFullYear(), ini.getMonth()+1);
+    return ini>u ? u : ini;
+  }
+  if(ex.ajusteDiaUtil && ini.getDate()===ex.diaMes) return ajustarParaDiaUtilAnterior(ini);
+  return ini;
+}
+
+/* ---------- CUSTO FIXO DO MES: o que entra de um lado, o que sai do outro ----------
+   So muda a arrumacao da lista e soma os valores que estao nela. Nao mexe em cronograma nem em caixa. */
+let cfSoma = null;
+function agruparCustoFixo(){
+  const lista = document.getElementById('cfList');
+  if(!lista) return;
+  const txt = r => ((r.querySelector('.v')||{}).textContent||'').trim();
+  const num = r => parseFloat(txt(r).replace(/[^0-9,]/g,'').replace(',','.')) || 0;
+  const grupos = {entra:[], sai:[]};
+  Array.from(lista.querySelectorAll('.cf-row')).forEach(r=>{ (txt(r).charAt(0)==='+' ? grupos.entra : grupos.sai).push(r); });
+  const soma = a => r2(a.reduce((s,r)=>s+num(r), 0));
+  cfSoma = {entrada: soma(grupos.entra), saida: soma(grupos.sai)};
+  cfSoma.saldo = r2(cfSoma.entrada - cfSoma.saida);
+  const wrap = document.createElement('div');
+  wrap.className = 'cf-grupos';
+  [['entra','Entra','ti-arrow-down-left','+',cfSoma.entrada],['sai','Sai','ti-arrow-up-right','-',cfSoma.saida]].forEach(g=>{
+    const rows = grupos[g[0]];
+    const box = document.createElement('div');
+    box.className = 'cf-grupo cf-'+g[0];
+    box.innerHTML = `<div class="cf-gtit"><span><i class="ti ${g[2]}"></i>${g[1]} <small>${rows.length} ${rows.length===1?'item':'itens'}</small></span><b>${g[3]}${fmtBR(g[4])}</b></div>`;
+    if(!rows.length){ const v = document.createElement('div'); v.className = 'cf-vazio'; v.textContent = 'Nada aqui.'; box.appendChild(v); }
+    rows.forEach(r=>box.appendChild(r));
+    wrap.appendChild(box);
+  });
+  lista.innerHTML = '';
+  lista.appendChild(wrap);
+}
+
+/* ---------- PARCELADO EM CADA MES (aparece na caixa "Nova divida parcelada") ----------
+   Conta, mes a mes, as entradas e parcelas de tudo que e parcelado e ainda nao foi pago. So leitura. */
+let pmLinhas = null, pmTodos = false;
+function parcPorMes(L){
+  const m = {};
+  L.forEach(l=>l.compromissos.forEach(ev=>{
+    const ehParc = ev.tipo==='projecao' || ev.tipo==='rec' || (ev.tipo==='task' && ev.obj.tipo==='entrada' && ev.obj.parcelas && ev.obj.tipoMov!=='entrada');
+    if(!ehParc) return;
+    const k = l.data.slice(0,7), o = m[k] = m[k] || {ids:{}, total:0};
+    o.ids[ev.obj.id] = 1;
+    o.total += (ev.tipo==='task' ? ev.obj.valor : ev.valor);
+  }));
+  return m;
+}
+function renderParcMes(linhas){
+  if(linhas){ pmLinhas = linhas; const s = document.getElementById('dpSug'); if(s) s.innerHTML = ''; }
+  const el = document.getElementById('dpMeses');
+  if(!el || !pmLinhas) return;
+  const m = parcPorMes(pmLinhas), nova = {};
+  const p = lerParcelada('dp');
+  if(!p.erro){
+    const soma = (d,v)=>{ const k = d.slice(0,7); nova[k] = r2((nova[k]||0)+v); };
+    soma(p.data, p.entrada);
+    p.datas.forEach((d,i)=>soma(d, p.valores[i]));
+  }
+  const keys = Object.keys(m).concat(Object.keys(nova).filter(k=>!m[k])).sort();
+  let h = `<div class="pm-tit">Parcelado em cada mês</div>`;
+  if(!keys.length){ el.innerHTML = h + `<div class="pm-sub">Nenhum mês com parcelamento por enquanto.</div>`; return; }
+  h += `<div class="pm-sub">Só os meses que têm algo parcelado. Entradas e parcelas que ainda faltam pagar.</div>`;
+  const mostra = pmTodos ? keys : keys.filter((k,i)=> i<6 || nova[k]!=null); // os meses da divida que voce esta digitando aparecem sempre
+  mostra.forEach(k=>{
+    const o = m[k] || {ids:{}, total:0}, n = Object.keys(o.ids).length;
+    const nome = parseISO(k+'-01').toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+    h += `<div class="pm-row"><div class="pm-info"><div class="pm-mes">${nome}</div><div class="pm-q">${n===0?'nada parcelado hoje':(n+(n===1?' compromisso parcelado':' compromissos parcelados'))}</div></div><div class="pm-v">${fmtBR(r2(o.total))}<small>no mês todo</small></div></div>`;
+    if(nova[k]!=null) h += `<div class="pm-nova">+ ${fmtBR(nova[k])} desta nova dívida = <b>${fmtBR(r2(o.total+nova[k]))}</b> no mês (${n+1} ${n+1===1?'compromisso':'compromissos'})</div>`;
+  });
+  if(keys.length>mostra.length) h += `<button type="button" class="rf-mais" id="pmMais">Ver todos os ${keys.length} meses</button>`;
+  el.innerHTML = h;
+  const mais = document.getElementById('pmMais');
+  if(mais) mais.addEventListener('click', ()=>{ pmTodos = true; renderParcMes(); });
+}
+
+/* ---------- SUGESTAO DE PARCELAMENTO QUE NAO DEIXA NENHUM DIA NO VERMELHO ----------
+   Procura data da entrada, entrada e numero de parcelas que cabem no caixa projetado. Cada sugestao e conferida
+   no proprio cronograma (simula a divida, recalcula, desfaz). Nada e gravado. */
+let dpSugOpcoes = [], dpSugPreencheu = null;
+function sugerirParcelada(){
+  const box = document.getElementById('dpSug');
+  if(!box) return;
+  const total = r2(Math.abs(parseFloat(document.getElementById('dpTotal').value)));
+  if(isNaN(total) || total<=0){ box.innerHTML = '<span class="dp-erro">Preencha o total da dívida, que eu sugiro o resto.</span>'; return; }
+  box.innerHTML = '<div class="pv-nota" style="margin:0">Procurando um parcelamento que não deixa nenhum dia no vermelho…</div>';
+  setTimeout(()=>{
+    let h;
+    try{ h = htmlSugestoes(total); }catch(e){ h = '<span class="dp-erro">Não consegui calcular agora. Tente de novo.</span>'; }
+    box.innerHTML = h;
+    box.querySelectorAll('[data-act="sgUsar"]').forEach(b=>b.addEventListener('click', ()=>usarSugestao(dpSugOpcoes[parseInt(b.dataset.i,10)])));
+  }, 60);
+}
+function usarSugestao(p){
+  if(!p) return;
+  const g = id => document.getElementById(id);
+  g('dpTotal').value = p.total.toFixed(2);
+  g('dpEntrada').value = p.entrada.toFixed(2);
+  g('dpData').value = p.data;
+  g('dpVezes').value = String(p.n);
+  g('dpParcela').value = p.valores[0].toFixed(2);
+  dpSugPreencheu = {entrada: g('dpEntrada').value, data: p.data, vezes: g('dpVezes').value};
+  g('dpData').dispatchEvent(new Event('input', {bubbles:true}));
+  toast('Campos preenchidos. Confira e toque em "Adicionar dívida parcelada".', null);
+}
+function htmlSugestoes(total){
+  const g = id => document.getElementById(id);
+  // o que voce ja preencheu fica; o que a sugestao anterior preencheu volta a ficar livre
+  const ja = dpSugPreencheu || {};
+  const eTxt = g('dpEntrada').value, dTxt = g('dpData').value, nTxt = g('dpVezes').value;
+  const fix = {
+    entrada: (eTxt!=='' && eTxt!==ja.entrada && Math.abs(parseFloat(eTxt))>0) ? r2(Math.abs(parseFloat(eTxt))) : null,
+    data: (dTxt && dTxt!==ja.data) ? dTxt : null,
+    n: (parseInt(nTxt,10)>1 && nTxt!==ja.vezes) ? Math.min(120, parseInt(nTxt,10)) : null
+  };
+  if(fix.entrada!=null && fix.entrada>=total) return '<span class="dp-erro">A entrada precisa ser menor que o total da dívida.</span>';
+  const hoje = todayISO();
+  if(fix.data && fix.data<hoje) return '<span class="dp-erro">A data da entrada já passou. Apague a data que eu sugiro uma.</span>';
+
+  const naJanela = d => d>=PERMITE_NEG_DE && d<=PERMITE_NEG_ATE;
+  const fora = l => l.caixa < -0.005 && !naJanela(l.data);
+  const L = construirCronograma();
+  let ultima = hoje;
+  L.forEach(l=>{ if(l.compromissos.length && l.data>ultima) ultima = l.data; });
+  const base = L.filter(l=>l.data<=ultima && !naJanela(l.data));
+  let ultimoVermelho = null;
+  L.forEach(l=>{ if(fora(l)) ultimoVermelho = l.data; });
+
+  const montar = (d0, n)=>{
+    const E = fix.entrada!=null ? fix.entrada : (total>=20 ? Math.round(total/(n+1)) : r2(total/(n+1)));
+    if(!(E>0) || E>=total) return null;
+    const parcela = r2((total-E)/n);
+    if(!(parcela>0)) return null;
+    const valores = valoresDasParcelas(total, E, n, parcela);
+    if(valores[n-1]<=0) return null;
+    return {total:total, entrada:E, n:n, data:d0, valores:valores, datas:datasSeguindoEntrada(d0, n)};
+  };
+  // conta rapida no cronograma atual: em nenhum dia o caixa pode ficar abaixo de zero depois de pagar o que ja venceu do plano
+  const cabe = p => {
+    const ev = [[p.data, p.entrada]].concat(p.datas.map((d,i)=>[d, p.valores[i]]));
+    let k = 0, pago = 0;
+    for(let i=0; i<base.length; i++){
+      const l = base[i];
+      if(l.data<p.data) continue;
+      while(k<ev.length && ev[k][0]<=l.data){ pago += ev[k][1]; k++; }
+      if(l.caixa - pago < -0.005) return false;
+    }
+    return true;
+  };
+  // conferencia de verdade: coloca a divida no cronograma, recalcula e desfaz
+  let sims = 0;
+  const confere = p => {
+    if(sims>=8) return false;
+    sims++;
+    const reais = state.extras;
+    let S;
+    try{
+      state.extras = reais.concat([{id:'__sim', titulo:'(simulacao)', valor:p.entrada, data:p.data, pessoa:'', categoria:'outro', tipo:'entrada', tipoMov:'saida', custom:true,
+        parcelas:p.n, valorParcela:p.valores[0], parcelasCustomValores:p.valores, parcelasCustomDatas:p.datas}]);
+      S = construirCronograma();
+    } finally { state.extras = reais; }
+    const fim = p.datas[p.n-1];
+    let min = null;
+    for(let i=0; i<S.length; i++){
+      const l = S[i];
+      if(l.data<p.data) continue;
+      if(fora(l)) return false;
+      if(l.data<=fim && !naJanela(l.data) && (min===null || l.caixa<min.caixa)) min = {caixa:l.caixa, data:l.data};
+    }
+    p.min = min;
+    return true;
+  };
+
+  const LIMITE_DIAS = 540, MAX_N = 24;
+  let dias = [];
+  if(fix.data) dias = [fix.data];
+  else {
+    let ini = parseISO(hoje);
+    if(ultimoVermelho && ultimoVermelho>=hoje){ const u = parseISO(ultimoVermelho); ini = new Date(u.getFullYear(), u.getMonth(), u.getDate()+1); }
+    for(let i=0; i<LIMITE_DIAS; i++) dias.push(isoOf(new Date(ini.getFullYear(), ini.getMonth(), ini.getDate()+i)));
+  }
+  const ns = [];
+  if(fix.n) ns.push(fix.n); else for(let n=1; n<=MAX_N; n++) ns.push(n);
+
+  let cedo = null, curto = null;
+  if(!(fix.data && ultimoVermelho && fix.data<=ultimoVermelho)){
+    busca1: for(let a=0; a<dias.length; a++) for(let b=0; b<ns.length; b++){
+      const p = montar(dias[a], ns[b]);
+      if(p && cabe(p) && confere(p)){ cedo = p; break busca1; }
+    }
+    busca2: for(let b=0; b<ns.length; b++) for(let a=0; a<dias.length; a++){
+      const p = montar(dias[a], ns[b]);
+      if(!p || !cabe(p)) continue;
+      if(cedo && p.data===cedo.data && p.n===cedo.n){ break busca2; }
+      if(confere(p)){ curto = p; break busca2; }
+    }
+  }
+  dpSugOpcoes = [];
+  if(cedo) dpSugOpcoes.push(Object.assign({rotulo: curto ? 'Começando o quanto antes' : 'Sugestão'}, cedo));
+  if(curto) dpSugOpcoes.push(Object.assign({rotulo: 'Em menos parcelas'}, curto));
+
+  const mantive = [];
+  if(fix.entrada!=null) mantive.push('a entrada de '+fmtBR(fix.entrada));
+  if(fix.data) mantive.push('a data '+fmtDataComAno(fix.data));
+  if(fix.n) mantive.push(fix.n+' parcelas');
+  const notaMantive = mantive.length ? `<div class="pv-nota">Mantive o que você preencheu: ${mantive.join(', ')}. Pra eu sugerir isso também, apague o campo e toque em sugerir de novo.</div>` : '';
+  const notaVermelho = (ultimoVermelho && ultimoVermelho>=hoje) ? `<div class="pv-nota">Hoje o seu fluxo já tem dias no vermelho até ${fmtDataComAno(ultimoVermelho)}. Qualquer pagamento novo antes disso pioraria esses dias, por isso a sugestão começa depois.</div>` : '';
+
+  if(!dpSugOpcoes.length){
+    let motivo = `Não achei um jeito de encaixar ${fmtBR(total)} sem deixar algum dia no vermelho`;
+    motivo += fix.data ? ' com a entrada nessa data.' : ' nos próximos 18 meses.';
+    return `<div class="sg sg-nao"><div class="sg-txt"><b>${motivo}</b></div>${notaVermelho}${notaMantive}<div class="pv-nota">Nada foi lançado.</div></div>`;
+  }
+  let h = '';
+  dpSugOpcoes.forEach((p,i)=>{
+    const iguais = p.valores.every(v=>v===p.valores[0]);
+    h += `<div class="sg">
+      <div class="sg-tit">${p.rotulo}</div>
+      <div class="sg-txt">Entrada de <b>${fmtBR(p.entrada)}</b> em <b>${fmtDataLonga(p.data)}</b> + <b>${p.n}x de ${fmtBR(p.valores[0])}</b>${iguais?'':' (a última de '+fmtBR(p.valores[p.n-1])+')'}, de ${fmtDataComAno(p.datas[0])} a ${fmtDataComAno(p.datas[p.n-1])}.</div>
+      <div class="sg-txt">Nenhum dia fica no vermelho (conferido no cronograma).${p.min?' O caixa mais baixo no caminho fica em <b>'+fmtBR(p.min.caixa)+'</b>, em '+fmtDataComAno(p.min.data)+'.':''}</div>
+      <button type="button" class="rf-mais" data-act="sgUsar" data-i="${i}">Usar esta sugestão</button>
+    </div>`;
+  });
+  return h + notaVermelho + notaMantive + `<div class="pv-nota">Nada foi lançado ainda: "Usar esta sugestão" só preenche os campos acima.</div>`;
+}
+
+/* ---------- PARCELAMENTO DE UM COMPROMISSO QUE JA ESTA RODANDO (entrada ja paga, ou compromisso do plano) ----------
+   Mesma ideia da tela de divida parcelada, sem a entrada: quanto falta, quando e a proxima, quantas faltam e de quanto. */
+function abrirParcelamentoRec(id){
+  const r = recorrentesAtivos().find(x=>x.id===id);
+  if(!r) return;
+  const oc = todasOcorrenciasFuturas(r);
+  if(!oc.length) return;
+  const falta = r2(oc.reduce((s,o)=>s+o.valor, 0));
+  const variam = oc.some(o=>o.valor!==oc[0].valor);
+  const html = `
+    <div class="rd-sub" style="margin:0 0 10px">Refaz as parcelas que ainda faltam: todas com o mesmo valor, uma por mês, no mesmo dia da próxima. As que você já pagou não mudam.</div>
+    <div class="field"><label>Quanto falta pagar no total (R$)</label><input id="rpTotal" type="number" step="0.01" value="${falta}" inputmode="decimal"></div>
+    <div class="field"><label>Data da próxima parcela</label><input id="rpData" type="date" value="${oc[0].data}"></div>
+    <div class="field"><label>Parcelas que faltam (quantas)</label><input id="rpVezes" type="number" min="1" max="120" step="1" value="${oc.length}" inputmode="numeric"></div>
+    <div class="field"><label>Valor de cada parcela (R$)</label><input id="rpParcela" type="number" step="0.01" value="${oc[0].valor}" inputmode="decimal"></div>
+    ${variam?'<div class="rd-sub">Hoje as parcelas deste compromisso têm valores diferentes entre si. Salvar aqui deixa todas iguais; pra manter valores diferentes, use o botão de editar cada parcela.</div>':''}
+    <div id="rpResumo" class="dp-resumo"></div>
+    <button type="button" class="sheet-btn" id="rpCada" style="background:var(--olive)">Editar cada parcela (valor e data uma a uma)</button>`;
+  const el = k => document.getElementById('rp'+k);
+  const ler = ()=>{
+    const total = r2(Math.abs(parseFloat(el('Total').value))), n = parseInt(el('Vezes').value, 10), parcela = r2(Math.abs(parseFloat(el('Parcela').value))), data = el('Data').value;
+    if(isNaN(total) || total<=0) return {erro:'Preencha quanto falta pagar.'};
+    if(isNaN(n) || n<1 || n>120) return {erro:'Preencha quantas parcelas faltam (de 1 a 120).'};
+    if(isNaN(parcela) || parcela<=0) return {erro:'Preencha o valor de cada parcela.'};
+    if(!data) return {erro:'Preencha a data da próxima parcela.'};
+    const valores = valoresDasParcelas(total, 0, n, parcela);
+    if(valores[n-1]<=0) return {erro:'Com esse valor de parcela, a última ficaria zerada ou negativa. Ajuste a parcela ou a quantidade.'};
+    const base = parseISO(data), datas = [];
+    for(let i=0;i<n;i++) datas.push(isoOf(addMonths(base, i)));
+    return {total:total, n:n, valores:valores, datas:datas};
+  };
+  abrirEditSheet('Parcelamento: '+r.titulo, html, false, ()=>{
+    const p = ler();
+    if(p.erro){ toast(p.erro+' Nada foi alterado.', null); return; }
+    if(DADOS_BASE.recorrentes.some(x=>x.id===id)){
+      const antigo = state.recEstado[id];
+      state.recEstado[id] = { parcelasValores: p.valores, parcelasDatas: p.datas, proximaData: p.datas[0], historicoPago: (antigo&&antigo.historicoPago)||[] };
+    } else {
+      const ex = state.extraRecorrentes.find(x=>x.id===id);
+      if(ex){ ex.parcelasValores = p.valores; ex.parcelasDatas = p.datas; ex.proximaData = p.datas[0]; ex.totalParcelas = p.valores.length; }
+    }
+    save(); toast('Parcelamento salvo — caixa e fluxo recalculados', null); renderAll();
+  }, null);
+  const resumo = ()=>{
+    const p = ler();
+    if(p.erro){ el('Resumo').innerHTML = `<span class="dp-erro">${p.erro}</span>`; return; }
+    const iguais = p.valores.every(v=>v===p.valores[0]);
+    el('Resumo').innerHTML = `<b>${p.n}x de ${fmtBR(p.valores[0])}</b>${iguais?'':' (a última de '+fmtBR(p.valores[p.n-1])+', pra fechar os centavos)'}, de <b>${fmtDataComAno(p.datas[0])}</b> a <b>${fmtDataComAno(p.datas[p.n-1])}</b>. Falta no total: <b>${fmtBR(p.total)}</b>.`;
+  };
+  const calcParcela = ()=>{
+    const t = Math.abs(parseFloat(el('Total').value)), n = parseInt(el('Vezes').value, 10);
+    if(!isNaN(t) && t>0 && n>=1) el('Parcela').value = r2(t/n).toFixed(2);
+    resumo();
+  };
+  const calcTotal = ()=>{
+    const n = parseInt(el('Vezes').value, 10), v = Math.abs(parseFloat(el('Parcela').value));
+    if(n>=1 && !isNaN(v) && v>0) el('Total').value = r2(v*n).toFixed(2);
+    resumo();
+  };
+  el('Total').addEventListener('input', calcParcela);
+  el('Vezes').addEventListener('input', calcParcela);
+  el('Parcela').addEventListener('input', calcTotal);
+  el('Data').addEventListener('input', resumo);
+  el('Cada').addEventListener('click', ()=>abrirEditorParcelas('rec', id));
+  resumo();
+}
+
 function datasSeguindoEntrada(dataEntrada, n){
   const base = parseISO(dataEntrada), out = [];
   for(let i=1;i<=n;i++) out.push(isoOf(addMonths(base, i)));
@@ -9088,7 +9444,6 @@ function abrirEdicaoTask(id){
   const ehParcelada = t.tipo==='entrada' && t.parcelas;
   const jaFoiPaga = state.doneIds.includes(id);
   const dataAntesDaEdicao = t.data; // guardada aqui porque, num compromisso criado por voce, o objeto e alterado ao salvar
-
   const campoParcelas = ehParcelada ? `
     <div class="field">
       <label>Parcelamento (${t.parcelas}x de ${fmtBR(t.valorParcela)})</label>
@@ -9391,7 +9746,7 @@ function updateDate(){
       aberto: function () { return overlay.classList.contains('show'); },
       estado: function () { return state; },
       raiz: RAIZ,
-      F: {load: load, METAS_PADRAO: METAS_PADRAO, save: save, garantirSeeds: garantirSeeds, fmtBR: fmtBR, parseISO: parseISO, isoOf: isoOf, addMonths: addMonths, fmtDataCurta: fmtDataCurta, fmtDataComAno: fmtDataComAno, mesLabel: mesLabel, ultimoDiaMes: ultimoDiaMes, ultimoDiaUtilMes: ultimoDiaUtilMes, ajustarParaDiaUtilAnterior: ajustarParaDiaUtilAnterior, sextoDiaUtil: sextoDiaUtil, proximoPagamento: proximoPagamento, primeiroSabado: primeiroSabado, diasEntre: diasEntre, todayISO: todayISO, inicioLedger: inicioLedger, cfv: cfv, cfvData: cfvData, custoFixoDoDia: custoFixoDoDia, construirLedger: construirLedger, todasOcorrenciasFuturas: todasOcorrenciasFuturas, construirCaixaDiarioCompleto: construirCaixaDiarioCompleto, melhorDataParaValor: melhorDataParaValor, sugerirAntecipacao: sugerirAntecipacao, sugerirMelhorDataBidirecional: sugerirMelhorDataBidirecional, aplicarNovaDataCompromisso: aplicarNovaDataCompromisso, abrirMoverData: abrirMoverData, custoFixoMensalMedio: custoFixoMensalMedio, colchaoAlvo: colchaoAlvo, rendaMensal: rendaMensal, aindaTemPendencias: aindaTemPendencias, distribuir203050: distribuir203050, aplicarNasMetas: aplicarNasMetas, construirCronograma: construirCronograma, todasTasks: todasTasks, tasksPendentes: tasksPendentes, tasksConcluidas: tasksConcluidas, recorrentesAtivos: recorrentesAtivos, catLabel: catLabel, updateHero: updateHero, iconCheck: iconCheck, cardHTML: cardHTML, recorrenteEventoHTML: recorrenteEventoHTML, escapeHTML: escapeHTML, fmtDataLonga: fmtDataLonga, renderRecorrentes: renderRecorrentes, renderAll: renderAll, diaEstaConcluido: diaEstaConcluido, renderCronograma: renderCronograma, custoFixoChipHTML: custoFixoChipHTML, compromissoChipHTML: compromissoChipHTML, bindChips: bindChips, valorTotalTask: valorTotalTask, acharFixoPago: acharFixoPago, htmlFixosPagos: htmlFixosPagos, voltarFixoPago: voltarFixoPago, renderResumoFinal: renderResumoFinal, renderTotaisLista: renderTotaisLista, ultimaParcelaProjetada: ultimaParcelaProjetada, tabelaRD: tabelaRD, renderRegras: renderRegras, renderMetas: renderMetas, planoVermelho: planoVermelho, htmlPlanoVermelho: htmlPlanoVermelho, montarPlanoVermelho: montarPlanoVermelho, renderDiasNegativos: renderDiasNegativos, abrirSugestaoNegativo: abrirSugestaoNegativo, renderRelatorioDatas: renderRelatorioDatas, aplicarConclusaoTask: aplicarConclusaoTask, toggleDone: toggleDone, delExtra: delExtra, aplicarPagamentoParcela: aplicarPagamentoParcela, pagamentoAnterior: pagamentoAnterior, desfazerUltimaParcela: desfazerUltimaParcela, pagarParcela: pagarParcela, toast: toast, renderMensal: renderMensal, calcularFundoReserva: calcularFundoReserva, totalReservaProgramado: totalReservaProgramado, renderReserva: renderReserva, coletarGastosRealizados: coletarGastosRealizados, chaveGasto: chaveGasto, categorizarGasto: categorizarGasto, categoriaDoEvento: categoriaDoEvento, categorizarAuto: categorizarAuto, renderGastoMensal: renderGastoMensal, abrirRotularGasto: abrirRotularGasto, resumoCustoFixoMensal: resumoCustoFixoMensal, resumoCustoFixoDeTabela: resumoCustoFixoDeTabela, renderResumoCustoFixo: renderResumoCustoFixo, renderCustoFixo: renderCustoFixo, openSheet: openSheet, closeSheet: closeSheet, melhorPeriodoParaParcelamento: melhorPeriodoParaParcelamento, applyTheme: applyTheme, abrirEditSheet: abrirEditSheet, renderLinhasParcelasEdit: renderLinhasParcelasEdit, lerLinhasParcelasEdit: lerLinhasParcelasEdit, abrirEditorParcelas: abrirEditorParcelas, r2: r2, datasSeguindoEntrada: datasSeguindoEntrada, valoresDasParcelas: valoresDasParcelas, gravarCamposTask: gravarCamposTask, seguirEntrada: seguirEntrada, lerParcelada: lerParcelada, ligarCamposParcelada: ligarCamposParcelada, abrirParcelamento: abrirParcelamento, abrirEdicaoTask: abrirEdicaoTask, abrirEdicaoRecorrente: abrirEdicaoRecorrente, estornarPagoFixo: estornarPagoFixo, estornarPagosPorNome: estornarPagosPorNome, migrarMarcacaoPago: migrarMarcacaoPago, valorEfetivoNoDia: valorEfetivoNoDia, abrirEdicaoFixo: abrirEdicaoFixo, abrirEdicaoFixoExtra: abrirEdicaoFixoExtra, updateDate: updateDate}
+      F: {load: load, METAS_PADRAO: METAS_PADRAO, save: save, garantirSeeds: garantirSeeds, fmtBR: fmtBR, parseISO: parseISO, isoOf: isoOf, addMonths: addMonths, fmtDataCurta: fmtDataCurta, fmtDataComAno: fmtDataComAno, mesLabel: mesLabel, ultimoDiaMes: ultimoDiaMes, ultimoDiaUtilMes: ultimoDiaUtilMes, ajustarParaDiaUtilAnterior: ajustarParaDiaUtilAnterior, sextoDiaUtil: sextoDiaUtil, proximoPagamento: proximoPagamento, primeiroSabado: primeiroSabado, diasEntre: diasEntre, todayISO: todayISO, inicioLedger: inicioLedger, cfv: cfv, cfvData: cfvData, custoFixoDoDia: custoFixoDoDia, construirLedger: construirLedger, todasOcorrenciasFuturas: todasOcorrenciasFuturas, construirCaixaDiarioCompleto: construirCaixaDiarioCompleto, melhorDataParaValor: melhorDataParaValor, sugerirAntecipacao: sugerirAntecipacao, sugerirMelhorDataBidirecional: sugerirMelhorDataBidirecional, aplicarNovaDataCompromisso: aplicarNovaDataCompromisso, abrirMoverData: abrirMoverData, custoFixoMensalMedio: custoFixoMensalMedio, colchaoAlvo: colchaoAlvo, rendaMensal: rendaMensal, aindaTemPendencias: aindaTemPendencias, distribuir203050: distribuir203050, aplicarNasMetas: aplicarNasMetas, construirCronograma: construirCronograma, todasTasks: todasTasks, tasksPendentes: tasksPendentes, tasksConcluidas: tasksConcluidas, recorrentesAtivos: recorrentesAtivos, catLabel: catLabel, updateHero: updateHero, iconCheck: iconCheck, cardHTML: cardHTML, recorrenteEventoHTML: recorrenteEventoHTML, escapeHTML: escapeHTML, fmtDataLonga: fmtDataLonga, renderRecorrentes: renderRecorrentes, renderAll: renderAll, diaEstaConcluido: diaEstaConcluido, renderCronograma: renderCronograma, custoFixoChipHTML: custoFixoChipHTML, compromissoChipHTML: compromissoChipHTML, bindChips: bindChips, valorTotalTask: valorTotalTask, acharFixoPago: acharFixoPago, htmlFixosPagos: htmlFixosPagos, voltarFixoPago: voltarFixoPago, renderResumoFinal: renderResumoFinal, renderTotaisLista: renderTotaisLista, ultimaParcelaProjetada: ultimaParcelaProjetada, tabelaRD: tabelaRD, renderRegras: renderRegras, renderMetas: renderMetas, planoVermelho: planoVermelho, htmlPlanoVermelho: htmlPlanoVermelho, montarPlanoVermelho: montarPlanoVermelho, renderDiasNegativos: renderDiasNegativos, abrirSugestaoNegativo: abrirSugestaoNegativo, renderRelatorioDatas: renderRelatorioDatas, aplicarConclusaoTask: aplicarConclusaoTask, toggleDone: toggleDone, delExtra: delExtra, aplicarPagamentoParcela: aplicarPagamentoParcela, pagamentoAnterior: pagamentoAnterior, desfazerUltimaParcela: desfazerUltimaParcela, pagarParcela: pagarParcela, toast: toast, renderMensal: renderMensal, calcularFundoReserva: calcularFundoReserva, totalReservaProgramado: totalReservaProgramado, renderReserva: renderReserva, coletarGastosRealizados: coletarGastosRealizados, chaveGasto: chaveGasto, categorizarGasto: categorizarGasto, categoriaDoEvento: categoriaDoEvento, categorizarAuto: categorizarAuto, renderGastoMensal: renderGastoMensal, abrirRotularGasto: abrirRotularGasto, resumoCustoFixoMensal: resumoCustoFixoMensal, resumoCustoFixoDeTabela: resumoCustoFixoDeTabela, renderResumoCustoFixo: renderResumoCustoFixo, renderCustoFixo: renderCustoFixo, openSheet: openSheet, closeSheet: closeSheet, melhorPeriodoParaParcelamento: melhorPeriodoParaParcelamento, applyTheme: applyTheme, abrirEditSheet: abrirEditSheet, renderLinhasParcelasEdit: renderLinhasParcelasEdit, lerLinhasParcelasEdit: lerLinhasParcelasEdit, abrirEditorParcelas: abrirEditorParcelas, r2: r2, inicioFixoExtra: inicioFixoExtra, agruparCustoFixo: agruparCustoFixo, parcPorMes: parcPorMes, renderParcMes: renderParcMes, sugerirParcelada: sugerirParcelada, usarSugestao: usarSugestao, htmlSugestoes: htmlSugestoes, abrirParcelamentoRec: abrirParcelamentoRec, datasSeguindoEntrada: datasSeguindoEntrada, valoresDasParcelas: valoresDasParcelas, gravarCamposTask: gravarCamposTask, seguirEntrada: seguirEntrada, lerParcelada: lerParcelada, ligarCamposParcelada: ligarCamposParcelada, abrirParcelamento: abrirParcelamento, abrirEdicaoTask: abrirEdicaoTask, abrirEdicaoRecorrente: abrirEdicaoRecorrente, estornarPagoFixo: estornarPagoFixo, estornarPagosPorNome: estornarPagosPorNome, migrarMarcacaoPago: migrarMarcacaoPago, valorEfetivoNoDia: valorEfetivoNoDia, abrirEdicaoFixo: abrirEdicaoFixo, abrirEdicaoFixoExtra: abrirEdicaoFixoExtra, updateDate: updateDate}
     };
   }
 
