@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "56";
+  var VERSAO = "57";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -9457,8 +9457,18 @@ function reorgPlano(){
   const posO = {}; reorgOrdem.forEach((id,i)=>{ posO[id] = i; });
   const filaU = unidades.filter(x=>x.resta >= 0.005).map((x,i)=>({x:x, i:i}))
     .sort((a,b)=> (posO[a.x.id]!=null ? posO[a.x.id] : 1e6+a.i) - (posO[b.x.id]!=null ? posO[b.x.id] : 1e6+b.i)).map(o=>o.x);
+  // os 40% que nao foram usados num mes ficam guardados para os seguintes: e com isso que se paga uma divida a vista
+  // maior que os 40% de um mes so. A soma do que vai para divida nunca passa da soma dos 40% ate aquele mes.
+  const acumOk = (s, vs) => {
+    let c = 0, tt = 0;
+    for(let j=0; j<meses.length; j++){
+      c += (load[meses[j].mk]||0) + ((j>=s && j<s+vs.length) ? vs[j-s] : 0); tt += teto(meses[j].mk);
+      if(j>=s && c > tt + 0.005) return false;
+    }
+    return true;
+  };
   filaU.forEach(x=>{
-    const T = x.resta;
+    const T = x.resta, forc = !!reorgVista[x.id];
     let achou = null;
     for(let e=0; e<meses.length && !achou; e++){
       for(let n=1; n<=Math.min(e+1, reorgVista[x.id] ? 1 : 120) && !achou; n++){
@@ -9466,24 +9476,16 @@ function reorgPlano(){
         if(n>1 && p < MINP) break;
         const s = e-n+1;
         let ok = true;
-        for(let i=s; i<=e; i++){ if(sala(i) + 0.005 < p + (i===e ? r2(T - p*n) : 0)){ ok = false; break; } }
+        if(!forc) for(let i=s; i<=e; i++){ if(sala(i) + 0.005 < p + (i===e ? r2(T - p*n) : 0)){ ok = false; break; } }
         if(!ok) continue;
         const vs = []; for(let i=0;i<n;i++) vs.push(i===n-1 ? r2(T - p*(n-1)) : p);
+        if(!acumOk(s, vs)) continue;
+        const passa = forc && sala(s) + 0.005 < T;
         for(let f=0; f<2 && !achou; f++){
           // mesmo dia em todos os meses: o dia dela (ou, sem caixa nesse dia, o ultimo dia do primeiro mes)
           const du = meses[s].ult.slice(7), ref = (f===1 || x.diaRef > du) ? du : x.diaRef;
           const ds = []; for(let i=s; i<=e; i++) ds.push(dataEm(i, ref, false));
-          if(caixaOk(ds, vs)) achou = {ds:ds, vs:vs};
-        }
-      }
-    }
-    if(!achou && reorgVista[x.id]){
-      // a vista e maior que os 40% de qualquer mes: vai sozinha, no primeiro mes sem outra divida em que o caixa aguenta
-      for(let e=0; e<meses.length && !achou; e++){
-        if((load[meses[e].mk]||0) > 0.005) continue;
-        for(let f=0; f<2 && !achou; f++){
-          const du = meses[e].ult.slice(7), ds = [dataEm(e, (f===1 || x.diaRef > du) ? du : x.diaRef, false)];
-          if(caixaOk(ds, [T])){ achou = {ds:ds, vs:[T]}; x.grande = true; }
+          if(caixaOk(ds, vs)){ achou = {ds:ds, vs:vs}; x.grande = passa; }
         }
       }
     }
@@ -9636,7 +9638,7 @@ function reorgTela(){
   const fimDepois = fimDe(ord);
   let h = `<div class="rf-title"><i class="ti ti-arrows-shuffle"></i>Reorganização do fluxo (demonstração)</div>
     <div class="rg-nota">Você está vendo o sistema <b>inteiro como ele ficaria</b>: abri todos os quadros, e cronograma, caixa, dívidas em cada mês (40/60), mês a mês e dias no vermelho já estão com as datas novas. Nada foi gravado. No fim da tela escolha <b>Aplicar</b> ou <b>Cancelar</b>.</div>
-    <div class="rg-nota"><b>Regra:</b> todo mês vai para dívida até <b>40% da sobra</b>, enquanto houver dívida. Cada dívida vira um <b>parcelamento de verdade</b>: parcelas iguais, uma por mês, em meses seguidos, no mesmo dia. A mais antiga escolhe primeiro e fica com o parcelamento que termina mais cedo cabendo nos 40%; as seguintes ocupam o que sobra de cada mês. Nenhum dia fica com o caixa no vermelho.</div>
+    <div class="rg-nota"><b>Regra:</b> todo mês vai para dívida até <b>40% da sobra</b>, enquanto houver dívida. Cada dívida vira um <b>parcelamento de verdade</b>: parcelas iguais, uma por mês, em meses seguidos, no mesmo dia. A mais antiga escolhe primeiro e fica com o parcelamento que termina mais cedo cabendo nos 40%; as seguintes ocupam o que sobra de cada mês. Os 40% que não forem usados num mês ficam guardados para os seguintes; é com eles que se paga uma dívida à vista maior que os 40% de um mês só. Nenhum dia fica com o caixa no vermelho.</div>
     <div class="rg-nums">
       <div><b>${p.mudam}</b><small>de ${p.itens.length} dívidas mudam (data ou parcelas)</small></div>
       <div><b>${p.antes.neg} → ${p.depois.neg}</b><small>dias com caixa no vermelho</small></div>
@@ -9659,7 +9661,7 @@ function reorgTela(){
     if(it.k) corpo = '<span class="rg-de">Hoje: '+faixa(it.antes, it.antesVal)+'</span><span class="rg-para">Passa para: '+faixa(it.datas, it.valores)+'</span>';
     else corpo = '<span>Fica em: '+faixa(it.datas, it.valores)+'</span>';
     const av = it.aviso==='semdata' ? '<span class="rg-tag rg-av">'+(it.vista ? 'à vista não cabe em nenhum mês sem deixar o caixa no vermelho: ficou onde estava' : 'não achei mês que caiba: ficou onde estava')+'</span>'
-      : it.aviso==='grande' ? '<span class="rg-tag rg-av">à vista ela passa dos 40% de qualquer mês: foi para um mês sem outra dívida</span>'
+      : it.aviso==='grande' ? '<span class="rg-tag rg-av">à vista ela passa dos 40% deste mês: é paga com os 40% que sobraram dos meses anteriores</span>'
       : it.aviso==='travada' ? '<span class="rg-tag rg-muda">você travou: não muda</span>'
       : it.aviso==='antes' ? '<span class="rg-tag rg-muda">é de antes de '+d(reorgDesde)+': não muda</span>'
       : (it.dividida ? '<span class="rg-tag rg-av">parcelada em '+it.dividida+' vezes, uma por mês, em meses seguidos'+(n>1 ? ' (eram '+n+' pagamentos)' : '')+'</span>' : '')
