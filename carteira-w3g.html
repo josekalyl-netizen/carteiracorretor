@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "68";
+  var VERSAO = "69";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -5125,8 +5125,58 @@ const Agenda = (function () {
     return out;
   }
 
+  /* ---------- anotações do dia ----------
+     Bloco simples para tarefas soltas do dia (não é compromisso). O que não for marcado como feito até
+     o dia virar passa a ser um compromisso atrasado na agenda, com a data do dia em que foi anotado. */
+  function diaLocal(d) { d = d || new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function notas() { const st = S(); if (!Array.isArray(st.notes)) st.notes = []; return st.notes; }
+  function virarNotas() {
+    const hoje = diaLocal(), ns = notas();
+    if (!ns.some(n => n.day < hoje)) return 0;
+    let virou = 0; const ficam = [];
+    ns.forEach(nt => {
+      if (nt.day >= hoje) { ficam.push(nt); return; }
+      if (nt.done) return;                       // feita: só sai do bloco
+      let r = null; try { r = montar(nt.text); } catch (e) { r = null; }
+      if (!r) { ficam.push(nt); return; }        // não consegui montar: a anotação fica onde está
+      const p = nt.day.split('-').map(Number), it = r.it, ini = new Date(it.start);
+      const comHora = !r.noDate && !it.allDay;
+      it.start = (comHora ? new Date(p[0], p[1] - 1, p[2], ini.getHours(), ini.getMinutes()) : new Date(p[0], p[1] - 1, p[2])).toISOString();
+      if (!comHora) { it.allDay = true; it.dur = null; }
+      it.autoToday = false; it.silent = true; it.pending = false; it.recurrence = null; it.deNota = nt.day; it.createdAt = nt.createdAt || Date.now();
+      S().items.push(it); virou++;
+    });
+    S().notes = ficam;
+    salvar();
+    return virou;
+  }
+  function notasHTML() {
+    const hoje = diaLocal(), ns = notas().filter(n => n.day === hoje), feitas = ns.filter(n => n.done).length;
+    let h = '<div class="card" style="margin-top:16px;"><div class="sect-title"><i class="ti ti-notes"></i>Anotações de hoje' +
+      (ns.length ? '<span class="hint" style="margin-left:auto;font-weight:600;">' + feitas + ' de ' + ns.length + ' feitas</span>' : '') + '</div>' +
+      '<div style="display:flex;gap:8px;margin-bottom:10px;"><input type="text" id="ag-nota" enterkeyhint="done" placeholder="Ex.: ligar para o corretor X às 15h" style="flex:1;min-width:0;">' +
+      '<button class="btn btn-sm btn-accent" data-ag="notaAdd"><i class="ti ti-plus"></i>Anotar</button></div>';
+    if (!ns.length) h += '<p class="hint" style="margin:0 0 6px;">Nada anotado para hoje. Use para tarefas soltas do dia; compromisso com hora marcada continua indo no campo de cima.</p>';
+    ns.forEach(n => {
+      h += '<div class="ag-row"' + (n.done ? ' style="opacity:.6;"' : '') + '>' +
+        '<button class="ag-check rem" data-ag="notaOk" data-id="' + n.id + '" aria-label="' + (n.done ? 'Desmarcar' : 'Marcar como feita') + '"' + (n.done ? ' style="background:rgb(var(--c-grow));border-color:rgb(var(--c-grow));color:#fff;"' : '') + '><i class="ti ti-check"></i></button>' +
+        '<span class="tt"' + (n.done ? ' style="text-decoration:line-through;"' : '') + '>' + esc(n.text) + '</span>' +
+        '<button class="btn btn-ghost btn-icon btn-sm" data-ag="notaDel" data-id="' + n.id + '" aria-label="Apagar anotação" title="Apagar"><i class="ti ti-x"></i></button></div>';
+    });
+    h += '<p class="hint" style="margin:6px 2px 0;line-height:1.5;">O que não for marcado até o fim do dia vira compromisso atrasado na agenda, com a data de hoje.</p></div>';
+    return h;
+  }
+  function notaAdd() {
+    const inp = document.getElementById('ag-nota'), txt = inp ? inp.value.trim() : '';
+    if (!txt) { if (inp) inp.focus(); return; }
+    notas().push({ id: uid(), text: txt, day: diaLocal(), done: false, createdAt: Date.now() });
+    salvar(); build();
+    const nv = document.getElementById('ag-nota'); if (nv) nv.focus();
+  }
+
   function build() {
     const v = document.getElementById('view'); if (!v) return;
+    let notasViradas = 0; try { notasViradas = virarNotas(); } catch (e) {}
     const st = S(), now = new Date(), h0 = sod(now), hr = now.getHours();
     const abertos = st.items.filter(i => !i.done);
     const hojeL = abertos.filter(i => bucketOf(i, now) === 'today').sort((a, b) => priorityCmp(a, b, now));
@@ -5154,6 +5204,8 @@ const Agenda = (function () {
       '<div class="ag-prev hidden" id="ag-prev"></div>' +
       '<div class="ag-comp-foot"><span class="hint" id="ag-hint"></span><span>' + (editId ? '<button class="btn btn-sm" data-ag="cancelEdit">Cancelar</button>' : '') +
       '<button class="btn btn-accent btn-sm" id="ag-add" data-ag="add" disabled>' + (editId ? 'Salvar' : 'Adicionar') + '<i class="ti ti-arrow-right"></i></button></span></div></div>';
+
+    h += notasHTML();
 
     const nFollow = st.items.filter(i => i.contactId && !i.done).length, nDone = st.items.filter(i => i.done).length;
     const ch = (k, icon, txt) => '<button class="chip' + (sub === k ? ' active' : '') + '" data-ag="sub" data-v="' + k + '"><i class="ti ' + icon + '" style="margin-right:4px;"></i>' + txt + '</button>';
@@ -5187,6 +5239,9 @@ const Agenda = (function () {
     inp.value = draft; autoGrow(inp); liveParse();
     inp.addEventListener('input', () => { draft = inp.value; autoGrow(inp); liveParse(); });
     inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (inp.value.trim()) addItem(); } });
+    const nt = document.getElementById('ag-nota');
+    if (nt) nt.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); notaAdd(); } });
+    if (notasViradas) toast(notasViradas + (notasViradas > 1 ? ' anotações que ficaram por fazer viraram compromissos atrasados' : ' anotação que ficou por fazer virou compromisso atrasado'));
     const bq = document.getElementById('ag-busca');
     if (bq) bq.addEventListener('input', () => { busca = bq.value; const pos = bq.selectionStart; build(); const nv = document.getElementById('ag-busca'); if (nv) { nv.focus(); nv.setSelectionRange(pos, pos); } });
     chipsVisiveis();
@@ -5448,6 +5503,9 @@ const Agenda = (function () {
 
   /* ---------- cliques (um só ouvinte para a tela e para as janelas) ---------- */
   const ACOES = {
+    notaAdd: () => notaAdd(),
+    notaOk: id => { const n = notas().find(x => x.id === id); if (!n) return; n.done = !n.done; n.doneAt = n.done ? Date.now() : null; salvar(); build(); },
+    notaDel: id => { S().notes = notas().filter(x => x.id !== id); salvar(); build(); },
     sub: (id, v) => { sub = v; openId = null; build(); },
     areaf: (id, v) => { areaAtiva = v ? (areaAtiva === v ? null : v) : null; build(); },
     toggle: id => toggleDone(id),
