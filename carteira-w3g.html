@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "55";
+  var VERSAO = "56";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -9339,6 +9339,7 @@ function renderParcMes(linhas){
    indo pra divida. O que nao cabe e empurrado inteiro, de mes em mes. Quem tem a data mais antiga encaixa primeiro.
    Na demonstracao o estado e uma COPIA: o verdadeiro nao e tocado e nada e gravado. */
 let reorgTravados = {}; // o que o dono mandou nao mexer (vale enquanto a tela estiver aberta)
+let reorgGrupos = []; // dividas que ele mandou juntar num pagamento so: {gid, ids, titulo}. So vira verdade no Aplicar
 let reorgVista = {}; // dividas que ele mandou pagar a vista na reorganizacao: soma as parcelas e vira um pagamento so
 let reorgOrdem = []; // ordem de pagamento escolhida por ele (ids); quem nao esta na lista vai depois, da mais antiga para a mais nova
 let reorgDesde = ''; // data escolhida por ele: pagamento com data anterior a ela nao muda (vazio = reorganiza tudo)
@@ -9350,7 +9351,7 @@ function reorgUnidades(L){
     const parc = ev.tipo==='task' && o.tipo==='entrada' && o.parcelas;
     let tipo;
     if(ev.tipo==='rec') tipo = 'rec'; else if(ev.tipo==='projecao' || parc) tipo = 'parc'; else if(dv[o.id]) tipo = 'vista'; else return;
-    const x = u[tipo+':'+o.id] = u[tipo+':'+o.id] || {tipo:tipo, id:o.id, titulo:o.titulo, pags:[]};
+    const x = u[tipo+':'+o.id] = u[tipo+':'+o.id] || {tipo:tipo, id:o.id, titulo:o.titulo, pessoa:o.pessoa, pags:[]};
     x.pags.push({
       orig: ev.tipo==='projecao' ? ev.data : (ev.dataOriginal || l.data),
       valor: ev.tipo==='task' ? o.valor : ev.valor,
@@ -9414,6 +9415,17 @@ function reorgPlano(){
   const noDia = p => p.orig<hoje ? hoje : p.orig;
   const tira = (d, v) => { const mk = d.slice(0,7); load[mk] = (load[mk]||0) + v; for(let i=dia(d); i<N; i++) cx[i] -= v; };
   const folga = i => { let m = Infinity; for(let j=i;j<N;j++) if(cx[j]<m) m = cx[j]; return m; }; // quanto da pra tirar no dia i sem nenhum dia depois ficar negativo
+  // 0) o que ele mandou juntar entra na conta como UMA divida so (soma de tudo), paga de uma vez
+  reorgGrupos.forEach(g=>{
+    const ms = unidades.filter(x=>g.ids.indexOf(x.id)>=0 && !parada(x) && !x.pags.some(antesDoCorte));
+    if(ms.length<2) return;
+    const pags = []; ms.forEach(m=>m.pags.forEach(p=>pags.push(p)));
+    pags.sort((a,b)=> a.orig<b.orig ? -1 : a.orig>b.orig ? 1 : 0);
+    const gx = {tipo:'grupo', id:g.gid, titulo:g.titulo, pessoa:ms[0].pessoa, pags:pags, total:r2(pags.reduce((s,p)=>s+p.valor, 0)), primeira:pags[0].orig,
+      membros: ms.map(m=>({tipo:m.tipo, id:m.id}))};
+    unidades[unidades.indexOf(ms[0])] = gx;
+    ms.slice(1).forEach(m=>unidades.splice(unidades.indexOf(m), 1));
+  });
   // 1) o que nao pode mudar (travado por ele, ou de antes da data escolhida) fica onde esta e ocupa o lugar primeiro
   unidades.forEach(x=>{
     x.fixos = []; x.novos = []; x.resta = 0; x.diaRef = '';
@@ -9488,7 +9500,7 @@ function reorgPlano(){
     return {chave:chave(x), tipo:x.tipo, id:x.id, titulo:x.titulo, k: muda ? 1 : 0, total:x.total,
       aviso: par ? (reorgTravados[chave(x)] ? 'travada' : 'antes') : x.semdata ? 'semdata' : x.grande ? 'grande' : '', vista: !par && !!reorgVista[x.id],
       dividida: muda && !x.semdata && !par && x.nNovo>1 ? x.nNovo : 0, antes:antes, antesVal:antesVal, datas:datas, valores:valores,
-      temEntrada:x.pags[0].entrada, parteAntes: par ? 0 : x.fixos.length};
+      temEntrada:x.pags[0].entrada, parteAntes: par ? 0 : x.fixos.length, membros:x.membros, pessoa:x.pessoa};
   });
   return {itens: itens, ordem: filaU.map(x=>x.id), mudam: itens.filter(i=>i.k>0).length, antes: reorgRetrato(L), mesesAntes: reorgMeses(L)};
 }
@@ -9497,6 +9509,22 @@ function reorgGravar(plano){
   plano.itens.forEach(it=>{
     if(!it.k) return;
     const n = it.datas.length;
+    if(it.tipo==='grupo'){
+      // juntar de verdade: nasce um lancamento novo com a soma, e os que foram juntados saem do fluxo
+      if(n!==1 || (it.aviso && it.aviso!=='grande')) return;
+      state.extras.push({ id: it.id, titulo: it.titulo, valor: it.total, data: it.datas[0], pessoa: it.pessoa || 'Casal',
+        categoria: 'outro', catGasto: null, tipo: 'unico', tipoMov: 'saida', reserva: false, custom: true });
+      state.dividaVista = state.dividaVista || {}; state.dividaVista[it.id] = 1;
+      state.unificados = state.unificados || {};
+      it.membros.forEach(m=>{
+        state.unificados[m.id] = it.id;
+        if(m.tipo==='rec'){ if(state.recorrentesRemovidos.indexOf(m.id)<0) state.recorrentesRemovidos.push(m.id); return; }
+        const ex = state.extras.find(e=>e.id===m.id);
+        if(ex){ state.unificadosGuardados = state.unificadosGuardados || []; state.unificadosGuardados.push(ex); state.extras = state.extras.filter(e=>e.id!==m.id); }
+        else if(state.tasksRemovidos.indexOf(m.id)<0) state.tasksRemovidos.push(m.id);
+      });
+      return;
+    }
     if(it.tipo==='vista' || it.tipo==='parc'){
       if(n===1){
         if(it.tipo==='vista') gravarCamposTask(it.id, {data: it.datas[0]});
@@ -9524,7 +9552,9 @@ function reorgGravar(plano){
 /* ---------- EXCLUIDOS: o que foi tirado do fluxo com o botao Excluir continua guardado e pode voltar ---------- */
 function listaExcluidos(){
   const o = [];
+  const uni = state.unificados || {}; // o que foi juntado em outra divida nao e 'excluido'
   (state.recorrentesRemovidos||[]).forEach(id=>{
+    if(uni[id]) return;
     const b = DADOS_BASE.recorrentes.find(r=>r.id===id), e = state.extraRecorrentes.find(r=>r.id===id);
     const r = b ? Object.assign({}, b, state.recEstado[id]||{}) : e;
     if(!r || !r.parcelasValores || !r.parcelasValores.length) return;
@@ -9532,6 +9562,7 @@ function listaExcluidos(){
     o.push({tipo:'rec', id:id, titulo:r.titulo, valor:tot, txt:n+(n===1?' parcela':' parcelas')+' de '+fmtBR(r.parcelasValores[0])+(r.parcelasDatas&&r.parcelasDatas[0] ? ' · primeira em '+fmtDataComAno(r.parcelasDatas[0]) : '')});
   });
   (state.tasksRemovidos||[]).forEach(id=>{
+    if(uni[id]) return;
     const b = DADOS_BASE.tasks.find(x=>x.id===id);
     if(!b || state.doneIds.includes(id)) return;
     const x = Object.assign({}, b, state.taskOverrides[id]||{});
@@ -9618,7 +9649,7 @@ function reorgTela(){
     + '<button type="button" class="rg-trava" id="reorgDesdeOk" style="margin:0">Refazer com esta data</button>'
     + (reorgDesde ? '<button type="button" class="rg-trava" id="reorgDesdeLimpar" style="margin:0">Voltar a reorganizar tudo</button>' : '') + '</div></div>';
   const linha = (it, pos) => {
-    const n = it.antes.length, tipoTxt = it.tipo==='vista' ? 'à vista' : it.tipo==='parc' ? 'parcelada, ainda não começou' : 'parcelas em andamento ('+n+' faltando)';
+    const n = it.antes.length, tipoTxt = it.tipo==='grupo' ? (it.membros.length+' dívidas juntas em um pagamento só') : it.tipo==='vista' ? 'à vista' : it.tipo==='parc' ? 'parcelada, ainda não começou' : 'parcelas em andamento ('+n+' faltando)';
     const faixa = (ds, vs) => {
       if(ds.length<=6) return ds.map((x,i)=>'<b>'+d(x)+'</b> '+fmtBR(vs[i])).join(' · ');
       const mn = Math.min.apply(null, vs), mx = Math.max.apply(null, vs);
@@ -9635,11 +9666,12 @@ function reorgTela(){
         + ((it.k && it.parteAntes) ? '<span class="rg-tag rg-muda">'+it.parteAntes+(it.parteAntes===1?' pagamento':' pagamentos')+' de antes de '+d(reorgDesde)+' não '+(it.parteAntes===1?'muda':'mudam')+'</span>' : '');
     const botao = it.aviso==='travada' ? '<button type="button" class="rg-trava" data-rgt="'+it.chave+'">Liberar para mudar</button>'
       : (it.k ? '<button type="button" class="rg-trava" data-rgt="'+it.chave+'">Não mudar esta</button>' : '')
-        + (pos==null ? '' : it.vista ? '<span class="rg-tag rg-muda">você escolheu: à vista</span><button type="button" class="rg-trava" data-rgv="'+it.id+'">Voltar a parcelar</button>'
+        + (pos==null ? '' : it.tipo==='grupo' ? '<span class="rg-tag rg-muda">você juntou '+it.membros.length+' dívidas</span><button type="button" class="rg-trava" data-rgdj="'+it.id+'">Desfazer a junção</button>' : it.vista ? '<span class="rg-tag rg-muda">você escolheu: à vista</span><button type="button" class="rg-trava" data-rgv="'+it.id+'">Voltar a parcelar</button>'
           : (n>1 || it.datas.length>1) ? '<button type="button" class="rg-trava" data-rgv="'+it.id+'">Pagar à vista (soma as parcelas)</button>' : '');
     const bt = 'border:1px solid var(--ln);background:var(--pp);color:inherit;border-radius:8px;min-width:34px;height:34px;font:inherit;font-weight:700;cursor:pointer';
     const ordem = pos==null ? '' : '<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">'
       + '<button type="button" data-rgpos="'+it.id+'" title="Escolher a posição" style="'+bt+';padding:0 8px">'+(pos+1)+'º</button>'
+      + (it.tipo==='grupo' ? '' : '<label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" data-rgj="'+it.id+'" data-v="'+it.total+'">juntar</label>')
       + '<button type="button" data-rgup="'+it.id+'" title="Subir" style="'+bt+'"'+(pos===0?' disabled':'')+'>↑</button>'
       + '<button type="button" data-rgdn="'+it.id+'" title="Descer" style="'+bt+'"'+(pos===p.ordem.length-1?' disabled':'')+'>↓</button>'
       + '<span data-rgdrag="'+it.id+'" title="Segure e arraste" style="'+bt+';display:inline-flex;align-items:center;justify-content:center;cursor:grab;touch-action:none;user-select:none">⠿</span>'
@@ -9656,6 +9688,10 @@ function reorgTela(){
       + (parc ? '<button type="button" class="rg-trava" id="reorgVistaTodos" style="margin:0">Transformar todos os parcelados em à vista</button>' : '')
       + (av ? '<button type="button" class="rg-trava" id="reorgVistaNenhum" style="margin:0">Voltar todos para parcelado</button>' : '') + '</div></div>';
   }
+  h += '<div class="rg-nota"><b>Juntar dívidas em um pagamento só:</b> marque <b>juntar</b> nas dívidas que quer unir (ou escreva uma palavra do nome e toque em Marcar). O sistema soma tudo e trata como uma dívida só, paga de uma vez.'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px"><input type="text" id="reorgJuntaTxt" placeholder="palavra do nome" style="flex:1;min-width:140px;padding:9px 10px;border:1px solid var(--ln);border-radius:10px;font:inherit;background:var(--pp);color:inherit">'
+    + '<button type="button" class="rg-trava" id="reorgJuntaMarca" style="margin:0">Marcar as que têm essa palavra</button>'
+    + '<button type="button" class="rg-trava" id="reorgJuntaOk" style="margin:0">Juntar as marcadas</button></div><div id="reorgJuntaSoma" style="margin-top:6px"></div></div>';
   naFila.forEach((it,i)=>{ h += linha(it, i); });
   h += '<div class="rg-sec">Ficam onde estão (' + fora.length + ')</div>';
   fora.forEach(it=>{ h += linha(it); });
@@ -9696,13 +9732,48 @@ function reorgTela(){
     a.splice(para, 0, id);
     reorgOrdem = a; reorgRefazer();
   };
+  {
+    const cx2 = () => Array.from(bx.querySelectorAll('[data-rgj]')), marc = () => cx2().filter(c=>c.checked);
+    const semAcento = s => String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const soma = () => {
+      const m = marc(), v = r2(m.reduce((s,c)=>s + (+c.dataset.v), 0));
+      bx.querySelector('#reorgJuntaSoma').innerHTML = m.length ? 'Marcadas: <b>'+m.length+'</b>, somando <b>'+fmtBR(v)+'</b>.' : '';
+      bx.querySelector('#reorgJuntaOk').textContent = m.length>1 ? 'Juntar as '+m.length+' marcadas ('+fmtBR(v)+')' : 'Juntar as marcadas';
+    };
+    cx2().forEach(c=>c.addEventListener('change', soma));
+    bx.querySelector('#reorgJuntaMarca').addEventListener('click', ()=>{
+      const q = semAcento(bx.querySelector('#reorgJuntaTxt').value.trim());
+      if(!q){ toast('Escreva a palavra primeiro.', null); return; }
+      let n = 0;
+      cx2().forEach(c=>{ const it = p.itens.find(i=>i.id===c.dataset.rgj); c.checked = !!it && semAcento(it.titulo).indexOf(q)>=0; if(c.checked) n++; });
+      soma();
+      toast(n ? n+' marcadas. Confira e toque em Juntar.' : 'Nenhuma dívida com essa palavra no nome.', null);
+    });
+    bx.querySelector('#reorgJuntaOk').addEventListener('click', ()=>{
+      const ids = marc().map(c=>c.dataset.rgj);
+      if(ids.length<2){ toast('Marque pelo menos duas dívidas para juntar.', null); return; }
+      const ts = ids.map(id=>p.itens.find(i=>i.id===id).titulo);
+      let pre = ts[0]; ts.forEach(x=>{ while(pre && x.indexOf(pre)!==0) pre = pre.slice(0,-1); });
+      pre = pre.replace(/[\s\-:(/]+$/, '');
+      const nome = prompt('Nome da dívida que junta essas '+ids.length+':', pre.length>=3 ? pre : (bx.querySelector('#reorgJuntaTxt').value.trim() || ts[0]));
+      if(nome==null || !nome.trim()) return;
+      const gid = uid();
+      reorgGrupos.push({gid:gid, ids:ids, titulo:nome.trim()});
+      reorgVista[gid] = 1; // junta = um pagamento so
+      reorgRefazer();
+    });
+    bx.querySelectorAll('[data-rgdj]').forEach(b=>b.addEventListener('click', ()=>{
+      reorgGrupos = reorgGrupos.filter(g=>g.gid!==b.dataset.rgdj); delete reorgVista[b.dataset.rgdj];
+      reorgRefazer();
+    }));
+  }
   bx.querySelectorAll('[data-rgv]').forEach(b=>b.addEventListener('click', ()=>{
     const id = b.dataset.rgv;
     if(reorgVista[id]) delete reorgVista[id]; else reorgVista[id] = 1;
     reorgRefazer();
   }));
   if(bx.querySelector('#reorgVistaTodos')) bx.querySelector('#reorgVistaTodos').addEventListener('click', ()=>{
-    p.itens.forEach(it=>{ if(p.ordem.indexOf(it.id)>=0 && (it.antes.length>1 || it.datas.length>1)) reorgVista[it.id] = 1; });
+    p.ordem.forEach(id=>{ reorgVista[id] = 1; }); // todas, para o sistema nao parcelar nenhuma
     reorgRefazer();
   });
   if(bx.querySelector('#reorgVistaNenhum')) bx.querySelector('#reorgVistaNenhum').addEventListener('click', ()=>{ reorgVista = {}; reorgRefazer(); });
@@ -9757,7 +9828,7 @@ function reorgTela(){
 }
 function reorgEntrar(refazendo){
   if(reorgDemo) return;
-  if(refazendo!==true){ refazendo = false; reorgTravados = {}; reorgDesde = ''; reorgOrdem = (state.reorgOrdem||[]).slice(); reorgVista = Object.assign({}, state.reorgVista||{}); } // a ordem que ele aplicou da ultima vez continua valendo
+  if(refazendo!==true){ refazendo = false; reorgTravados = Object.assign({}, state.reorgTravados||{}); reorgDesde = ''; reorgOrdem = (state.reorgOrdem||[]).slice(); reorgVista = Object.assign({}, state.reorgVista||{}); reorgGrupos = []; } // a ordem que ele aplicou da ultima vez continua valendo
   let plano = null;
   try{ plano = reorgPlano(); }catch(e){ plano = null; }
   if(!plano || !plano.mudam){
@@ -9785,7 +9856,7 @@ function reorgSair(aplicar){
     const antes = JSON.parse(JSON.stringify(state)); delete antes.reorgAntes;
     try{ localStorage.setItem('fin_antes_reorganizar', JSON.stringify({quando: new Date().toISOString(), state: antes})); }catch(e){}
     reorgGravar(plano);
-    state.reorgOrdem = (plano.ordem||[]).slice(); state.reorgVista = Object.assign({}, reorgVista);
+    state.reorgOrdem = (plano.ordem||[]).slice(); state.reorgVista = Object.assign({}, reorgVista); state.reorgTravados = Object.assign({}, reorgTravados);
     state.reorgAntes = {quando: todayISO(), state: antes}; // retrato de seguranca: e o que o botao de voltar usa
     save();
   }
