@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "49";
+  var VERSAO = "50";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -6218,6 +6218,7 @@ input[type="checkbox"]{width:16px;height:16px;padding:0;flex:none;accent-color:#
     <div class="fin-tools">
       <button class="btn" id="menusBtn" type="button"><i class="ti ti-arrows-maximize"></i><span>Expandir tudo</span></button>
       <button class="btn" id="reorgBtn" type="button"><i class="ti ti-arrows-shuffle"></i>Reorganizar fluxo</button>
+      <button class="btn" id="antTopBtn" type="button"><i class="ti ti-player-track-next"></i>Antecipar dívidas</button>
       <button class="btn" id="reorgDesBtn" type="button" style="display:none"><i class="ti ti-arrow-back-up"></i><span>Voltar para antes da reorganização</span></button>
       <button class="btn" id="importBtn" type="button"><i class="ti ti-upload"></i>Importar JSON</button>
       <button class="btn" id="exportBtn" type="button"><i class="ti ti-download"></i>Exportar backup (.json)</button>
@@ -8386,6 +8387,7 @@ if(document.getElementById('dpBtn')){
     menusBtn.querySelector('i').className = abrir ? 'ti ti-arrows-minimize' : 'ti ti-arrows-maximize';
   });
   if(document.getElementById('reorgBtn')) document.getElementById('reorgBtn').addEventListener('click', reorgEntrar);
+  if(document.getElementById('antTopBtn')) document.getElementById('antTopBtn').addEventListener('click', abrirSugestaoAntecipar);
   if(document.getElementById('reorgDesBtn')) document.getElementById('reorgDesBtn').addEventListener('click', reorgDesfazer);
   ['inValor','inData'].forEach(i=>{ const e = document.getElementById(i); if(e) e.addEventListener('input', livrePessoal); });
   ['segTipo','segRepete'].forEach(i=>{ const e = document.getElementById(i); if(e) e.addEventListener('click', ()=>setTimeout(livrePessoal, 0)); });
@@ -9698,6 +9700,7 @@ function abrirAntecipar(tipo, id){
   document.getElementById('editSalvarBtn').textContent = 'Pagar agora';
 }
 function abrirSugestaoAntecipar(){
+  if(reorgDemo){ toast('Saia da demonstração da reorganização (Aplicar ou Cancelar) antes de antecipar.', null); return; }
   const dias = antDias(), gasto = new Array(dias.length).fill(0), lista = [];
   antCandidatos().forEach(c=>{
     const r = antPossivel(c.tipo, c.id, dias, gasto);
@@ -9710,10 +9713,11 @@ function abrirSugestaoAntecipar(){
   if(!lista.length) h += `<div class="calc-erro">Com o caixa de hoje não dá para antecipar nenhuma dívida sem deixar algum dia no vermelho.</div>`;
   else {
     h += `<div class="calc-ok">Dá para antecipar <b>${fmtBR(total)}</b> em ${lista.length} ${lista.length===1?'dívida':'dívidas'}, todas juntas, sem nenhum dia ficar no vermelho.</div><div class="ant-lista">`;
-    lista.forEach(x=>{ h += `<div class="ant-it"><div class="ant-i"><b>${escapeHTML(x.c.titulo)}</b><span>${antTextoItem(x.c, x.r)}</span></div><div class="ant-v">${fmtBR(x.r.total)}</div></div>`; });
-    h += `</div><div class="rd-sub" style="margin-top:10px">Para pagar, feche aqui e toque em <b>Antecipar</b> na dívida que quiser. Depois de cada pagamento a conta é refeita.</div>`;
+    lista.forEach(x=>{ h += `<div class="ant-it"><div class="ant-i"><b>${escapeHTML(x.c.titulo)}</b><span>${antTextoItem(x.c, x.r)}</span></div><div class="ant-v">${fmtBR(x.r.total)}<br><button type="button" class="rf-voltar rf-ant" data-antp="${x.c.tipo}:${x.c.id}" style="margin-top:6px">Antecipar</button></div></div>`; });
+    h += `</div><div class="rd-sub" style="margin-top:10px">Para pagar, toque em <b>Antecipar</b> na dívida que quiser. Depois de cada pagamento a conta é refeita: abra esta sugestão de novo para ver o que ainda cabe.</div>`;
   }
   abrirEditSheet('O que dá para antecipar hoje', h, false, ()=>{}, null);
+  document.querySelectorAll('[data-antp]').forEach(b=>b.addEventListener('click', ()=>{ const k = b.dataset.antp, i = k.indexOf(':'); abrirAntecipar(k.slice(0,i), k.slice(i+1)); }));
   document.getElementById('editSalvarBtn').textContent = 'Fechar';
 }
 
