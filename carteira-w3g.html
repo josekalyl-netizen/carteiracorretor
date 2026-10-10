@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "59";
+  var VERSAO = "60";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -9742,7 +9742,7 @@ function reorgTela(){
   };
   const mudam = ord.filter(it=>it.k), ficam = ord.filter(it=>!it.k);
   const naFila = p.ordem.map(id=>p.itens.find(i=>i.id===id)).filter(Boolean), fora = ord.filter(it=>p.ordem.indexOf(it.id)<0);
-  h += '<div class="rg-sec">Ordem de pagamento (' + naFila.length + ')</div><div class="rg-nota">A de cima escolhe primeiro: fica com o parcelamento que quita mais cedo, e as de baixo ocupam o que sobra de cada mês. <b>Para mudar a ordem:</b> use as setas ↑ ↓, toque no número para escolher a posição, ou segure o ⠿ e arraste para cima de outra. A cada mudança a demonstração é refeita, ainda sem gravar nada. Se alguma não pode mudar de data nem de valor, toque em <b>Não mudar esta</b>.</div>';
+  h += '<div class="rg-sec">Ordem de pagamento (' + naFila.length + ')</div><div class="rg-nota">A de cima escolhe primeiro: fica com o parcelamento que quita mais cedo, e as de baixo ocupam o que sobra de cada mês. <b>Para mudar a ordem:</b> use as setas ↑ ↓, toque no número para escolher a posição, ou segure o ⠿ e arraste para cima de outra. A cada mudança a demonstração é refeita, ainda sem gravar nada. Se alguma não pode mudar de data nem de valor, toque em <b>Não mudar esta</b>.<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button type="button" class="rg-trava" data-rgsort="barato" style="margin:0">Ordenar: da mais barata para a mais cara</button><button type="button" class="rg-trava" data-rgsort="caro" style="margin:0">Da mais cara para a mais barata</button><button type="button" class="rg-trava" data-rgsort="antiga" style="margin:0">Da mais antiga para a mais nova</button></div></div>';
   {
     const parc = naFila.filter(it=>!it.vista && (it.antes.length>1 || it.datas.length>1)).length, av = naFila.filter(it=>it.vista).length;
     h += '<div class="rg-nota"><b>Parcelado ou à vista:</b> em cada dívida que está em parcelas tem o botão <b>Pagar à vista</b>: o sistema soma as parcelas e encaixa o valor inteiro num pagamento só. Hoje: <b>'+parc+'</b> em parcelas, <b>'+av+'</b> que você mandou pagar à vista.'
@@ -9839,6 +9839,11 @@ function reorgTela(){
     reorgRefazer();
   });
   if(bx.querySelector('#reorgVistaNenhum')) bx.querySelector('#reorgVistaNenhum').addEventListener('click', ()=>{ reorgVista = {}; reorgRefazer(); });
+  bx.querySelectorAll('[data-rgsort]').forEach(b=>b.addEventListener('click', ()=>{
+    const its = p.ordem.map(id=>p.itens.find(i=>i.id===id)).filter(Boolean), m = b.dataset.rgsort;
+    its.sort((x,y)=> m==='barato' ? x.total-y.total : m==='caro' ? y.total-x.total : (x.antes[0]<y.antes[0] ? -1 : x.antes[0]>y.antes[0] ? 1 : 0));
+    reorgOrdem = its.map(i=>i.id); reorgRefazer();
+  }));
   bx.querySelectorAll('[data-rgup]').forEach(b=>b.addEventListener('click', ()=>mover(b.dataset.rgup, p.ordem.indexOf(b.dataset.rgup)-1)));
   bx.querySelectorAll('[data-rgdn]').forEach(b=>b.addEventListener('click', ()=>mover(b.dataset.rgdn, p.ordem.indexOf(b.dataset.rgdn)+1)));
   bx.querySelectorAll('[data-rgpos]').forEach(b=>b.addEventListener('click', ()=>{
