@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "39";
+  var VERSAO = "40";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -9133,16 +9133,23 @@ function agruparCustoFixo(){
 
 /* ---------- PARCELADO EM CADA MES (aparece na caixa "Nova divida parcelada") ----------
    Mes a mes: o que e parcelado e o total que vai pra divida (parcelas + a vista) do que ainda nao foi pago.
-   state.naoDivida guarda o que o usuario tirou dessa conta; e so desta visao, nao entra em calculo de caixa. */
+   state.dividaVista guarda o que a vista ele validou como divida; e so desta visao, nao entra em calculo de caixa. */
 let pmLinhas = null, pmTodos = false, pmAberto = {};
 function parcPorMes(L){
-  const m = {}, fora = state.naoDivida || {};
+  // a vista so e divida se estiver marcado em state.dividaVista; quem valida e o dono, fora da tela (sem botao).
+  // os codigos abaixo sao so identificadores internos dos lancamentos ja validados por ele (rodada 1).
+  if((state.dividaVistaV||0) < 1){
+    state.dividaVista = state.dividaVista || {};
+    't5,t6,t9,t13,t14,t15,t22,t27,t29,t30,t31,t32,t33,t34,t36,t37,t38,t39,t40,t41,t42,t43,t44,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,xmtu4op09ngxby,xmtn7xjq1j07r4'.split(',').forEach(i=>{ state.dividaVista[i] = 1; });
+    state.dividaVistaV = 1;
+  }
+  const m = {}, dv = state.dividaVista || {};
   L.forEach(l=>l.compromissos.forEach(ev=>{
     if(ev.tipo==='task' && ev.obj.tipoMov==='entrada') return; // dinheiro que entra nao e divida
     const ehParc = ev.tipo==='projecao' || ev.tipo==='rec' || !!(ev.obj.tipo==='entrada' && ev.obj.parcelas);
     const v = ev.tipo==='task' ? ev.obj.valor : ev.valor;
     const k = l.data.slice(0,7), o = m[k] = m[k] || {ids:{}, total:0, vista:{}, div:0, pes:0, itens:[]};
-    const conta = !fora[ev.obj.id];
+    const conta = ehParc || !!dv[ev.obj.id]; // tudo que e parcelado e divida
     if(ehParc){ o.ids[ev.obj.id] = 1; o.total += v; }
     else if(conta) o.vista[ev.obj.id] = 1;
     if(conta) o.div += v; else o.pes += v; // o que ele tirou da conta de divida e gasto pessoal
@@ -9165,7 +9172,7 @@ function renderParcMes(linhas){
   const keys = Object.keys(m).concat(Object.keys(nova).filter(k=>!m[k])).sort();
   let h = `<div class="pm-tit">Dívidas em cada mês</div>`;
   if(!keys.length){ el.innerHTML = h + `<div class="pm-sub">Nenhum mês com dívida por enquanto.</div>`; return; }
-  h += `<div class="pm-sub">Quanto do mês vai para dívida: o que é parcelado e o total (parcelas + o que é à vista). Só o que ainda falta pagar; custo fixo não entra. Toque num mês para ver o que estou contando.</div>`;
+  h += `<div class="pm-sub">Quanto do mês vai para dívida: o que é parcelado e o total (parcelas + o que é à vista). Só o que ainda falta pagar; custo fixo não entra. Tudo que é parcelado é dívida; o que é à vista só entra se você já validou como dívida, o resto é gasto pessoal. Toque num mês para ver.</div>`;
   const mostra = pmTodos ? keys : keys.filter((k,i)=> i<6 || nova[k]!=null); // os meses da divida que voce esta digitando aparecem sempre
   mostra.forEach(k=>{
     const o = m[k] || {ids:{}, total:0, vista:{}, div:0, pes:0, itens:[]}, n = Object.keys(o.ids).length, nv = Object.keys(o.vista).length;
