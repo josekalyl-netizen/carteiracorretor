@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "31";
+  var VERSAO = "32";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -6080,7 +6080,12 @@ input[type="checkbox"]{width:16px;height:16px;padding:0;flex:none;accent-color:#
 .pv-geral-k{font:600 12px/1.3 var(--ativa-font-body);color:rgb(var(--c-muted))}
 .pv-geral-v{font:700 28px/1.15 var(--ativa-font-display);letter-spacing:-.02em;color:rgb(var(--c-alert));margin:2px 0 4px}
 .pv-sub{font:600 11.5px/1.3 var(--ativa-font-body);color:rgb(var(--c-muted));margin:2px 2px 6px}
-.pv-val{color:rgb(var(--c-alert))}`;
+.pv-val{color:rgb(var(--c-alert))}
+/* ---------- divida parcelada ---------- */
+.dp-resumo{font-size:12.5px;line-height:1.45;color:rgb(var(--c-ink2));background:var(--pp);border-radius:12px;padding:10px 12px;margin:2px 0 10px}
+.dp-resumo:empty{display:none}
+.dp-resumo b{color:rgb(var(--c-ink))}
+.dp-erro{color:rgb(var(--c-alert))}`;
   var FIN_SHELL = `<div class="fin">
   <div class="fin-top">
     <div>
@@ -6180,6 +6185,28 @@ input[type="checkbox"]{width:16px;height:16px;padding:0;flex:none;accent-color:#
           <label class="ajuste-check"><input type="checkbox" id="inAjusteDiaUtil"> Se esse dia cair no fim de semana, paga no dia útil anterior mais próximo</label>
         </div>
         <button class="add-btn" id="addBtn" type="button">Adicionar e recalcular caixa</button>
+      </div>
+
+      <div class="bx composer" id="dpBox" style="order:2">
+        <div class="composer-title"><i class="ti ti-credit-card-pay"></i>Nova dívida parcelada</div>
+        <div class="rd-sub" style="margin:-4px 0 10px">Entrada + parcelas. As parcelas vencem todo mês no mesmo dia da entrada; se a data da entrada mudar, elas acompanham.</div>
+        <div class="form-row">
+          <div class="field"><label>O que é</label><input id="dpTitulo" placeholder="Ex.: acordo do cartão"></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label>Total da dívida (R$)</label><input id="dpTotal" type="number" step="0.01" placeholder="0,00" inputmode="decimal"></div>
+          <div class="field"><label>Entrada (R$)</label><input id="dpEntrada" type="number" step="0.01" placeholder="0,00" inputmode="decimal"></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label>Data da entrada</label><input id="dpData" type="date"></div>
+          <div class="field"><label>Quem</label><select id="dpPessoa"></select></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label>Parcelas (quantas vezes)</label><input id="dpVezes" type="number" min="1" max="120" step="1" value="1" inputmode="numeric"></div>
+          <div class="field"><label>Valor de cada parcela (R$)</label><input id="dpParcela" type="number" step="0.01" placeholder="0,00" inputmode="decimal"></div>
+        </div>
+        <div id="dpResumo" class="dp-resumo"></div>
+        <button class="add-btn" id="dpBtn" type="button">Adicionar dívida parcelada</button>
       </div>
 
       <div class="bx" style="order:5">
@@ -6385,6 +6412,8 @@ input[type="checkbox"]{width:16px;height:16px;padding:0;flex:none;accent-color:#
     raiz.getElementById('finTitulo').textContent = plano.titulo || 'Finanças';
     var selP = raiz.getElementById('inPessoa');
     [plano.pessoa.c, plano.pessoa.b, plano.pessoa.a].forEach(function (p) { var o = document.createElement('option'); o.textContent = p; selP.appendChild(o); });
+    var selD = raiz.getElementById('dpPessoa');
+    if (selD) selD.innerHTML = selP.innerHTML;
     raiz.getElementById('finNegSub').textContent = 'Todo dia com caixa negativo' + (plano.x.negTexto ? ' (fora de ' + plano.x.negTexto + ', que tem autorização)' : '') + '. Toque num item pra ver a sugestão de melhor data.';
     var docFalso = {
       getElementById: function (id) { return raiz.getElementById(id); },
@@ -7074,6 +7103,7 @@ function aplicarNovaDataCompromisso(tipo, id, novaData){
       if(ex) ex.proximaData = novaData;
     }
   }
+  if(tipo==='task') seguirEntrada(id);
   save(); toast('Data alterada — caixa e fluxo recalculados', null); renderAll();
 }
 
@@ -7936,8 +7966,7 @@ function renderDiasNegativos(){
   let html = htmlPlanoVermelho(linhas);
   keys.forEach(k=>{
     const dias = porMes[k];
-    const nomeMes
- = parseISO(k+'-01').toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+    const nomeMes = parseISO(k+'-01').toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
     const pior = Math.min(...dias.map(l=>l.caixa));
     html += `<button class="cf-toggle neg-mes-toggle" data-mes="${k}"><span class="arw">&#9656;</span>${nomeMes} — ${dias.length} dia(s) no vermelho · pior dia: ${fmtBR(pior)}</button>`;
     html += `<div class="neg-mes-lista" id="negMes-${k}">`;
@@ -8190,6 +8219,28 @@ document.getElementById('segRepete').querySelectorAll('button').forEach(b=>{
     const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o);
   });
 })();
+/* ---------- NOVA DIVIDA PARCELADA (entrada + parcelas no mesmo dia do mes) ---------- */
+if(document.getElementById('dpBtn')){
+  ligarCamposParcelada('dp');
+  document.getElementById('dpBtn').addEventListener('click', ()=>{
+    const titulo = document.getElementById('dpTitulo').value.trim();
+    if(!titulo){ toast('Preencha o que é a dívida', null); return; }
+    const p = lerParcelada('dp');
+    if(p.erro){ toast(p.erro, null); return; }
+    state.extras.push({
+      id: uid(), titulo: titulo, valor: p.entrada, data: p.data, pessoa: document.getElementById('dpPessoa').value,
+      categoria: 'outro', catGasto: null, tipo: 'entrada', tipoMov: 'saida', reserva: false, custom: true,
+      parcelas: p.n, valorParcela: p.valores[0], parcelasCustomValores: p.valores, parcelasCustomDatas: p.datas,
+      parcSegueEntrada: true, dividaTotal: p.total
+    });
+    save();
+    ['dpTitulo','dpTotal','dpEntrada','dpData','dpParcela'].forEach(i=>{ document.getElementById(i).value=''; });
+    document.getElementById('dpVezes').value = '1';
+    document.getElementById('dpResumo').innerHTML = '';
+    toast('Dívida parcelada criada — caixa e fluxo recalculados', null);
+    renderAll();
+  });
+}
 document.getElementById('addBtn').addEventListener('click', ()=>{
   const titulo = document.getElementById('inTitulo').value.trim();
   const valor = parseFloat(document.getElementById('inValor').value);
@@ -8877,7 +8928,8 @@ function abrirEditorParcelas(tipo, id, entradaOverride){
     const valores = __parcelasEditando.map(p=>p.valor);
     const datas = __parcelasEditando.map(p=>p.data);
     if(tipo==='task'){
-      const extra = { parcelasCustomValores: valores, parcelasCustomDatas: datas, parcelas: valores.length, valorParcela: valores[0] };
+      // datas escolhidas a mao, parcela por parcela: deixam de acompanhar a data da entrada
+      const extra = { parcelasCustomValores: valores, parcelasCustomDatas: datas, parcelas: valores.length, valorParcela: valores[0], parcSegueEntrada: false };
       if(entradaAtual!=null){
         const novaEntrada = Math.abs(parseFloat(document.getElementById('edEntradaParc').value));
         if(!isNaN(novaEntrada)) extra.valor = novaEntrada;
@@ -8916,11 +8968,127 @@ function abrirEditorParcelas(tipo, id, entradaOverride){
   });
 }
 
+/* ---------- DIVIDA PARCELADA: entrada + N parcelas que seguem o dia da entrada ----------
+   As parcelas vencem todo mes no mesmo dia da entrada (entrada dia 20/01 => 20/02, 20/03...).
+   Por baixo usa o mesmo mecanismo das "parcelas com valor e data proprios" que o painel ja tinha;
+   a marca parcSegueEntrada diz que, se a data da entrada mudar, as datas das parcelas sao refeitas. */
+function r2(v){ return Math.round(v*100)/100; }
+function datasSeguindoEntrada(dataEntrada, n){
+  const base = parseISO(dataEntrada), out = [];
+  for(let i=1;i<=n;i++) out.push(isoOf(addMonths(base, i)));
+  return out;
+}
+// n parcelas de "parcela"; a ultima absorve os centavos pra soma fechar exatamente em (total - entrada)
+function valoresDasParcelas(total, entrada, n, parcela){
+  const v = Array(n).fill(r2(parcela));
+  v[n-1] = r2(r2(total-entrada) - r2(parcela)*(n-1));
+  return v;
+}
+function gravarCamposTask(id, campos){
+  const t = todasTasks().find(x=>x.id===id);
+  if(!t) return;
+  if(t.custom){
+    const ex = state.extras.find(x=>x.id===id);
+    if(ex) Object.assign(ex, campos);
+  } else {
+    state.taskOverrides[id] = Object.assign({}, state.taskOverrides[id]||{}, campos);
+  }
+}
+// a data da entrada mudou: as parcelas acompanham (menos quando voce definiu datas proprias, parcela por parcela)
+function seguirEntrada(id){
+  const t = todasTasks().find(x=>x.id===id);
+  if(!t || !(t.tipo==='entrada' && t.parcelas) || !t.data) return;
+  if(state.doneIds.includes(id)) return; // entrada ja paga: as parcelas ja viraram compromisso proprio
+  const temProprias = !!(t.parcelasCustomValores && t.parcelasCustomDatas);
+  if(temProprias && !t.parcSegueEntrada) return;
+  const valores = temProprias ? t.parcelasCustomValores.slice() : Array(t.parcelas).fill(t.valorParcela);
+  gravarCamposTask(id, {
+    parcelasCustomValores: valores, parcelasCustomDatas: datasSeguindoEntrada(t.data, valores.length),
+    parcelas: valores.length, valorParcela: valores[0], parcSegueEntrada: true
+  });
+}
+// le e confere os campos de uma divida parcelada (formulario novo e tela de edicao usam os mesmos nomes, com prefixo)
+function lerParcelada(pre){
+  const num = id => { const el = document.getElementById(pre+id); return el ? Math.abs(parseFloat(el.value)) : NaN; };
+  const total = r2(num('Total')), entrada = r2(num('Entrada')), n = parseInt(document.getElementById(pre+'Vezes').value, 10), parcela = r2(num('Parcela'));
+  const data = document.getElementById(pre+'Data').value;
+  if(isNaN(total) || total<=0) return {erro:'Preencha o total da dívida.'};
+  if(isNaN(entrada) || entrada<=0) return {erro:'Preencha a entrada (a primeira parte que você paga).'};
+  if(entrada>=total) return {erro:'A entrada precisa ser menor que o total da dívida.'};
+  if(isNaN(n) || n<1 || n>120) return {erro:'Preencha em quantas vezes (de 1 a 120).'};
+  if(isNaN(parcela) || parcela<=0) return {erro:'Preencha o valor de cada parcela.'};
+  if(!data) return {erro:'Preencha a data da entrada.'};
+  const valores = valoresDasParcelas(total, entrada, n, parcela);
+  if(valores[n-1] <= 0) return {erro:'Com esse valor de parcela, a última ficaria zerada ou negativa. Ajuste a parcela ou a quantidade.'};
+  return {total:total, entrada:entrada, n:n, data:data, valores:valores, datas:datasSeguindoEntrada(data, n)};
+}
+// liga os campos entre si: mexeu no total, na entrada ou na quantidade => recalcula a parcela;
+// mexeu na parcela => recalcula o total. E mostra o resumo do que vai ser gravado.
+function ligarCamposParcelada(pre){
+  const el = id => document.getElementById(pre+id);
+  const val = id => Math.abs(parseFloat(el(id).value));
+  const resumo = ()=>{
+    const box = el('Resumo'); if(!box) return;
+    const p = lerParcelada(pre);
+    if(p.erro){ box.innerHTML = (el('Total').value || el('Entrada').value) ? `<span class="dp-erro">${p.erro}</span>` : ''; return; }
+    const iguais = p.valores.every(v=>v===p.valores[0]);
+    box.innerHTML = `Entrada de <b>${fmtBR(p.entrada)}</b> em <b>${fmtDataComAno(p.data)}</b> + <b>${p.n}x de ${fmtBR(p.valores[0])}</b>${iguais?'':' (a última de '+fmtBR(p.valores[p.n-1])+', pra fechar os centavos)'}, de <b>${fmtDataComAno(p.datas[0])}</b> a <b>${fmtDataComAno(p.datas[p.n-1])}</b>. Total: <b>${fmtBR(p.total)}</b>.`;
+  };
+  const calcParcela = ()=>{
+    const t = val('Total'), e = val('Entrada'), n = parseInt(el('Vezes').value, 10);
+    if(!isNaN(t) && !isNaN(e) && n>=1 && t>e) el('Parcela').value = r2((t-e)/n).toFixed(2);
+    resumo();
+  };
+  const calcTotal = ()=>{
+    const e = val('Entrada'), n = parseInt(el('Vezes').value, 10), p = val('Parcela');
+    if(!isNaN(e) && n>=1 && !isNaN(p) && p>0) el('Total').value = r2(e + p*n).toFixed(2);
+    resumo();
+  };
+  ['Total','Entrada','Vezes'].forEach(id=> el(id).addEventListener('input', calcParcela));
+  el('Parcela').addEventListener('input', calcTotal);
+  el('Data').addEventListener('input', resumo);
+  resumo();
+}
+// tela: mudar total, entrada, data, quantidade e valor das parcelas de uma divida (ou parcelar uma que era a vista)
+function abrirParcelamento(id){
+  const t = todasTasks().find(x=>x.id===id);
+  if(!t || state.doneIds.includes(id) || t.tipoMov==='entrada') return;
+  const ehParcelada = t.tipo==='entrada' && t.parcelas;
+  const total = ehParcelada ? r2(valorTotalTask(t)) : t.valor;
+  const parcelaAtual = ehParcelada ? ((t.parcelasCustomValores && t.parcelasCustomValores[0]) || t.valorParcela) : '';
+  const html = `
+    <div class="rd-sub" style="margin:0 0 10px">As parcelas vencem todo mês no mesmo dia da entrada. Mudou a data da entrada, as parcelas acompanham.</div>
+    <div class="field"><label>Total da dívida (R$)</label><input id="epTotal" type="number" step="0.01" value="${total}"></div>
+    <div class="field"><label>Entrada (R$)</label><input id="epEntrada" type="number" step="0.01" value="${ehParcelada?t.valor:''}"></div>
+    <div class="field"><label>Data da entrada</label><input id="epData" type="date" value="${t.data||''}"></div>
+    <div class="field"><label>Parcelas (quantas vezes)</label><input id="epVezes" type="number" min="1" max="120" step="1" value="${ehParcelada?t.parcelas:1}"></div>
+    <div class="field"><label>Valor de cada parcela (R$)</label><input id="epParcela" type="number" step="0.01" value="${parcelaAtual}"></div>
+    <div id="epResumo" class="dp-resumo"></div>
+    ${ehParcelada?'<button type="button" class="sheet-btn" id="epTirar" style="background:var(--brick)">Tirar o parcelamento (voltar a ser um pagamento só)</button>':''}`;
+  abrirEditSheet((ehParcelada?'Parcelamento: ':'Parcelar: ')+t.titulo, html, false, ()=>{
+    const p = lerParcelada('ep');
+    if(p.erro){ toast(p.erro+' Nada foi alterado.', null); return; }
+    gravarCamposTask(id, {
+      valor: p.entrada, data: p.data, tipo: 'entrada', parcelas: p.n, valorParcela: p.valores[0],
+      parcelasCustomValores: p.valores, parcelasCustomDatas: p.datas, parcSegueEntrada: true, dividaTotal: p.total
+    });
+    save(); toast('Parcelamento salvo — caixa e fluxo recalculados', null); renderAll();
+  }, null);
+  ligarCamposParcelada('ep');
+  const tirar = document.getElementById('epTirar');
+  if(tirar) tirar.addEventListener('click', ()=>{
+    if(!confirm('Tirar o parcelamento? A dívida volta a ser um pagamento só, de '+fmtBR(total)+', na data da entrada.')) return;
+    gravarCamposTask(id, { valor: total, tipo: 'unico', parcelas: 0, valorParcela: 0, parcelasCustomValores: null, parcelasCustomDatas: null, parcSegueEntrada: false, dividaTotal: null });
+    save(); closeSheet(); toast('Parcelamento removido — caixa e fluxo recalculados', null); renderAll();
+  });
+}
 function abrirEdicaoTask(id){
   const t = todasTasks().find(x=>x.id===id);
   if(!t) return;
   const ehParcelada = t.tipo==='entrada' && t.parcelas;
   const jaFoiPaga = state.doneIds.includes(id);
+  const dataAntesDaEdicao = t.data; // guardada aqui porque, num compromisso criado por voce, o objeto e alterado ao salvar
+
   const campoParcelas = ehParcelada ? `
     <div class="field">
       <label>Parcelamento (${t.parcelas}x de ${fmtBR(t.valorParcela)})</label>
@@ -8932,7 +9100,9 @@ function abrirEdicaoTask(id){
     <div class="field"><label>O que é</label><input id="edTitulo" value="${t.titulo.replace(/"/g,'&quot;')}"></div>
     <div class="field"><label>${ehParcelada?'Valor da entrada (R$)':'Valor (R$)'}</label><input id="edValor" type="number" step="0.01" value="${t.valor}"></div>
     ${campoParcelas}
-    <div class="field"><label>Data</label><input id="edData" type="date" value="${t.data||''}"></div>
+    ${(!jaFoiPaga && t.tipoMov!=='entrada') ? `<div class="field"><button type="button" class="sheet-btn" id="btnParcelar" style="background:var(--olive)">${ehParcelada?'Mudar total, entrada e nº de parcelas':'Parcelar esta dívida (entrada + parcelas)'}</button></div>` : ''}
+    <div class="field"><label>${ehParcelada?'Data da entrada':'Data'}</label><input id="edData" type="date" value="${t.data||''}"></div>
+    ${ehParcelada && !jaFoiPaga ? '<div class="rd-sub">Mudando a data da entrada, as parcelas passam a vencer todo mês nesse mesmo dia.</div>' : ''}
     <div class="field"><label>Quem</label>
       <select id="edPessoa">
         <option ${t.pessoa===P.c?'selected':''}>${P.c}</option>
@@ -8952,6 +9122,7 @@ function abrirEdicaoTask(id){
     } else {
       state.taskOverrides[id] = Object.assign({}, state.taskOverrides[id]||{}, {titulo:novoT, valor:novoV, data:novoD, pessoa:novoP}, extra);
     }
+    if(novoD!==dataAntesDaEdicao) seguirEntrada(id);
     save(); toast('Editado — caixa e fluxo recalculados', null); renderAll();
   }, ()=>{
     let estornado = 0;
@@ -8967,6 +9138,8 @@ function abrirEdicaoTask(id){
     else { state.tasksRemovidos.push(id); save(); }
     toast('Removido'+(estornado?' — '+fmtBR(estornado)+' devolvido ao caixa':'')+' — fluxo recalculado', null); renderAll();
   });
+  const btnParcelar = document.getElementById('btnParcelar');
+  if(btnParcelar) btnParcelar.addEventListener('click', ()=> abrirParcelamento(id));
   if(ehParcelada){
     document.getElementById('btnAbrirParcelas').addEventListener('click', ()=>{
       const valorEntradaDigitado = Math.abs(parseFloat(document.getElementById('edValor').value))||t.valor;
@@ -9218,7 +9391,7 @@ function updateDate(){
       aberto: function () { return overlay.classList.contains('show'); },
       estado: function () { return state; },
       raiz: RAIZ,
-      F: {load: load, METAS_PADRAO: METAS_PADRAO, save: save, garantirSeeds: garantirSeeds, fmtBR: fmtBR, parseISO: parseISO, isoOf: isoOf, addMonths: addMonths, fmtDataCurta: fmtDataCurta, fmtDataComAno: fmtDataComAno, mesLabel: mesLabel, ultimoDiaMes: ultimoDiaMes, ultimoDiaUtilMes: ultimoDiaUtilMes, ajustarParaDiaUtilAnterior: ajustarParaDiaUtilAnterior, sextoDiaUtil: sextoDiaUtil, proximoPagamento: proximoPagamento, primeiroSabado: primeiroSabado, diasEntre: diasEntre, todayISO: todayISO, inicioLedger: inicioLedger, cfv: cfv, cfvData: cfvData, custoFixoDoDia: custoFixoDoDia, construirLedger: construirLedger, todasOcorrenciasFuturas: todasOcorrenciasFuturas, construirCaixaDiarioCompleto: construirCaixaDiarioCompleto, melhorDataParaValor: melhorDataParaValor, sugerirAntecipacao: sugerirAntecipacao, sugerirMelhorDataBidirecional: sugerirMelhorDataBidirecional, aplicarNovaDataCompromisso: aplicarNovaDataCompromisso, abrirMoverData: abrirMoverData, custoFixoMensalMedio: custoFixoMensalMedio, colchaoAlvo: colchaoAlvo, rendaMensal: rendaMensal, aindaTemPendencias: aindaTemPendencias, distribuir203050: distribuir203050, aplicarNasMetas: aplicarNasMetas, construirCronograma: construirCronograma, todasTasks: todasTasks, tasksPendentes: tasksPendentes, tasksConcluidas: tasksConcluidas, recorrentesAtivos: recorrentesAtivos, catLabel: catLabel, updateHero: updateHero, iconCheck: iconCheck, cardHTML: cardHTML, recorrenteEventoHTML: recorrenteEventoHTML, escapeHTML: escapeHTML, fmtDataLonga: fmtDataLonga, renderRecorrentes: renderRecorrentes, renderAll: renderAll, diaEstaConcluido: diaEstaConcluido, renderCronograma: renderCronograma, custoFixoChipHTML: custoFixoChipHTML, compromissoChipHTML: compromissoChipHTML, bindChips: bindChips, valorTotalTask: valorTotalTask, acharFixoPago: acharFixoPago, htmlFixosPagos: htmlFixosPagos, voltarFixoPago: voltarFixoPago, renderResumoFinal: renderResumoFinal, renderTotaisLista: renderTotaisLista, ultimaParcelaProjetada: ultimaParcelaProjetada, tabelaRD: tabelaRD, renderRegras: renderRegras, renderMetas: renderMetas, planoVermelho: planoVermelho, htmlPlanoVermelho: htmlPlanoVermelho, montarPlanoVermelho: montarPlanoVermelho, renderDiasNegativos: renderDiasNegativos, abrirSugestaoNegativo: abrirSugestaoNegativo, renderRelatorioDatas: renderRelatorioDatas, aplicarConclusaoTask: aplicarConclusaoTask, toggleDone: toggleDone, delExtra: delExtra, aplicarPagamentoParcela: aplicarPagamentoParcela, pagamentoAnterior: pagamentoAnterior, desfazerUltimaParcela: desfazerUltimaParcela, pagarParcela: pagarParcela, toast: toast, renderMensal: renderMensal, calcularFundoReserva: calcularFundoReserva, totalReservaProgramado: totalReservaProgramado, renderReserva: renderReserva, coletarGastosRealizados: coletarGastosRealizados, chaveGasto: chaveGasto, categorizarGasto: categorizarGasto, categoriaDoEvento: categoriaDoEvento, categorizarAuto: categorizarAuto, renderGastoMensal: renderGastoMensal, abrirRotularGasto: abrirRotularGasto, resumoCustoFixoMensal: resumoCustoFixoMensal, resumoCustoFixoDeTabela: resumoCustoFixoDeTabela, renderResumoCustoFixo: renderResumoCustoFixo, renderCustoFixo: renderCustoFixo, openSheet: openSheet, closeSheet: closeSheet, melhorPeriodoParaParcelamento: melhorPeriodoParaParcelamento, applyTheme: applyTheme, abrirEditSheet: abrirEditSheet, renderLinhasParcelasEdit: renderLinhasParcelasEdit, lerLinhasParcelasEdit: lerLinhasParcelasEdit, abrirEditorParcelas: abrirEditorParcelas, abrirEdicaoTask: abrirEdicaoTask, abrirEdicaoRecorrente: abrirEdicaoRecorrente, estornarPagoFixo: estornarPagoFixo, estornarPagosPorNome: estornarPagosPorNome, migrarMarcacaoPago: migrarMarcacaoPago, valorEfetivoNoDia: valorEfetivoNoDia, abrirEdicaoFixo: abrirEdicaoFixo, abrirEdicaoFixoExtra: abrirEdicaoFixoExtra, updateDate: updateDate}
+      F: {load: load, METAS_PADRAO: METAS_PADRAO, save: save, garantirSeeds: garantirSeeds, fmtBR: fmtBR, parseISO: parseISO, isoOf: isoOf, addMonths: addMonths, fmtDataCurta: fmtDataCurta, fmtDataComAno: fmtDataComAno, mesLabel: mesLabel, ultimoDiaMes: ultimoDiaMes, ultimoDiaUtilMes: ultimoDiaUtilMes, ajustarParaDiaUtilAnterior: ajustarParaDiaUtilAnterior, sextoDiaUtil: sextoDiaUtil, proximoPagamento: proximoPagamento, primeiroSabado: primeiroSabado, diasEntre: diasEntre, todayISO: todayISO, inicioLedger: inicioLedger, cfv: cfv, cfvData: cfvData, custoFixoDoDia: custoFixoDoDia, construirLedger: construirLedger, todasOcorrenciasFuturas: todasOcorrenciasFuturas, construirCaixaDiarioCompleto: construirCaixaDiarioCompleto, melhorDataParaValor: melhorDataParaValor, sugerirAntecipacao: sugerirAntecipacao, sugerirMelhorDataBidirecional: sugerirMelhorDataBidirecional, aplicarNovaDataCompromisso: aplicarNovaDataCompromisso, abrirMoverData: abrirMoverData, custoFixoMensalMedio: custoFixoMensalMedio, colchaoAlvo: colchaoAlvo, rendaMensal: rendaMensal, aindaTemPendencias: aindaTemPendencias, distribuir203050: distribuir203050, aplicarNasMetas: aplicarNasMetas, construirCronograma: construirCronograma, todasTasks: todasTasks, tasksPendentes: tasksPendentes, tasksConcluidas: tasksConcluidas, recorrentesAtivos: recorrentesAtivos, catLabel: catLabel, updateHero: updateHero, iconCheck: iconCheck, cardHTML: cardHTML, recorrenteEventoHTML: recorrenteEventoHTML, escapeHTML: escapeHTML, fmtDataLonga: fmtDataLonga, renderRecorrentes: renderRecorrentes, renderAll: renderAll, diaEstaConcluido: diaEstaConcluido, renderCronograma: renderCronograma, custoFixoChipHTML: custoFixoChipHTML, compromissoChipHTML: compromissoChipHTML, bindChips: bindChips, valorTotalTask: valorTotalTask, acharFixoPago: acharFixoPago, htmlFixosPagos: htmlFixosPagos, voltarFixoPago: voltarFixoPago, renderResumoFinal: renderResumoFinal, renderTotaisLista: renderTotaisLista, ultimaParcelaProjetada: ultimaParcelaProjetada, tabelaRD: tabelaRD, renderRegras: renderRegras, renderMetas: renderMetas, planoVermelho: planoVermelho, htmlPlanoVermelho: htmlPlanoVermelho, montarPlanoVermelho: montarPlanoVermelho, renderDiasNegativos: renderDiasNegativos, abrirSugestaoNegativo: abrirSugestaoNegativo, renderRelatorioDatas: renderRelatorioDatas, aplicarConclusaoTask: aplicarConclusaoTask, toggleDone: toggleDone, delExtra: delExtra, aplicarPagamentoParcela: aplicarPagamentoParcela, pagamentoAnterior: pagamentoAnterior, desfazerUltimaParcela: desfazerUltimaParcela, pagarParcela: pagarParcela, toast: toast, renderMensal: renderMensal, calcularFundoReserva: calcularFundoReserva, totalReservaProgramado: totalReservaProgramado, renderReserva: renderReserva, coletarGastosRealizados: coletarGastosRealizados, chaveGasto: chaveGasto, categorizarGasto: categorizarGasto, categoriaDoEvento: categoriaDoEvento, categorizarAuto: categorizarAuto, renderGastoMensal: renderGastoMensal, abrirRotularGasto: abrirRotularGasto, resumoCustoFixoMensal: resumoCustoFixoMensal, resumoCustoFixoDeTabela: resumoCustoFixoDeTabela, renderResumoCustoFixo: renderResumoCustoFixo, renderCustoFixo: renderCustoFixo, openSheet: openSheet, closeSheet: closeSheet, melhorPeriodoParaParcelamento: melhorPeriodoParaParcelamento, applyTheme: applyTheme, abrirEditSheet: abrirEditSheet, renderLinhasParcelasEdit: renderLinhasParcelasEdit, lerLinhasParcelasEdit: lerLinhasParcelasEdit, abrirEditorParcelas: abrirEditorParcelas, r2: r2, datasSeguindoEntrada: datasSeguindoEntrada, valoresDasParcelas: valoresDasParcelas, gravarCamposTask: gravarCamposTask, seguirEntrada: seguirEntrada, lerParcelada: lerParcelada, ligarCamposParcelada: ligarCamposParcelada, abrirParcelamento: abrirParcelamento, abrirEdicaoTask: abrirEdicaoTask, abrirEdicaoRecorrente: abrirEdicaoRecorrente, estornarPagoFixo: estornarPagoFixo, estornarPagosPorNome: estornarPagosPorNome, migrarMarcacaoPago: migrarMarcacaoPago, valorEfetivoNoDia: valorEfetivoNoDia, abrirEdicaoFixo: abrirEdicaoFixo, abrirEdicaoFixoExtra: abrirEdicaoFixoExtra, updateDate: updateDate}
     };
   }
 
