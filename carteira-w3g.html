@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "43";
+  var VERSAO = "44";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -6164,7 +6164,31 @@ input[type="checkbox"]{width:16px;height:16px;padding:0;flex:none;accent-color:#
 .pm-d-sinal.pm-d-bom{background:rgb(var(--c-grow) / .12)}
 .pm-d-sinal .ti{font-size:20px;flex-shrink:0}
 .pm-d-sinal b{display:block;font:700 14px/1.25 var(--ativa-font-display);color:inherit}
-.pm-d-sinal small{display:block;font-size:11.5px;color:rgb(var(--c-ink2));margin-top:2px;font-weight:400}`;
+.pm-d-sinal small{display:block;font-size:11.5px;color:rgb(var(--c-ink2));margin-top:2px;font-weight:400}
+/* reorganizar o fluxo: quadro da demonstracao e barra de aplicar/cancelar */
+.reorg-bx{border:2px solid rgb(var(--c-warn))}
+.rg-nota{font-size:12.5px;line-height:1.45;color:rgb(var(--c-ink2));margin:4px 0 10px}
+.rg-nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:10px}
+.rg-nums > div{background:var(--pp);border-radius:10px;padding:9px 11px}
+.rg-nums b{display:block;font:700 15px/1.2 var(--ativa-font-display);color:rgb(var(--c-ink))}
+.rg-nums small{display:block;font-size:11.5px;line-height:1.3;color:rgb(var(--c-muted));margin-top:3px}
+.rg-it{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:9px 0;border-bottom:1px solid var(--ln)}
+.rg-it:last-child{border-bottom:0}
+.rg-it-i{min-width:0}
+.rg-it-i > b{display:block;font-weight:700;font-size:13.5px;color:rgb(var(--c-ink));overflow-wrap:break-word}
+.rg-it-i > span{display:block;font-size:12px;line-height:1.4;color:rgb(var(--c-ink2));margin-top:2px}
+.rg-it-i > span b{color:rgb(var(--c-ink))}
+.rg-it-i > .rg-tag{display:inline-block;margin:5px 6px 0 0;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:600;border:1px solid var(--ln);color:rgb(var(--c-muted))}
+.rg-it-i > .rg-muda{border-color:rgb(var(--c-primary-500));color:rgb(var(--c-primary-500))}
+.rg-it-i > .rg-av{border-color:rgb(var(--c-alert));color:rgb(var(--c-alert))}
+.rg-it-v{font:700 13.5px/1.2 var(--ativa-font-display);color:rgb(var(--c-ink));white-space:nowrap}
+.reorg-bar{position:sticky;bottom:0;z-index:30;display:flex;align-items:center;gap:10px;margin-top:14px;padding:12px 14px;border-radius:14px 14px 0 0;background:rgb(var(--c-card));border:2px solid rgb(var(--c-warn));border-bottom:0;box-shadow:0 -6px 18px rgb(0 0 0 / .25)}
+.rg-bar-t{flex:1;min-width:0}
+.rg-bar-t b{display:block;font:700 13px/1.2 var(--ativa-font-display);color:rgb(var(--c-warn));letter-spacing:.04em}
+.rg-bar-t small{display:block;font-size:11.5px;color:rgb(var(--c-muted));margin-top:2px}
+.rg-b{border-radius:999px;padding:11px 18px;font:700 13px/1 var(--ativa-font-body);cursor:pointer;border:1px solid var(--ln);background:transparent;color:rgb(var(--c-ink))}
+.rg-b.rg-ok{background:rgb(var(--c-alert));border-color:rgb(var(--c-alert));color:#fff}
+#reorgBtn:disabled{opacity:.5;cursor:default}`;
   var FIN_SHELL = `<div class="fin">
   <div class="fin-top">
     <div>
@@ -6175,6 +6199,7 @@ input[type="checkbox"]{width:16px;height:16px;padding:0;flex:none;accent-color:#
     </div>
     <div class="fin-tools">
       <button class="btn" id="menusBtn" type="button"><i class="ti ti-arrows-maximize"></i><span>Expandir tudo</span></button>
+      <button class="btn" id="reorgBtn" type="button"><i class="ti ti-arrows-shuffle"></i>Reorganizar fluxo</button>
       <button class="btn" id="importBtn" type="button"><i class="ti ti-upload"></i>Importar JSON</button>
       <button class="btn" id="exportBtn" type="button"><i class="ti ti-download"></i>Exportar backup (.json)</button>
       <button class="btn gear" id="gearBtn" type="button" title="Ajustes e calculadora"><i class="ti ti-settings"></i></button>
@@ -6742,7 +6767,9 @@ function load(){
 function METAS_PADRAO(){
   return JSON.parse(JSON.stringify(PLANO.metasPadrao||[]));
 }
-function save(){ FIN_GRAVAR(state); }
+let reorgDemo = null; // demonstracao da reorganizacao em curso: enquanto existir, nada e gravado
+function save(){ if(reorgDemo) return; FIN_GRAVAR(state); }
+
 let state = load();
 const uid = () => 'x'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 
@@ -6898,7 +6925,6 @@ function custoFixoDoDia(d, semPendencias){
       ehHoje = (iso===isoOf(ultimoDiaUtilMes(y,m)));
     } else if(ex.ajusteDiaUtil){
       const dataNatural = new Date(y, m-1, Math.min(ex.diaMes, ultimoDiaMes(y,m).getDate())); // mes mais curto: usa o ultimo dia
-
       ehHoje = (dataNatural.getMonth()===m-1) && (iso===isoOf(ajustarParaDiaUtilAnterior(dataNatural))); // getMonth confere que o dia existe nesse mes (ex: dia 31 em fev)
     } else {
       ehHoje = (d.getDate()===Math.min(ex.diaMes, ultimoDiaMes(y,m).getDate())); // dia 30 em fevereiro: cai no ultimo dia do mes
@@ -8336,6 +8362,7 @@ if(document.getElementById('dpBtn')){
     menusBtn.querySelector('span').textContent = abrir ? 'Diminuir tudo' : 'Expandir tudo';
     menusBtn.querySelector('i').className = abrir ? 'ti ti-arrows-minimize' : 'ti ti-arrows-maximize';
   });
+  if(document.getElementById('reorgBtn')) document.getElementById('reorgBtn').addEventListener('click', reorgEntrar);
   document.getElementById('dpBtn').addEventListener('click', ()=>{
     const titulo = document.getElementById('dpTitulo').value.trim();
     if(!titulo){ toast('Preencha o que é a dívida', null); return; }
@@ -9242,6 +9269,208 @@ function renderParcMes(linhas){
   }));
 }
 
+/* ---------- REORGANIZAR O FLUXO: demonstracao primeiro, so grava se o dono apertar Aplicar ----------
+   Regras escolhidas por ele: pode mudar de data divida a vista, parcelado nao iniciado e parcelado ja rodando
+   (gasto pessoal, custo fixo e entradas nao mudam). Nenhum dia com caixa negativo E no maximo 40% da sobra do mes
+   indo pra divida. O que nao cabe e empurrado inteiro, de mes em mes. Quem tem a data mais antiga encaixa primeiro.
+   Na demonstracao o estado e uma COPIA: o verdadeiro nao e tocado e nada e gravado. */
+function reorgUnidades(L){
+  const dv = state.dividaVista || {}, u = {};
+  L.forEach(l=>l.compromissos.forEach(ev=>{
+    const o = ev.obj;
+    if(ev.tipo==='task' && o.tipoMov==='entrada') return;
+    const parc = ev.tipo==='task' && o.tipo==='entrada' && o.parcelas;
+    let tipo;
+    if(ev.tipo==='rec') tipo = 'rec'; else if(ev.tipo==='projecao' || parc) tipo = 'parc'; else if(dv[o.id]) tipo = 'vista'; else return;
+    const x = u[tipo+':'+o.id] = u[tipo+':'+o.id] || {tipo:tipo, id:o.id, titulo:o.titulo, pags:[]};
+    x.pags.push({
+      orig: ev.tipo==='projecao' ? ev.data : (ev.dataOriginal || l.data),
+      valor: ev.tipo==='task' ? o.valor : ev.valor,
+      ord: ev.tipo==='task' ? 0 : ev.tipo==='projecao' ? ev.numero : ev.idx,
+      entrada: ev.tipo==='task'
+    });
+  }));
+  const lista = Object.keys(u).map(k=>u[k]);
+  lista.forEach(x=>{ x.pags.sort((a,b)=>a.ord-b.ord); x.total = r2(x.pags.reduce((s,p)=>s+p.valor, 0)); x.primeira = x.pags.reduce((m,p)=>p.orig<m?p.orig:m, x.pags[0].orig); });
+  lista.sort((a,b)=> a.primeira<b.primeira ? -1 : a.primeira>b.primeira ? 1 : 0);
+  return lista;
+}
+function reorgRetrato(L){
+  // dias com caixa negativo e meses com mais de 40% da sobra indo pra divida
+  const m = parcPorMes(L);
+  let acima = 0;
+  Object.keys(m).forEach(k=>{
+    const cf = custoFixoDoMes(+k.slice(0,4), +k.slice(5,7)-1), S = r2(cf.entrada - cf.saida);
+    if(m[k].div > Math.max(0, S)*0.4 + 0.005) acima++;
+  });
+  return {neg: L.filter(l=>l.caixa < -0.005).length, acima: acima};
+}
+function reorgPlano(){
+  parcPorMes([]); // garante as marcas do que e divida a vista
+  const L = construirCronograma();
+  const hojeD = inicioLedger(), hoje = isoOf(hojeD);
+  const unidades = reorgUnidades(L);
+  if(!L.length || !unidades.length) return null;
+  const fimISO = L[L.length-1].data, N = diasEntre(hojeD, parseISO(fimISO)) + 1;
+  const dia = iso => diasEntre(hojeD, parseISO(iso));
+  // caixa de cada dia SEM as dividas que podem mudar de data (e sem o custo de vida, que so volta depois de tudo quitado)
+  const net = new Array(N).fill(0);
+  L.forEach(l=>{
+    let v = l.entrada - l.saida;
+    l.fixos.forEach(f=>{ if(f[0]===X.custoVidaRot && f[2]==='saida') v += f[1]; });
+    l.compromissos.forEach(ev=>{
+      const o = ev.obj;
+      if(ev.tipo==='task' && o.tipoMov==='entrada') return;
+      const parc = ev.tipo==='task' && o.tipo==='entrada' && o.parcelas;
+      if(ev.tipo==='rec' || ev.tipo==='projecao' || parc || (state.dividaVista||{})[o.id]) v += (ev.tipo==='task' ? o.valor : ev.valor);
+    });
+    net[dia(l.data)] += v;
+  });
+  const cx = new Array(N); let c = state.caixaAtual;
+  for(let i=0;i<N;i++){ c += net[i]; cx[i] = c; }
+  const bud = {}, load = {};
+  const teto = k => { if(bud[k]==null){ const cf = custoFixoDoMes(+k.slice(0,4), +k.slice(5,7)-1); bud[k] = Math.max(0, r2(cf.entrada - cf.saida)) * 0.4; } return bud[k]; };
+  let maiorTeto = 0;
+  for(let d = new Date(hojeD.getFullYear(), hojeD.getMonth(), 1); isoOf(d).slice(0,7) <= fimISO.slice(0,7); d = new Date(d.getFullYear(), d.getMonth()+1, 1)) maiorTeto = Math.max(maiorTeto, teto(isoOf(d).slice(0,7)));
+  const datasDe = (x,k) => x.pags.map(p=>{ const d = isoOf(addMonths(parseISO(p.orig), k)); return d<hoje ? hoje : d; });
+  const cabe = (x, k, sozinha) => {
+    const ds = datasDe(x,k), tmp = {}, porDia = {};
+    for(let i=0;i<ds.length;i++){
+      if(ds[i] > fimISO) return null;
+      const mk = ds[i].slice(0,7);
+      tmp[mk] = (tmp[mk]||0) + x.pags[i].valor;
+      porDia[dia(ds[i])] = (porDia[dia(ds[i])]||0) + x.pags[i].valor;
+    }
+    for(const mk in tmp){
+      if(sozinha ? (load[mk]||0) > 0.005 : (load[mk]||0) + tmp[mk] > teto(mk) + 0.005) return null;
+    }
+    const dias = Object.keys(porDia).map(Number).sort((a,b)=>a-b);
+    let cum = 0, j = 0;
+    for(let i=dias[0]; i<N; i++){
+      if(j<dias.length && dias[j]===i){ cum += porDia[i]; j++; }
+      if(cx[i] - cum < -0.005) return null;
+    }
+    return ds;
+  };
+  const fixar = (x, ds) => {
+    const porDia = {};
+    ds.forEach((d,i)=>{ const mk = d.slice(0,7); load[mk] = (load[mk]||0) + x.pags[i].valor; if(d<=fimISO) porDia[dia(d)] = (porDia[dia(d)]||0) + x.pags[i].valor; });
+    const dias = Object.keys(porDia).map(Number).sort((a,b)=>a-b);
+    let cum = 0, j = 0;
+    for(let i=dias[0]; i<N; i++){ if(j<dias.length && dias[j]===i){ cum += porDia[i]; j++; } cx[i] -= cum; }
+  };
+  const itens = [];
+  unidades.forEach(x=>{
+    const grande = x.pags.some(p=>p.valor > maiorTeto + 0.005); // sozinha ja passa dos 40% de qualquer mes
+    let ds = null, k = 0;
+    for(k=0; k<=180 && !ds; k++){ ds = cabe(x, k, grande); if(ds) break; }
+    let aviso = grande ? 'grande' : '';
+    if(!ds){ k = 0; ds = datasDe(x, 0); aviso = 'semdata'; }
+    fixar(x, ds);
+    itens.push({tipo:x.tipo, id:x.id, titulo:x.titulo, k:k, total:x.total, aviso:aviso,
+      antes: datasDe(x,0), datas: ds, valores: x.pags.map(p=>p.valor), temEntrada: x.pags[0].entrada});
+  });
+  return {itens: itens, mudam: itens.filter(i=>i.k>0).length, antes: reorgRetrato(L)};
+}
+function reorgGravar(plano){
+  // escreve as novas datas no estado atual, com os mesmos campos que as telas de editar ja usam
+  plano.itens.forEach(it=>{
+    if(!it.k) return;
+    if(it.tipo==='vista'){ gravarCamposTask(it.id, {data: it.datas[0]}); return; }
+    if(it.tipo==='parc'){
+      const campos = {data: it.datas[0]};
+      if(it.datas.length>1){
+        campos.parcelasCustomValores = it.valores.slice(1); campos.parcelasCustomDatas = it.datas.slice(1);
+        campos.parcelas = it.datas.length-1; campos.valorParcela = it.valores[1];
+      }
+      gravarCamposTask(it.id, campos);
+      return;
+    }
+    const r = recorrentesAtivos().find(x=>x.id===it.id);
+    if(!r || r.parcelasValores.length!==it.datas.length) return;
+    if(DADOS_BASE.recorrentes.some(x=>x.id===it.id)){
+      state.recEstado[it.id] = Object.assign({}, state.recEstado[it.id]||{}, {parcelasValores: r.parcelasValores.slice(), parcelasDatas: it.datas.slice(), proximaData: it.datas[0]});
+      if(!state.recEstado[it.id].historicoPago) state.recEstado[it.id].historicoPago = [];
+    } else {
+      const ex = state.extraRecorrentes.find(x=>x.id===it.id);
+      if(ex){ ex.parcelasDatas = it.datas.slice(); ex.proximaData = it.datas[0]; }
+    }
+  });
+}
+function reorgTela(){
+  const fin = document.getElementById('dpBox').closest('.fin');
+  fin.querySelectorAll('.reorg-bx,.reorg-bar').forEach(e=>e.remove());
+  const btn = document.getElementById('reorgBtn');
+  if(btn) btn.disabled = !!reorgDemo;
+  if(!reorgDemo) return;
+  const p = reorgDemo.plano, d = fmtDataComAno;
+  const ord = p.itens.slice().sort((a,b)=> a.datas[0]<b.datas[0] ? -1 : a.datas[0]>b.datas[0] ? 1 : 0);
+  const fimDe = arr => arr.reduce((m,i)=>{ const u = i[arr===ord?'datas':'datas']; return u[u.length-1]>m ? u[u.length-1] : m; }, '');
+  const fimAntes = p.itens.reduce((m,i)=> i.antes[i.antes.length-1]>m ? i.antes[i.antes.length-1] : m, '');
+  const fimDepois = fimDe(ord);
+  let h = `<div class="rf-title"><i class="ti ti-arrows-shuffle"></i>Reorganização do fluxo (demonstração)</div>
+    <div class="rg-nota">Você está vendo o sistema <b>como ele ficaria</b>. Nada foi gravado. Olhe o cronograma e os outros quadros; no fim da tela escolha <b>Aplicar</b> ou <b>Cancelar</b>.</div>
+    <div class="rg-nums">
+      <div><b>${p.mudam}</b><small>de ${p.itens.length} dívidas mudam de data</small></div>
+      <div><b>${p.antes.neg} → ${p.depois.neg}</b><small>dias com caixa no vermelho</small></div>
+      <div><b>${p.antes.acima} → ${p.depois.acima}</b><small>meses acima dos 40% em dívidas</small></div>
+      <div><b>${d(fimDepois)}</b><small>tudo quitado (antes: ${d(fimAntes)})</small></div>
+    </div>`;
+  ord.forEach(it=>{
+    const n = it.datas.length, ult = it.datas[n-1];
+    let quando;
+    if(it.tipo==='vista') quando = 'paga e quitada em <b>'+d(it.datas[0])+'</b>';
+    else if(it.tipo==='parc') quando = 'entrada em <b>'+d(it.datas[0])+'</b> (aí vira compromisso ativo)'+(n>1 ? ' · '+(n-1)+' parcelas · quitada em <b>'+d(ult)+'</b>' : '');
+    else quando = 'próxima parcela em <b>'+d(it.datas[0])+'</b> · faltam '+n+' · quitada em <b>'+d(ult)+'</b>';
+    const muda = it.k ? '<span class="rg-tag rg-muda">adiada '+it.k+(it.k===1?' mês':' meses')+' · era '+d(it.antes[0])+'</span>' : '<span class="rg-tag">não muda</span>';
+    const av = it.aviso==='grande' ? '<span class="rg-tag rg-av">sozinha passa dos 40% de qualquer mês: ficou num mês sem outra dívida</span>'
+      : it.aviso==='semdata' ? '<span class="rg-tag rg-av">não achei data que caiba: ficou onde estava</span>' : '';
+    h += `<div class="rg-it"><div class="rg-it-i"><b>${escapeHTML(it.titulo)}</b><span>${quando}</span>${muda}${av}</div><div class="rg-it-v">${fmtBR(it.total)}</div></div>`;
+  });
+  const bx = document.createElement('div');
+  bx.className = 'bx aberto reorg-bx'; bx.style.order = '0'; bx.innerHTML = h;
+  const col = fin.querySelector('.fin-col'); col.insertBefore(bx, col.firstChild);
+  const bar = document.createElement('div');
+  bar.className = 'reorg-bar';
+  bar.innerHTML = `<div class="rg-bar-t"><b>DEMONSTRAÇÃO</b><small>nada foi gravado ainda</small></div><button type="button" class="rg-b rg-cancel" id="reorgCancelar">Cancelar</button><button type="button" class="rg-b rg-ok" id="reorgAplicar">Aplicar</button>`;
+  fin.appendChild(bar);
+  document.getElementById('reorgCancelar').addEventListener('click', ()=>reorgSair(false));
+  document.getElementById('reorgAplicar').addEventListener('click', ()=>{
+    if(!confirm('AVISO 1 de 3\n\nAplicar a reorganização muda de verdade a data de '+p.mudam+' dívidas no seu fluxo.\n\nQuer continuar?')) return;
+    if(!confirm('AVISO 2 de 3\n\nIsso é IRREVERSÍVEL. Não existe botão de desfazer: para voltar, só mudando cada data de novo, uma por uma.\n\nTem certeza?')) return;
+    if(!confirm('AVISO 3 de 3 (último)\n\nMudar a data aqui NÃO muda o vencimento combinado com o credor. Se você apertar OK agora, as novas datas são gravadas em definitivo.\n\nGravar?')) return;
+    reorgSair(true);
+  });
+}
+function reorgEntrar(){
+  if(reorgDemo) return;
+  let plano = null;
+  try{ plano = reorgPlano(); }catch(e){ plano = null; }
+  if(!plano){ toast('Não há dívidas para reorganizar.', null); return; }
+  if(!plano.mudam){ toast('Nada a mudar: o fluxo já cabe na regra, ou não achei data melhor para o que está fora.', null); return; }
+  if(overlay.classList.contains('show')) closeSheet();
+  const real = state;
+  reorgDemo = {real: real, plano: plano};
+  state = JSON.parse(JSON.stringify(real)); // copia: o estado verdadeiro fica intocado ate o Aplicar
+  reorgGravar(plano);
+  plano.depois = reorgRetrato(construirCronograma());
+  renderCustoFixo(); renderAll(); reorgTela();
+  toast('Demonstração montada. Nada foi gravado.', null);
+}
+function reorgSair(aplicar){
+  if(!reorgDemo) return;
+  const plano = reorgDemo.plano, real = reorgDemo.real;
+  reorgDemo = null;
+  state = (FIN_LER()===real) ? real : load(); // se os dados foram trocados por fora no meio da demonstracao, vale o mais novo
+  if(aplicar){
+    try{ localStorage.setItem('fin_antes_reorganizar', JSON.stringify({quando: new Date().toISOString(), state: state})); }catch(e){}
+    reorgGravar(plano);
+    save();
+  }
+  renderCustoFixo(); renderAll(); reorgTela();
+  toast(aplicar ? 'Reorganização aplicada e gravada.' : 'Cancelado. O sistema ficou como estava.', null);
+}
+
 /* ---------- SUGESTAO DE PARCELAMENTO QUE NAO DEIXA NENHUM DIA NO VERMELHO ----------
    Procura data da entrada, entrada e numero de parcelas que cabem no caixa projetado. Cada sugestao e conferida
    no proprio cronograma (simula a divida, recalcula, desfaz). Nada e gravado. */
@@ -9861,13 +10090,14 @@ function updateDate(){
     document.getElementById('exportCompletoBtn').addEventListener('click', () => FIN_EXTRA.exportarCompleto());
     // mesma sequência que o painel original fazia ao abrir a página
     function recarregar() {
+      if (reorgDemo) { renderCustoFixo(); renderAll(); reorgTela(); return; } // demonstração em curso: mostra a cópia, não recarrega
       // se os dados foram trocados por fora (nuvem, outra aba, importação) com uma janela de edição aberta,
       // a janela é fechada: ela estaria editando o que não existe mais
       if (FIN_LER() !== state && overlay.classList.contains('show')) closeSheet();
       state = load(); garantirSeeds(); updateDate(); renderCustoFixo(); renderAll();
     }
     // os dados podem ter sido trocados por fora: aponta para os atuais (sem redesenhar)
-    function sincronizar() { if (FIN_LER() !== state) { if (overlay.classList.contains('show')) closeSheet(); state = load(); garantirSeeds(); } }
+    function sincronizar() { if (reorgDemo) return; if (FIN_LER() !== state) { if (overlay.classList.contains('show')) closeSheet(); state = load(); garantirSeeds(); } }
     return {
       recarregar: recarregar,
       sincronizar: sincronizar,
@@ -9875,7 +10105,7 @@ function updateDate(){
       aberto: function () { return overlay.classList.contains('show'); },
       estado: function () { return state; },
       raiz: RAIZ,
-      F: {load: load, METAS_PADRAO: METAS_PADRAO, save: save, garantirSeeds: garantirSeeds, fmtBR: fmtBR, parseISO: parseISO, isoOf: isoOf, addMonths: addMonths, fmtDataCurta: fmtDataCurta, fmtDataComAno: fmtDataComAno, mesLabel: mesLabel, ultimoDiaMes: ultimoDiaMes, ultimoDiaUtilMes: ultimoDiaUtilMes, ajustarParaDiaUtilAnterior: ajustarParaDiaUtilAnterior, sextoDiaUtil: sextoDiaUtil, proximoPagamento: proximoPagamento, primeiroSabado: primeiroSabado, diasEntre: diasEntre, todayISO: todayISO, inicioLedger: inicioLedger, cfv: cfv, cfvData: cfvData, custoFixoDoDia: custoFixoDoDia, construirLedger: construirLedger, todasOcorrenciasFuturas: todasOcorrenciasFuturas, construirCaixaDiarioCompleto: construirCaixaDiarioCompleto, melhorDataParaValor: melhorDataParaValor, sugerirAntecipacao: sugerirAntecipacao, sugerirMelhorDataBidirecional: sugerirMelhorDataBidirecional, aplicarNovaDataCompromisso: aplicarNovaDataCompromisso, abrirMoverData: abrirMoverData, custoFixoMensalMedio: custoFixoMensalMedio, colchaoAlvo: colchaoAlvo, rendaMensal: rendaMensal, aindaTemPendencias: aindaTemPendencias, distribuir203050: distribuir203050, aplicarNasMetas: aplicarNasMetas, construirCronograma: construirCronograma, todasTasks: todasTasks, tasksPendentes: tasksPendentes, tasksConcluidas: tasksConcluidas, recorrentesAtivos: recorrentesAtivos, catLabel: catLabel, updateHero: updateHero, iconCheck: iconCheck, cardHTML: cardHTML, recorrenteEventoHTML: recorrenteEventoHTML, escapeHTML: escapeHTML, fmtDataLonga: fmtDataLonga, renderRecorrentes: renderRecorrentes, renderAll: renderAll, diaEstaConcluido: diaEstaConcluido, renderCronograma: renderCronograma, custoFixoChipHTML: custoFixoChipHTML, compromissoChipHTML: compromissoChipHTML, bindChips: bindChips, valorTotalTask: valorTotalTask, acharFixoPago: acharFixoPago, htmlFixosPagos: htmlFixosPagos, voltarFixoPago: voltarFixoPago, renderResumoFinal: renderResumoFinal, renderTotaisLista: renderTotaisLista, ultimaParcelaProjetada: ultimaParcelaProjetada, tabelaRD: tabelaRD, renderRegras: renderRegras, renderMetas: renderMetas, planoVermelho: planoVermelho, htmlPlanoVermelho: htmlPlanoVermelho, montarPlanoVermelho: montarPlanoVermelho, renderDiasNegativos: renderDiasNegativos, abrirSugestaoNegativo: abrirSugestaoNegativo, renderRelatorioDatas: renderRelatorioDatas, aplicarConclusaoTask: aplicarConclusaoTask, toggleDone: toggleDone, delExtra: delExtra, aplicarPagamentoParcela: aplicarPagamentoParcela, pagamentoAnterior: pagamentoAnterior, desfazerUltimaParcela: desfazerUltimaParcela, pagarParcela: pagarParcela, toast: toast, renderMensal: renderMensal, calcularFundoReserva: calcularFundoReserva, totalReservaProgramado: totalReservaProgramado, renderReserva: renderReserva, coletarGastosRealizados: coletarGastosRealizados, chaveGasto: chaveGasto, categorizarGasto: categorizarGasto, categoriaDoEvento: categoriaDoEvento, categorizarAuto: categorizarAuto, renderGastoMensal: renderGastoMensal, abrirRotularGasto: abrirRotularGasto, resumoCustoFixoMensal: resumoCustoFixoMensal, resumoCustoFixoDeTabela: resumoCustoFixoDeTabela, renderResumoCustoFixo: renderResumoCustoFixo, renderCustoFixo: renderCustoFixo, openSheet: openSheet, closeSheet: closeSheet, melhorPeriodoParaParcelamento: melhorPeriodoParaParcelamento, applyTheme: applyTheme, abrirEditSheet: abrirEditSheet, renderLinhasParcelasEdit: renderLinhasParcelasEdit, lerLinhasParcelasEdit: lerLinhasParcelasEdit, abrirEditorParcelas: abrirEditorParcelas, r2: r2, inicioFixoExtra: inicioFixoExtra, custoFixoDoMesAtual: custoFixoDoMesAtual, custoFixoDoMes: custoFixoDoMes, agruparCustoFixo: agruparCustoFixo, parcPorMes: parcPorMes, renderParcMes: renderParcMes, sugerirParcelada: sugerirParcelada, usarSugestao: usarSugestao, htmlSugestoes: htmlSugestoes, abrirParcelamentoRec: abrirParcelamentoRec, datasSeguindoEntrada: datasSeguindoEntrada, valoresDasParcelas: valoresDasParcelas, gravarCamposTask: gravarCamposTask, seguirEntrada: seguirEntrada, lerParcelada: lerParcelada, ligarCamposParcelada: ligarCamposParcelada, abrirParcelamento: abrirParcelamento, abrirEdicaoTask: abrirEdicaoTask, abrirEdicaoRecorrente: abrirEdicaoRecorrente, estornarPagoFixo: estornarPagoFixo, estornarPagosPorNome: estornarPagosPorNome, migrarMarcacaoPago: migrarMarcacaoPago, valorEfetivoNoDia: valorEfetivoNoDia, abrirEdicaoFixo: abrirEdicaoFixo, abrirEdicaoFixoExtra: abrirEdicaoFixoExtra, updateDate: updateDate}
+      F: {load: load, METAS_PADRAO: METAS_PADRAO, save: save, garantirSeeds: garantirSeeds, fmtBR: fmtBR, parseISO: parseISO, isoOf: isoOf, addMonths: addMonths, fmtDataCurta: fmtDataCurta, fmtDataComAno: fmtDataComAno, mesLabel: mesLabel, ultimoDiaMes: ultimoDiaMes, ultimoDiaUtilMes: ultimoDiaUtilMes, ajustarParaDiaUtilAnterior: ajustarParaDiaUtilAnterior, sextoDiaUtil: sextoDiaUtil, proximoPagamento: proximoPagamento, primeiroSabado: primeiroSabado, diasEntre: diasEntre, todayISO: todayISO, inicioLedger: inicioLedger, cfv: cfv, cfvData: cfvData, custoFixoDoDia: custoFixoDoDia, construirLedger: construirLedger, todasOcorrenciasFuturas: todasOcorrenciasFuturas, construirCaixaDiarioCompleto: construirCaixaDiarioCompleto, melhorDataParaValor: melhorDataParaValor, sugerirAntecipacao: sugerirAntecipacao, sugerirMelhorDataBidirecional: sugerirMelhorDataBidirecional, aplicarNovaDataCompromisso: aplicarNovaDataCompromisso, abrirMoverData: abrirMoverData, custoFixoMensalMedio: custoFixoMensalMedio, colchaoAlvo: colchaoAlvo, rendaMensal: rendaMensal, aindaTemPendencias: aindaTemPendencias, distribuir203050: distribuir203050, aplicarNasMetas: aplicarNasMetas, construirCronograma: construirCronograma, todasTasks: todasTasks, tasksPendentes: tasksPendentes, tasksConcluidas: tasksConcluidas, recorrentesAtivos: recorrentesAtivos, catLabel: catLabel, updateHero: updateHero, iconCheck: iconCheck, cardHTML: cardHTML, recorrenteEventoHTML: recorrenteEventoHTML, escapeHTML: escapeHTML, fmtDataLonga: fmtDataLonga, renderRecorrentes: renderRecorrentes, renderAll: renderAll, diaEstaConcluido: diaEstaConcluido, renderCronograma: renderCronograma, custoFixoChipHTML: custoFixoChipHTML, compromissoChipHTML: compromissoChipHTML, bindChips: bindChips, valorTotalTask: valorTotalTask, acharFixoPago: acharFixoPago, htmlFixosPagos: htmlFixosPagos, voltarFixoPago: voltarFixoPago, renderResumoFinal: renderResumoFinal, renderTotaisLista: renderTotaisLista, ultimaParcelaProjetada: ultimaParcelaProjetada, tabelaRD: tabelaRD, renderRegras: renderRegras, renderMetas: renderMetas, planoVermelho: planoVermelho, htmlPlanoVermelho: htmlPlanoVermelho, montarPlanoVermelho: montarPlanoVermelho, renderDiasNegativos: renderDiasNegativos, abrirSugestaoNegativo: abrirSugestaoNegativo, renderRelatorioDatas: renderRelatorioDatas, aplicarConclusaoTask: aplicarConclusaoTask, toggleDone: toggleDone, delExtra: delExtra, aplicarPagamentoParcela: aplicarPagamentoParcela, pagamentoAnterior: pagamentoAnterior, desfazerUltimaParcela: desfazerUltimaParcela, pagarParcela: pagarParcela, toast: toast, renderMensal: renderMensal, calcularFundoReserva: calcularFundoReserva, totalReservaProgramado: totalReservaProgramado, renderReserva: renderReserva, coletarGastosRealizados: coletarGastosRealizados, chaveGasto: chaveGasto, categorizarGasto: categorizarGasto, categoriaDoEvento: categoriaDoEvento, categorizarAuto: categorizarAuto, renderGastoMensal: renderGastoMensal, abrirRotularGasto: abrirRotularGasto, resumoCustoFixoMensal: resumoCustoFixoMensal, resumoCustoFixoDeTabela: resumoCustoFixoDeTabela, renderResumoCustoFixo: renderResumoCustoFixo, renderCustoFixo: renderCustoFixo, openSheet: openSheet, closeSheet: closeSheet, melhorPeriodoParaParcelamento: melhorPeriodoParaParcelamento, applyTheme: applyTheme, abrirEditSheet: abrirEditSheet, renderLinhasParcelasEdit: renderLinhasParcelasEdit, lerLinhasParcelasEdit: lerLinhasParcelasEdit, abrirEditorParcelas: abrirEditorParcelas, r2: r2, inicioFixoExtra: inicioFixoExtra, custoFixoDoMesAtual: custoFixoDoMesAtual, custoFixoDoMes: custoFixoDoMes, agruparCustoFixo: agruparCustoFixo, parcPorMes: parcPorMes, renderParcMes: renderParcMes, reorgUnidades: reorgUnidades, reorgRetrato: reorgRetrato, reorgPlano: reorgPlano, reorgGravar: reorgGravar, reorgTela: reorgTela, reorgEntrar: reorgEntrar, reorgSair: reorgSair, sugerirParcelada: sugerirParcelada, usarSugestao: usarSugestao, htmlSugestoes: htmlSugestoes, abrirParcelamentoRec: abrirParcelamentoRec, datasSeguindoEntrada: datasSeguindoEntrada, valoresDasParcelas: valoresDasParcelas, gravarCamposTask: gravarCamposTask, seguirEntrada: seguirEntrada, lerParcelada: lerParcelada, ligarCamposParcelada: ligarCamposParcelada, abrirParcelamento: abrirParcelamento, abrirEdicaoTask: abrirEdicaoTask, abrirEdicaoRecorrente: abrirEdicaoRecorrente, estornarPagoFixo: estornarPagoFixo, estornarPagosPorNome: estornarPagosPorNome, migrarMarcacaoPago: migrarMarcacaoPago, valorEfetivoNoDia: valorEfetivoNoDia, abrirEdicaoFixo: abrirEdicaoFixo, abrirEdicaoFixoExtra: abrirEdicaoFixoExtra, updateDate: updateDate}
     };
   }
 
