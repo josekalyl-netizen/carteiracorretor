@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "42";
+  var VERSAO = "43";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -6150,15 +6150,21 @@ input[type="checkbox"]{width:16px;height:16px;padding:0;flex:none;accent-color:#
 .bx.aberto > .composer-title::after,.bx.aberto > .rf-title::after,.bx.aberto .cron-title::after,#listaRecorrentes.aberto .sec-head::after{transform:rotate(90deg)}
 .bx:not(.aberto) > .composer-title,.bx:not(.aberto) > .rf-title,.bx:not(.aberto) .cron-title,#listaRecorrentes:not(.aberto) .sec-head{margin-bottom:0}
 #listaRecorrentes:empty{display:none}
-.pm-dist{margin:2px 0 10px;padding:8px 12px;border-radius:10px;background:rgb(var(--c-paper));font-size:12px;line-height:1.5;color:rgb(var(--c-ink2))}
-.pm-dist b{color:rgb(var(--c-ink))}
-.pm-dist small{font-size:11px;color:rgb(var(--c-muted))}
-.pm-dist i{font-style:normal}
+.pm-dist{margin:4px 0 12px;padding:4px 12px 10px;border-radius:12px;border:1px solid var(--ln);font-size:12.5px;color:rgb(var(--c-ink2))}
+.pm-d-r{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:9px 0;border-bottom:1px solid var(--ln)}
+.pm-d-e{min-width:0}
+.pm-d-d{text-align:right;flex-shrink:0}
+.pm-d-r b{display:block;font:700 14px/1.25 var(--ativa-font-display);color:rgb(var(--c-ink))}
+.pm-d-r small{display:block;font-size:11.5px;line-height:1.35;color:rgb(var(--c-muted));margin-top:2px}
+.pm-d-tag{display:inline-block;margin-top:4px;font-size:11.5px;font-weight:700}
 .pm-d-ruim{color:rgb(var(--c-alert))}
 .pm-d-bom{color:rgb(var(--c-grow))}
-.pm-d-sinal{margin-top:5px;padding-top:5px;border-top:1px solid var(--ln);font-weight:600}
-.pm-d-sinal b{color:inherit}
-.pm-d-sinal .ti{margin-right:5px}`;
+.pm-d-sinal{display:flex;align-items:center;gap:10px;margin-top:10px;padding:10px 12px;border-radius:10px}
+.pm-d-sinal.pm-d-ruim{background:rgb(var(--c-alert) / .12)}
+.pm-d-sinal.pm-d-bom{background:rgb(var(--c-grow) / .12)}
+.pm-d-sinal .ti{font-size:20px;flex-shrink:0}
+.pm-d-sinal b{display:block;font:700 14px/1.25 var(--ativa-font-display);color:inherit}
+.pm-d-sinal small{display:block;font-size:11.5px;color:rgb(var(--c-ink2));margin-top:2px;font-weight:400}`;
   var FIN_SHELL = `<div class="fin">
   <div class="fin-top">
     <div>
@@ -9211,9 +9217,9 @@ function renderParcMes(linhas){
     // regra 40/60: so mostra, nao trava nem muda nada. base = sobra do mes (renda fixa - custo fixo, valor de tabela)
     const cf = custoFixoDoMes(+k.slice(0,4), +k.slice(5,7)-1), S = r2(cf.entrada - cf.saida), D = r2(o.div), P = r2(o.pes), T = r2(D+P);
     const pc = v => S>0 ? Math.round(v/S*100)+'%' : '—';
-    const meta = (v,p) => { if(S<=0) return ''; const m = r2(S*p), d = r2(v-m); return ' · meta '+(p*100)+'% = '+fmtBR(m)+(Math.abs(d)<0.005 ? ' · na meta' : d>0 ? ' · <i class="pm-d-ruim">'+fmtBR(d)+' acima</i>' : ' · <i class="pm-d-bom">'+fmtBR(-d)+' abaixo</i>'); };
+    const linha = (nome,v,p) => { const m = r2(S*p), d = r2(v-m); const tag = S<=0 ? '' : Math.abs(d)<0.005 ? '<span class="pm-d-tag pm-d-bom">na meta</span>' : d>0 ? '<span class="pm-d-tag pm-d-ruim">'+fmtBR(d)+' acima da meta</span>' : '<span class="pm-d-tag pm-d-bom">'+fmtBR(-d)+' abaixo da meta</span>'; return '<div class="pm-d-r"><div class="pm-d-e"><b>'+nome+'</b><small>meta '+(p*100)+'% da sobra'+(S>0?' = '+fmtBR(m):'')+'</small></div><div class="pm-d-d"><b>'+fmtBR(v)+'</b><small>'+pc(v)+' da sobra</small>'+tag+'</div></div>'; };
     const dif = r2(S - T);
-    h += `<div class="pm-dist"><div>Sobra do mês <b>${fmtBR(S)}</b> <small>(renda ${fmtBR(cf.entrada)} − custo fixo ${fmtBR(cf.saida)})</small></div><div>Dívidas <b>${fmtBR(D)}</b> = ${pc(D)} da sobra<small>${meta(D,0.4)}</small></div><div>Gasto pessoal <b>${fmtBR(P)}</b> = ${pc(P)} da sobra<small>${meta(P,0.6)}</small></div><div class="pm-d-sinal ${dif<0?'pm-d-ruim':'pm-d-bom'}"><i class="ti ${dif<0?'ti-alert-triangle':'ti-circle-check'}"></i>${dif<0 ? 'Você está direcionando '+fmtBR(T)+', são <b>'+fmtBR(-dif)+' a mais</b> do que sobra no mês.' : 'Você está direcionando '+fmtBR(T)+'. Ainda tem <b>'+fmtBR(dif)+'</b> para direcionar neste mês.'}</div></div>`;
+    h += `<div class="pm-dist"><div class="pm-d-r"><div class="pm-d-e"><b>Sobra do mês</b><small>renda ${fmtBR(cf.entrada)} − custo fixo ${fmtBR(cf.saida)}</small></div><div class="pm-d-d"><b>${fmtBR(S)}</b></div></div>${linha('Dívidas',D,0.4)}${linha('Gasto pessoal',P,0.6)}<div class="pm-d-sinal ${dif<0?'pm-d-ruim':'pm-d-bom'}"><i class="ti ${dif<0?'ti-alert-triangle':'ti-circle-check'}"></i><div><b>${dif<0 ? fmtBR(-dif)+' a mais do que sobra' : 'Ainda tem '+fmtBR(dif)+' para direcionar'}</b><small>direcionando ${fmtBR(T)} de ${fmtBR(S)} que sobram no mês</small></div></div></div>`;
     if(pmAberto[k]){
       h += `<div class="pm-itens">`;
       if(!o.itens.length) h += `<div class="pm-it"><div class="pm-it-i"><span>Nada lançado neste mês ainda.</span></div></div>`;
