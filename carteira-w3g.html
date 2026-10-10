@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "36";
+  var VERSAO = "37";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -6191,7 +6191,7 @@ input[type="checkbox"]{width:16px;height:16px;padding:0;flex:none;accent-color:#
         </div>
       </div>
 
-      <div class="bx composer" id="composer" style="order:2">
+      <div class="bx composer aberto" id="composer" style="order:2">
         <div class="composer-title"><i class="ti ti-pencil-plus"></i>Novo compromisso</div>
         <div class="form-row">
           <div class="field"><label>O que é</label><input id="inTitulo" placeholder="Ex.: presente de aniversário"></div>
@@ -6321,7 +6321,7 @@ input[type="checkbox"]{width:16px;height:16px;padding:0;flex:none;accent-color:#
     <div class="fin-col">
       <section class="bx" id="listaRecorrentes" style="order:3"></section>
 
-      <div class="bx" style="order:4">
+      <div class="bx aberto" style="order:4">
         <div class="cron-head">
           <div class="cron-title"><i class="ti ti-calendar-dollar"></i>Cronograma completo</div>
           <div class="cron-sub">toque no mês para abrir · toque no círculo ✓ de cada compromisso para marcar como pago</div>
