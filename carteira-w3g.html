@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "58";
+  var VERSAO = "59";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -8454,7 +8454,7 @@ if(document.getElementById('dpBtn')){
       if(!antesIds) return;
       const pessoal = ativoSeg('segConta')!=='fixo';
       let mudou = false;
-      (state.custoFixoExtra||[]).concat(state.custoFixoSemanalExtra||[]).forEach(x=>{ if(antesIds.indexOf(x.id)<0 && x.tipoMov!=='entrada' && pessoal){ x.pessoal = true; mudou = true; } });
+      (state.custoFixoExtra||[]).concat(state.custoFixoSemanalExtra||[]).forEach(x=>{ if(antesIds.indexOf(x.id)<0 && x.tipoMov!=='entrada' && !x.reserva && pessoal){ x.pessoal = true; mudou = true; } });
       antesIds = null;
       if(mudou){ save(); renderAll(); }
       mostraConta();
@@ -9220,7 +9220,7 @@ let cfMemo = {}, cfMemoSig = '';
 function fixosPessoais(){
   // custo que repete, criado por ele, e marcado como gasto pessoal (entra nos 60%, nao diminui a sobra do mes)
   const o = {};
-  (state.custoFixoExtra||[]).concat(state.custoFixoSemanalExtra||[]).forEach(x=>{ if(x.pessoal && x.tipoMov!=='entrada') o[x.id] = x.titulo; });
+  (state.custoFixoExtra||[]).concat(state.custoFixoSemanalExtra||[]).forEach(x=>{ if(x.pessoal && !x.reserva && x.tipoMov!=='entrada') o[x.id] = x.titulo; });
   return o;
 }
 function custoFixoDoMes(ano, mes0){
@@ -10653,7 +10653,9 @@ function abrirEdicaoFixoExtra(id, dataISO){
     <div class="field"><label>Valor (R$)</label><input id="edValorFixoExtra" type="number" step="0.01" value="${ex.valor}"></div>
     <div class="field"><label>Tipo</label>
       <select id="edTipoFixoExtra">
-        <option value="saida" ${ex.tipoMov!=='entrada'?'selected':''}>Saída (desconta do caixa)</option>
+        <option value="saida" ${(ex.tipoMov!=='entrada' && !ex.reserva)?'selected':''}>Saída (desconta do caixa)</option>
+        <option value="reserva" ${(ex.tipoMov!=='entrada' && ex.reserva)?'selected':''}>Reserva de emergência (sai do caixa e vai para o fundo de reserva)</option>
+
         <option value="entrada" ${ex.tipoMov==='entrada'?'selected':''}>Entrada (soma ao caixa)</option>
       </select>
     </div>
@@ -10668,8 +10670,8 @@ function abrirEdicaoFixoExtra(id, dataISO){
   abrirEditSheet('Editar custo fixo '+(ehSemanal?'semanal':'mensal')+' (todos os meses)', html, true, ()=>{
     ex.titulo = document.getElementById('edTituloFixo').value.trim()||ex.titulo;
     ex.valor = Math.abs(parseFloat(document.getElementById('edValorFixoExtra').value))||ex.valor;
-    ex.tipoMov = document.getElementById('edTipoFixoExtra').value;
-    ex.pessoal = document.getElementById('edContaFixo').value==='pessoal' && ex.tipoMov!=='entrada';
+    { const tv = document.getElementById('edTipoFixoExtra').value; ex.reserva = tv==='reserva'; ex.tipoMov = tv==='reserva' ? 'saida' : tv; }
+    ex.pessoal = document.getElementById('edContaFixo').value==='pessoal' && ex.tipoMov!=='entrada' && !ex.reserva;
 
     if(ehSemanal){ ex.diaSemana = parseInt(document.getElementById('edDiaFixo').value,10); }
     else {
