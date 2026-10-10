@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "63";
+  var VERSAO = "64";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -6206,7 +6206,15 @@ input[type="checkbox"]{width:16px;height:16px;padding:0;flex:none;accent-color:#
 .rg-it-i > .rg-para{color:rgb(var(--c-ink))}
 .rg-it-i > .rg-para i{font-style:normal;color:rgb(var(--c-primary-500));font-weight:600}
 .rg-trava{display:block;margin-top:7px;border:1px solid var(--ln);background:transparent;color:rgb(var(--c-ink));border-radius:999px;padding:7px 12px;font:600 11.5px/1 var(--ativa-font-body);cursor:pointer}
-.rg-trava:hover{border-color:var(--ativa-turq)}`;
+.rg-trava:hover{border-color:var(--ativa-turq)}
+
+/* custo fixo: a lista acompanha o quadro (aberto = lista aberta), sem depender do estado proprio do botao */
+.bx.aberto #cfList{max-height:6000px !important;margin-top:8px}
+.bx.aberto .cf-toggle#cfToggle .arw{transform:rotate(90deg)}
+.bx:not(.aberto) .cf-toggle#cfToggle .arw{transform:none}
+.bx.aberto #regrasList{max-height:6000px !important}
+.bx.aberto .cf-toggle .arw{transform:rotate(90deg)}
+.bx:not(.aberto) .cf-toggle .arw{transform:none}`;
   var FIN_SHELL = `<div class="fin">
   <div class="fin-top">
     <div>
