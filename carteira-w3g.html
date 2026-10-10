@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "47";
+  var VERSAO = "48";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -6308,13 +6308,14 @@ input[type="checkbox"]{width:16px;height:16px;padding:0;flex:none;accent-color:#
         <div class="form-row" id="rowAjusteDiaUtil" style="display:none">
           <label class="ajuste-check"><input type="checkbox" id="inAjusteDiaUtil"> Se esse dia cair no fim de semana, paga no dia útil anterior mais próximo</label>
         </div>
+        <div class="rd-sub" style="margin:0 0 8px">Saída de uma vez só lançada aqui conta como gasto pessoal (os 60%); o que repete vira custo fixo. Dívida se lança no quadro "Nova dívida".</div>
         <div id="inLivre" class="dp-resumo"></div>
         <button class="add-btn" id="addBtn" type="button">Adicionar e recalcular caixa</button>
       </div>
 
       <div class="bx composer" id="dpBox" style="order:2">
-        <div class="composer-title"><i class="ti ti-credit-card-pay"></i>Nova dívida parcelada</div>
-        <div class="rd-sub" style="margin:-4px 0 10px">Entrada + parcelas. As parcelas vencem todo mês no mesmo dia da entrada; se a data da entrada mudar, elas acompanham.</div>
+        <div class="composer-title"><i class="ti ti-credit-card-pay"></i>Nova dívida</div>
+        <div class="rd-sub" style="margin:-4px 0 10px">Entrada + parcelas. As parcelas vencem todo mês no mesmo dia da entrada; se a data da entrada mudar, elas acompanham. <b>Dívida à vista:</b> preencha só o total e a data, deixe a entrada vazia e 1 vez. Tudo que é lançado aqui conta como dívida.</div>
         <div class="form-row">
           <div class="field"><label>O que é</label><input id="dpTitulo" placeholder="Ex.: acordo do cartão"></div>
         </div>
@@ -6334,7 +6335,7 @@ input[type="checkbox"]{width:16px;height:16px;padding:0;flex:none;accent-color:#
         <button class="dp-sugerir" id="dpSugerir" type="button"><i class="ti ti-bulb"></i>Sugerir um parcelamento que não deixa no vermelho</button>
         <div class="rd-sub" style="margin:6px 0 0">Preencha só o total (o resto é opcional) e eu sugiro data, entrada e parcelas.</div>
         <div id="dpSug" class="dp-sug"></div>
-        <button class="add-btn" id="dpBtn" type="button">Adicionar dívida parcelada</button>
+        <button class="add-btn" id="dpBtn" type="button">Adicionar dívida</button>
         <div id="dpMeses" class="pm"></div>
       </div>
 
@@ -8391,6 +8392,21 @@ if(document.getElementById('dpBtn')){
   document.getElementById('dpBtn').addEventListener('click', ()=>{
     const titulo = document.getElementById('dpTitulo').value.trim();
     if(!titulo){ toast('Preencha o que é a dívida', null); return; }
+    const av = dpVista();
+    if(av){
+      const nid = uid();
+      state.extras.push({ id: nid, titulo: titulo, valor: av.total, data: av.data, pessoa: document.getElementById('dpPessoa').value,
+        categoria: 'outro', catGasto: null, tipo: 'unico', tipoMov: 'saida', reserva: false, custom: true });
+      state.dividaVista = state.dividaVista || {};
+      state.dividaVista[nid] = 1;
+      save();
+      ['dpTitulo','dpTotal','dpEntrada','dpData','dpParcela'].forEach(i=>{ document.getElementById(i).value=''; });
+      document.getElementById('dpVezes').value = '1';
+      document.getElementById('dpResumo').innerHTML = '';
+      toast('Dívida à vista criada — caixa e fluxo recalculados', null);
+      renderAll();
+      return;
+    }
     const p = lerParcelada('dp');
     if(p.erro){ toast(p.erro, null); return; }
     state.extras.push({
@@ -9269,7 +9285,7 @@ function renderParcMes(linhas){
     const soma = (d,v)=>{ const k = d.slice(0,7); nova[k] = r2((nova[k]||0)+v); };
     soma(p.data, p.entrada);
     p.datas.forEach((d,i)=>soma(d, p.valores[i]));
-  }
+  } else { const av = dpVista(); if(av) nova[av.data.slice(0,7)] = av.total; }
   const keys = Object.keys(m).concat(Object.keys(nova).filter(k=>!m[k])).sort();
   let h = `<div class="pm-tit">Dívidas em cada mês</div>`;
   if(!keys.length){ el.innerHTML = h + `<div class="pm-sub">Nenhum mês com dívida por enquanto.</div>`; return; }
@@ -9934,6 +9950,18 @@ function seguirEntrada(id){
   });
 }
 // le e confere os campos de uma divida parcelada (formulario novo e tela de edicao usam os mesmos nomes, com prefixo)
+/* divida a vista lancada pelo quadro de divida: so total e data, sem entrada, em 1 vez.
+   Vira um pagamento unico ja marcado como divida (state.dividaVista). */
+function dpVista(){
+  const g = id => document.getElementById(id);
+  if(!g('dpTotal')) return null;
+  const total = r2(Math.abs(parseFloat(g('dpTotal').value))), e = Math.abs(parseFloat(g('dpEntrada').value));
+  const n = parseInt(g('dpVezes').value, 10), data = g('dpData').value;
+  if(isNaN(total) || total<=0 || !data) return null;
+  if(!(isNaN(e) || e===0 || r2(e)===total)) return null;
+  if(!(isNaN(n) || n===1)) return null;
+  return {total:total, data:data};
+}
 function lerParcelada(pre){
   const num = id => { const el = document.getElementById(pre+id); return el ? Math.abs(parseFloat(el.value)) : NaN; };
   const total = r2(num('Total')), entrada = r2(num('Entrada')), n = parseInt(document.getElementById(pre+'Vezes').value, 10), parcela = r2(num('Parcela'));
@@ -9956,6 +9984,8 @@ function ligarCamposParcelada(pre){
   const resumo = ()=>{
     const box = el('Resumo'); if(!box) return;
     const p = lerParcelada(pre);
+    const av = pre==='dp' ? dpVista() : null;
+    if(av){ box.innerHTML = 'Dívida à vista: <b>um pagamento só de '+fmtBR(av.total)+'</b> em <b>'+fmtDataComAno(av.data)+'</b>. Entra na conta de dívidas (os 40%).'; return; }
     if(p.erro){ box.innerHTML = (el('Total').value || el('Entrada').value) ? `<span class="dp-erro">${p.erro}</span>` : ''; return; }
     const iguais = p.valores.every(v=>v===p.valores[0]);
     box.innerHTML = `Entrada de <b>${fmtBR(p.entrada)}</b> em <b>${fmtDataComAno(p.data)}</b> + <b>${p.n}x de ${fmtBR(p.valores[0])}</b>${iguais?'':' (a última de '+fmtBR(p.valores[p.n-1])+', pra fechar os centavos)'}, de <b>${fmtDataComAno(p.datas[0])}</b> a <b>${fmtDataComAno(p.datas[p.n-1])}</b>. Total: <b>${fmtBR(p.total)}</b>.`;
@@ -10317,7 +10347,7 @@ function updateDate(){
       aberto: function () { return overlay.classList.contains('show'); },
       estado: function () { return state; },
       raiz: RAIZ,
-      F: {load: load, METAS_PADRAO: METAS_PADRAO, save: save, garantirSeeds: garantirSeeds, fmtBR: fmtBR, parseISO: parseISO, isoOf: isoOf, addMonths: addMonths, fmtDataCurta: fmtDataCurta, fmtDataComAno: fmtDataComAno, mesLabel: mesLabel, ultimoDiaMes: ultimoDiaMes, ultimoDiaUtilMes: ultimoDiaUtilMes, ajustarParaDiaUtilAnterior: ajustarParaDiaUtilAnterior, sextoDiaUtil: sextoDiaUtil, proximoPagamento: proximoPagamento, primeiroSabado: primeiroSabado, diasEntre: diasEntre, todayISO: todayISO, inicioLedger: inicioLedger, cfv: cfv, cfvData: cfvData, custoFixoDoDia: custoFixoDoDia, construirLedger: construirLedger, todasOcorrenciasFuturas: todasOcorrenciasFuturas, construirCaixaDiarioCompleto: construirCaixaDiarioCompleto, melhorDataParaValor: melhorDataParaValor, sugerirAntecipacao: sugerirAntecipacao, sugerirMelhorDataBidirecional: sugerirMelhorDataBidirecional, aplicarNovaDataCompromisso: aplicarNovaDataCompromisso, abrirMoverData: abrirMoverData, custoFixoMensalMedio: custoFixoMensalMedio, colchaoAlvo: colchaoAlvo, rendaMensal: rendaMensal, aindaTemPendencias: aindaTemPendencias, distribuir203050: distribuir203050, aplicarNasMetas: aplicarNasMetas, construirCronograma: construirCronograma, todasTasks: todasTasks, tasksPendentes: tasksPendentes, tasksConcluidas: tasksConcluidas, recorrentesAtivos: recorrentesAtivos, catLabel: catLabel, updateHero: updateHero, iconCheck: iconCheck, cardHTML: cardHTML, recorrenteEventoHTML: recorrenteEventoHTML, escapeHTML: escapeHTML, fmtDataLonga: fmtDataLonga, renderRecorrentes: renderRecorrentes, renderAll: renderAll, diaEstaConcluido: diaEstaConcluido, renderCronograma: renderCronograma, custoFixoChipHTML: custoFixoChipHTML, compromissoChipHTML: compromissoChipHTML, bindChips: bindChips, valorTotalTask: valorTotalTask, acharFixoPago: acharFixoPago, htmlFixosPagos: htmlFixosPagos, voltarFixoPago: voltarFixoPago, renderResumoFinal: renderResumoFinal, renderTotaisLista: renderTotaisLista, ultimaParcelaProjetada: ultimaParcelaProjetada, tabelaRD: tabelaRD, renderRegras: renderRegras, renderMetas: renderMetas, planoVermelho: planoVermelho, htmlPlanoVermelho: htmlPlanoVermelho, montarPlanoVermelho: montarPlanoVermelho, renderDiasNegativos: renderDiasNegativos, abrirSugestaoNegativo: abrirSugestaoNegativo, renderRelatorioDatas: renderRelatorioDatas, aplicarConclusaoTask: aplicarConclusaoTask, toggleDone: toggleDone, delExtra: delExtra, aplicarPagamentoParcela: aplicarPagamentoParcela, pagamentoAnterior: pagamentoAnterior, desfazerUltimaParcela: desfazerUltimaParcela, pagarParcela: pagarParcela, toast: toast, renderMensal: renderMensal, calcularFundoReserva: calcularFundoReserva, totalReservaProgramado: totalReservaProgramado, renderReserva: renderReserva, coletarGastosRealizados: coletarGastosRealizados, chaveGasto: chaveGasto, categorizarGasto: categorizarGasto, categoriaDoEvento: categoriaDoEvento, categorizarAuto: categorizarAuto, renderGastoMensal: renderGastoMensal, abrirRotularGasto: abrirRotularGasto, resumoCustoFixoMensal: resumoCustoFixoMensal, resumoCustoFixoDeTabela: resumoCustoFixoDeTabela, renderResumoCustoFixo: renderResumoCustoFixo, renderCustoFixo: renderCustoFixo, openSheet: openSheet, closeSheet: closeSheet, melhorPeriodoParaParcelamento: melhorPeriodoParaParcelamento, applyTheme: applyTheme, abrirEditSheet: abrirEditSheet, renderLinhasParcelasEdit: renderLinhasParcelasEdit, lerLinhasParcelasEdit: lerLinhasParcelasEdit, abrirEditorParcelas: abrirEditorParcelas, r2: r2, inicioFixoExtra: inicioFixoExtra, custoFixoDoMesAtual: custoFixoDoMesAtual, custoFixoDoMes: custoFixoDoMes, agruparCustoFixo: agruparCustoFixo, livrePessoal: livrePessoal, parcPorMes: parcPorMes, renderParcMes: renderParcMes, reorgUnidades: reorgUnidades, reorgRetrato: reorgRetrato, reorgPlano: reorgPlano, reorgGravar: reorgGravar, reorgBotoes: reorgBotoes, reorgDesfazer: reorgDesfazer, reorgRefazer: reorgRefazer, reorgTela: reorgTela, reorgEntrar: reorgEntrar, reorgSair: reorgSair, antDias: antDias, antPossivel: antPossivel, antCandidatos: antCandidatos, antMarcarLinhas: antMarcarLinhas, antTextoItem: antTextoItem, abrirAntecipar: abrirAntecipar, abrirSugestaoAntecipar: abrirSugestaoAntecipar, sugerirParcelada: sugerirParcelada, usarSugestao: usarSugestao, htmlSugestoes: htmlSugestoes, abrirParcelamentoRec: abrirParcelamentoRec, datasSeguindoEntrada: datasSeguindoEntrada, valoresDasParcelas: valoresDasParcelas, gravarCamposTask: gravarCamposTask, seguirEntrada: seguirEntrada, lerParcelada: lerParcelada, ligarCamposParcelada: ligarCamposParcelada, abrirParcelamento: abrirParcelamento, abrirEdicaoTask: abrirEdicaoTask, abrirEdicaoRecorrente: abrirEdicaoRecorrente, estornarPagoFixo: estornarPagoFixo, estornarPagosPorNome: estornarPagosPorNome, migrarMarcacaoPago: migrarMarcacaoPago, valorEfetivoNoDia: valorEfetivoNoDia, abrirEdicaoFixo: abrirEdicaoFixo, abrirEdicaoFixoExtra: abrirEdicaoFixoExtra, updateDate: updateDate}
+      F: {load: load, METAS_PADRAO: METAS_PADRAO, save: save, garantirSeeds: garantirSeeds, fmtBR: fmtBR, parseISO: parseISO, isoOf: isoOf, addMonths: addMonths, fmtDataCurta: fmtDataCurta, fmtDataComAno: fmtDataComAno, mesLabel: mesLabel, ultimoDiaMes: ultimoDiaMes, ultimoDiaUtilMes: ultimoDiaUtilMes, ajustarParaDiaUtilAnterior: ajustarParaDiaUtilAnterior, sextoDiaUtil: sextoDiaUtil, proximoPagamento: proximoPagamento, primeiroSabado: primeiroSabado, diasEntre: diasEntre, todayISO: todayISO, inicioLedger: inicioLedger, cfv: cfv, cfvData: cfvData, custoFixoDoDia: custoFixoDoDia, construirLedger: construirLedger, todasOcorrenciasFuturas: todasOcorrenciasFuturas, construirCaixaDiarioCompleto: construirCaixaDiarioCompleto, melhorDataParaValor: melhorDataParaValor, sugerirAntecipacao: sugerirAntecipacao, sugerirMelhorDataBidirecional: sugerirMelhorDataBidirecional, aplicarNovaDataCompromisso: aplicarNovaDataCompromisso, abrirMoverData: abrirMoverData, custoFixoMensalMedio: custoFixoMensalMedio, colchaoAlvo: colchaoAlvo, rendaMensal: rendaMensal, aindaTemPendencias: aindaTemPendencias, distribuir203050: distribuir203050, aplicarNasMetas: aplicarNasMetas, construirCronograma: construirCronograma, todasTasks: todasTasks, tasksPendentes: tasksPendentes, tasksConcluidas: tasksConcluidas, recorrentesAtivos: recorrentesAtivos, catLabel: catLabel, updateHero: updateHero, iconCheck: iconCheck, cardHTML: cardHTML, recorrenteEventoHTML: recorrenteEventoHTML, escapeHTML: escapeHTML, fmtDataLonga: fmtDataLonga, renderRecorrentes: renderRecorrentes, renderAll: renderAll, diaEstaConcluido: diaEstaConcluido, renderCronograma: renderCronograma, custoFixoChipHTML: custoFixoChipHTML, compromissoChipHTML: compromissoChipHTML, bindChips: bindChips, valorTotalTask: valorTotalTask, acharFixoPago: acharFixoPago, htmlFixosPagos: htmlFixosPagos, voltarFixoPago: voltarFixoPago, renderResumoFinal: renderResumoFinal, renderTotaisLista: renderTotaisLista, ultimaParcelaProjetada: ultimaParcelaProjetada, tabelaRD: tabelaRD, renderRegras: renderRegras, renderMetas: renderMetas, planoVermelho: planoVermelho, htmlPlanoVermelho: htmlPlanoVermelho, montarPlanoVermelho: montarPlanoVermelho, renderDiasNegativos: renderDiasNegativos, abrirSugestaoNegativo: abrirSugestaoNegativo, renderRelatorioDatas: renderRelatorioDatas, aplicarConclusaoTask: aplicarConclusaoTask, toggleDone: toggleDone, delExtra: delExtra, aplicarPagamentoParcela: aplicarPagamentoParcela, pagamentoAnterior: pagamentoAnterior, desfazerUltimaParcela: desfazerUltimaParcela, pagarParcela: pagarParcela, toast: toast, renderMensal: renderMensal, calcularFundoReserva: calcularFundoReserva, totalReservaProgramado: totalReservaProgramado, renderReserva: renderReserva, coletarGastosRealizados: coletarGastosRealizados, chaveGasto: chaveGasto, categorizarGasto: categorizarGasto, categoriaDoEvento: categoriaDoEvento, categorizarAuto: categorizarAuto, renderGastoMensal: renderGastoMensal, abrirRotularGasto: abrirRotularGasto, resumoCustoFixoMensal: resumoCustoFixoMensal, resumoCustoFixoDeTabela: resumoCustoFixoDeTabela, renderResumoCustoFixo: renderResumoCustoFixo, renderCustoFixo: renderCustoFixo, openSheet: openSheet, closeSheet: closeSheet, melhorPeriodoParaParcelamento: melhorPeriodoParaParcelamento, applyTheme: applyTheme, abrirEditSheet: abrirEditSheet, renderLinhasParcelasEdit: renderLinhasParcelasEdit, lerLinhasParcelasEdit: lerLinhasParcelasEdit, abrirEditorParcelas: abrirEditorParcelas, r2: r2, inicioFixoExtra: inicioFixoExtra, custoFixoDoMesAtual: custoFixoDoMesAtual, custoFixoDoMes: custoFixoDoMes, agruparCustoFixo: agruparCustoFixo, livrePessoal: livrePessoal, parcPorMes: parcPorMes, renderParcMes: renderParcMes, reorgUnidades: reorgUnidades, reorgRetrato: reorgRetrato, reorgPlano: reorgPlano, reorgGravar: reorgGravar, reorgBotoes: reorgBotoes, reorgDesfazer: reorgDesfazer, reorgRefazer: reorgRefazer, reorgTela: reorgTela, reorgEntrar: reorgEntrar, reorgSair: reorgSair, antDias: antDias, antPossivel: antPossivel, antCandidatos: antCandidatos, antMarcarLinhas: antMarcarLinhas, antTextoItem: antTextoItem, abrirAntecipar: abrirAntecipar, abrirSugestaoAntecipar: abrirSugestaoAntecipar, sugerirParcelada: sugerirParcelada, usarSugestao: usarSugestao, htmlSugestoes: htmlSugestoes, abrirParcelamentoRec: abrirParcelamentoRec, datasSeguindoEntrada: datasSeguindoEntrada, valoresDasParcelas: valoresDasParcelas, gravarCamposTask: gravarCamposTask, seguirEntrada: seguirEntrada, dpVista: dpVista, lerParcelada: lerParcelada, ligarCamposParcelada: ligarCamposParcelada, abrirParcelamento: abrirParcelamento, abrirEdicaoTask: abrirEdicaoTask, abrirEdicaoRecorrente: abrirEdicaoRecorrente, estornarPagoFixo: estornarPagoFixo, estornarPagosPorNome: estornarPagosPorNome, migrarMarcacaoPago: migrarMarcacaoPago, valorEfetivoNoDia: valorEfetivoNoDia, abrirEdicaoFixo: abrirEdicaoFixo, abrirEdicaoFixoExtra: abrirEdicaoFixoExtra, updateDate: updateDate}
     };
   }
 
