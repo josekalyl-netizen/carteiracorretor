@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "38";
+  var VERSAO = "39";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -9165,7 +9165,7 @@ function renderParcMes(linhas){
   const keys = Object.keys(m).concat(Object.keys(nova).filter(k=>!m[k])).sort();
   let h = `<div class="pm-tit">Dívidas em cada mês</div>`;
   if(!keys.length){ el.innerHTML = h + `<div class="pm-sub">Nenhum mês com dívida por enquanto.</div>`; return; }
-  h += `<div class="pm-sub">Quanto do mês vai para dívida: o que é parcelado e o total (parcelas + o que é à vista). Só o que ainda falta pagar; custo fixo não entra. Toque num mês para ver o que estou contando. Se algo não for dívida, toque em “Não é dívida”: ele sai da conta, passa a contar como gasto pessoal e fica guardado assim (seu caixa não muda).</div>`;
+  h += `<div class="pm-sub">Quanto do mês vai para dívida: o que é parcelado e o total (parcelas + o que é à vista). Só o que ainda falta pagar; custo fixo não entra. Toque num mês para ver o que estou contando.</div>`;
   const mostra = pmTodos ? keys : keys.filter((k,i)=> i<6 || nova[k]!=null); // os meses da divida que voce esta digitando aparecem sempre
   mostra.forEach(k=>{
     const o = m[k] || {ids:{}, total:0, vista:{}, div:0, pes:0, itens:[]}, n = Object.keys(o.ids).length, nv = Object.keys(o.vista).length;
@@ -9180,7 +9180,7 @@ function renderParcMes(linhas){
       h += `<div class="pm-itens">`;
       if(!o.itens.length) h += `<div class="pm-it"><div class="pm-it-i"><span>Nada lançado neste mês ainda.</span></div></div>`;
       o.itens.forEach(it=>{
-        h += `<div class="pm-it${it.conta?'':' pm-fora'}"><div class="pm-it-i"><b>${escapeHTML(it.titulo)}</b><span>${fmtDataCurta(it.data)} · ${it.rot}${it.conta?'':' · gasto pessoal'}</span></div><div class="pm-it-v">${fmtBR(it.valor)}</div><button type="button" class="pm-x" data-pmx="${it.id}">${it.conta?'Não é dívida':'É dívida'}</button></div>`;
+        h += `<div class="pm-it${it.conta?'':' pm-fora'}"><div class="pm-it-i"><b>${escapeHTML(it.titulo)}</b><span>${fmtDataCurta(it.data)} · ${it.rot}${it.conta?'':' · gasto pessoal'}</span></div><div class="pm-it-v">${fmtBR(it.valor)}</div></div>`;
       });
       h += `</div>`;
     }
