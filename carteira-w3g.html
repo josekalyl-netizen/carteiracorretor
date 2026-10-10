@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "51";
+  var VERSAO = "52";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -9358,6 +9358,11 @@ function reorgUnidades(L){
   lista.sort((a,b)=> a.primeira<b.primeira ? -1 : a.primeira>b.primeira ? 1 : 0);
   return lista;
 }
+function reorgMeses(L){
+  const m = parcPorMes(L), o = {};
+  Object.keys(m).forEach(k=>{ o[k] = {div: r2(m[k].div), pes: r2(m[k].pes)}; });
+  return o;
+}
 function reorgRetrato(L){
   // dias com caixa negativo e meses com mais de 40% da sobra indo pra divida
   const m = parcPorMes(L);
@@ -9446,7 +9451,7 @@ function reorgPlano(){
     itens.push({chave:chave(x), tipo:x.tipo, id:x.id, titulo:x.titulo, k:k, total:x.total, aviso:aviso,
       antes: datasDe(x,0), datas: ds, valores: x.pags.map(p=>p.valor), temEntrada: x.pags[0].entrada, parteAntes: x.pags.filter(antesDoCorte).length});
   });
-  return {itens: itens, mudam: itens.filter(i=>i.k>0).length, antes: reorgRetrato(L)};
+  return {itens: itens, mudam: itens.filter(i=>i.k>0).length, antes: reorgRetrato(L), mesesAntes: reorgMeses(L)};
 }
 function reorgGravar(plano){
   // escreve as novas datas no estado atual, com os mesmos campos que as telas de editar ja usam
@@ -9513,7 +9518,7 @@ function reorgTela(){
   const fimAntes = p.itens.reduce((m,i)=> i.antes[i.antes.length-1]>m ? i.antes[i.antes.length-1] : m, '');
   const fimDepois = fimDe(ord);
   let h = `<div class="rf-title"><i class="ti ti-arrows-shuffle"></i>Reorganização do fluxo (demonstração)</div>
-    <div class="rg-nota">Você está vendo o sistema <b>como ele ficaria</b>. Nada foi gravado. Olhe o cronograma e os outros quadros; no fim da tela escolha <b>Aplicar</b> ou <b>Cancelar</b>.</div>
+    <div class="rg-nota">Você está vendo o sistema <b>inteiro como ele ficaria</b>: abri todos os quadros, e cronograma, caixa, dívidas em cada mês (40/60), mês a mês e dias no vermelho já estão com as datas novas. Nada foi gravado. No fim da tela escolha <b>Aplicar</b> ou <b>Cancelar</b>.</div>
     <div class="rg-nums">
       <div><b>${p.mudam}</b><small>de ${p.itens.length} dívidas mudam de data</small></div>
       <div><b>${p.antes.neg} → ${p.depois.neg}</b><small>dias com caixa no vermelho</small></div>
@@ -9546,6 +9551,29 @@ function reorgTela(){
   mudam.forEach(it=>{ h += linha(it); });
   h += '<div class="rg-sec">Não mudam (' + ficam.length + ')</div>';
   ficam.forEach(it=>{ h += linha(it); });
+  // a regra 40/60 mes a mes: como esta hoje e como fica
+  {
+    const A = p.mesesAntes || {}, D = p.mesesDepois || {};
+    const ks = Object.keys(A).concat(Object.keys(D).filter(k=>!A[k])).sort().filter(k=> (A[k]&&A[k].div>0.005) || (D[k]&&D[k].div>0.005));
+    h += '<div class="rg-sec">Como fica cada mês na regra 40/60 (' + ks.length + ' meses com dívida)</div><div class="rg-nota">Sobra do mês = renda menos custo fixo. Meta: até 40% da sobra para dívidas; os 60% ficam livres para gasto pessoal.</div>';
+    ks.forEach(k=>{
+      const cf = custoFixoDoMes(+k.slice(0,4), +k.slice(5,7)-1), S = r2(cf.entrada - cf.saida);
+      const a = A[k] || {div:0, pes:0}, z = D[k] || {div:0, pes:0};
+      const pc = v => S>0 ? ' ('+Math.round(v/S*100)+'%)' : '';
+      const nome = parseISO(k+'-01').toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+      let tag;
+      if(S<=0) tag = '<span class="rg-tag rg-av">neste mês não sobra nada depois do custo fixo</span>';
+      else if(z.div <= S*0.4 + 0.005) tag = '<span class="rg-tag rg-muda">dívidas dentro dos 40%</span>';
+      else if(z.div <= S*0.5 + 0.005) tag = '<span class="rg-tag rg-av">dívidas entre 40% e 50% (margem)</span>';
+      else tag = '<span class="rg-tag rg-av">dívidas acima dos 40%: passa '+fmtBR(r2(z.div - S*0.4))+'</span>';
+      const livre = r2(S*0.6 - z.pes);
+      h += '<div class="rg-it"><div class="rg-it-i"><b>'+nome+'</b><small>sobra do mês: '+fmtBR(S)+(S>0 ? ' · 40% = '+fmtBR(r2(S*0.4))+' · 60% = '+fmtBR(r2(S*0.6)) : '')+'</small>'
+        + '<span class="rg-de">Hoje: '+fmtBR(a.div)+' em dívidas'+pc(a.div)+'</span>'
+        + '<span class="rg-para">Fica: <b>'+fmtBR(z.div)+'</b> em dívidas'+pc(z.div)+'</span>'
+        + '<span>Gasto pessoal já lançado: '+fmtBR(z.pes)+pc(z.pes)+(S>0 ? (livre>=0 ? ' · ainda livre dos 60%: <b>'+fmtBR(livre)+'</b>' : ' · passou '+fmtBR(-livre)+' dos 60%') : '')+'</span>'
+        + tag + '</div></div>';
+    });
+  }
   const bx = document.createElement('div');
   bx.className = 'bx aberto reorg-bx'; bx.style.order = '0'; bx.innerHTML = h;
   const col = fin.querySelector('.fin-col'); col.insertBefore(bx, col.firstChild);
@@ -9587,7 +9615,9 @@ function reorgEntrar(refazendo){
   reorgDemo = {real: real, plano: plano};
   state = JSON.parse(JSON.stringify(real)); // copia: o estado verdadeiro fica intocado ate o Aplicar
   reorgGravar(plano);
-  plano.depois = reorgRetrato(construirCronograma());
+  { const Ld = construirCronograma(); plano.depois = reorgRetrato(Ld); plano.mesesDepois = reorgMeses(Ld); }
+  pmTodos = true; // na demonstracao, todos os meses aparecem no quadro de dividas
+  if(!refazendo) document.getElementById('dpBox').closest('.fin').querySelectorAll('.bx').forEach(b=>b.classList.add('aberto')); // e todos os quadros abertos
   renderCustoFixo(); renderAll(); reorgTela();
   toast(refazendo ? 'Demonstração refeita. Nada foi gravado.' : 'Demonstração montada. Nada foi gravado.', null);
 }
@@ -9647,8 +9677,13 @@ function antCandidatos(){
     const parc = !!(t.tipo==='entrada' && t.parcelas);
     if(parc || dv[t.id]) c.push({tipo:'task', id:t.id, titulo:t.titulo, data:t.data, parc:parc});
   });
-  recorrentesAtivos().forEach(r=>{ c.push({tipo:'rec', id:r.id, titulo:r.titulo, data:r.proximaData||'', parc:false}); });
-  c.sort((a,b)=> a.data<b.data ? -1 : a.data>b.data ? 1 : 0);
+  // idade da divida: parcelamento ja rodando conta desde a primeira parcela paga; o resto, pela data em que esta
+  recorrentesAtivos().forEach(r=>{
+    const h0 = r.historicoPago && r.historicoPago[0] && r.historicoPago[0].data;
+    c.push({tipo:'rec', id:r.id, titulo:r.titulo, data:r.proximaData||'', idade:h0 || r.proximaData || '', parc:false});
+  });
+  c.forEach(x=>{ if(!x.idade) x.idade = x.data; });
+  c.sort((a,b)=> a.idade<b.idade ? -1 : a.idade>b.idade ? 1 : a.data<b.data ? -1 : a.data>b.data ? 1 : 0);
   return c;
 }
 function antMarcarLinhas(){
@@ -9709,7 +9744,7 @@ function abrirSugestaoAntecipar(){
     lista.push({c:c, r:r});
   });
   const total = r2(lista.reduce((s,x)=>s+x.r.total, 0));
-  let h = `<div class="rd-sub" style="margin:0 0 10px">Conta feita com o caixa de hoje (<b>${fmtBR(state.caixaAtual)}</b>) e todo o fluxo que já está lançado. Ordem: a dívida com a data mais próxima primeiro.</div>`;
+  let h = `<div class="rd-sub" style="margin:0 0 10px">Conta feita com o caixa de hoje (<b>${fmtBR(state.caixaAtual)}</b>) e todo o fluxo que já está lançado. Ordem: a dívida mais antiga primeiro.</div>`;
   if(!lista.length) h += `<div class="calc-erro">Com o caixa de hoje não dá para antecipar nenhuma dívida sem deixar algum dia no vermelho.</div>`;
   else {
     h += `<div class="calc-ok">Dá para antecipar <b>${fmtBR(total)}</b> em ${lista.length} ${lista.length===1?'dívida':'dívidas'}, todas juntas, sem nenhum dia ficar no vermelho. Deixe marcado o que você quer pagar agora: pode ser tudo, ou só uma ou outra.</div>
@@ -10397,7 +10432,7 @@ function updateDate(){
       aberto: function () { return overlay.classList.contains('show'); },
       estado: function () { return state; },
       raiz: RAIZ,
-      F: {load: load, METAS_PADRAO: METAS_PADRAO, save: save, garantirSeeds: garantirSeeds, fmtBR: fmtBR, parseISO: parseISO, isoOf: isoOf, addMonths: addMonths, fmtDataCurta: fmtDataCurta, fmtDataComAno: fmtDataComAno, mesLabel: mesLabel, ultimoDiaMes: ultimoDiaMes, ultimoDiaUtilMes: ultimoDiaUtilMes, ajustarParaDiaUtilAnterior: ajustarParaDiaUtilAnterior, sextoDiaUtil: sextoDiaUtil, proximoPagamento: proximoPagamento, primeiroSabado: primeiroSabado, diasEntre: diasEntre, todayISO: todayISO, inicioLedger: inicioLedger, cfv: cfv, cfvData: cfvData, custoFixoDoDia: custoFixoDoDia, construirLedger: construirLedger, todasOcorrenciasFuturas: todasOcorrenciasFuturas, construirCaixaDiarioCompleto: construirCaixaDiarioCompleto, melhorDataParaValor: melhorDataParaValor, sugerirAntecipacao: sugerirAntecipacao, sugerirMelhorDataBidirecional: sugerirMelhorDataBidirecional, aplicarNovaDataCompromisso: aplicarNovaDataCompromisso, abrirMoverData: abrirMoverData, custoFixoMensalMedio: custoFixoMensalMedio, colchaoAlvo: colchaoAlvo, rendaMensal: rendaMensal, aindaTemPendencias: aindaTemPendencias, distribuir203050: distribuir203050, aplicarNasMetas: aplicarNasMetas, construirCronograma: construirCronograma, todasTasks: todasTasks, tasksPendentes: tasksPendentes, tasksConcluidas: tasksConcluidas, recorrentesAtivos: recorrentesAtivos, catLabel: catLabel, updateHero: updateHero, iconCheck: iconCheck, cardHTML: cardHTML, recorrenteEventoHTML: recorrenteEventoHTML, escapeHTML: escapeHTML, fmtDataLonga: fmtDataLonga, renderRecorrentes: renderRecorrentes, renderAll: renderAll, diaEstaConcluido: diaEstaConcluido, renderCronograma: renderCronograma, custoFixoChipHTML: custoFixoChipHTML, compromissoChipHTML: compromissoChipHTML, bindChips: bindChips, valorTotalTask: valorTotalTask, acharFixoPago: acharFixoPago, htmlFixosPagos: htmlFixosPagos, voltarFixoPago: voltarFixoPago, renderResumoFinal: renderResumoFinal, renderTotaisLista: renderTotaisLista, ultimaParcelaProjetada: ultimaParcelaProjetada, tabelaRD: tabelaRD, renderRegras: renderRegras, renderMetas: renderMetas, planoVermelho: planoVermelho, htmlPlanoVermelho: htmlPlanoVermelho, montarPlanoVermelho: montarPlanoVermelho, renderDiasNegativos: renderDiasNegativos, abrirSugestaoNegativo: abrirSugestaoNegativo, renderRelatorioDatas: renderRelatorioDatas, aplicarConclusaoTask: aplicarConclusaoTask, toggleDone: toggleDone, delExtra: delExtra, aplicarPagamentoParcela: aplicarPagamentoParcela, pagamentoAnterior: pagamentoAnterior, desfazerUltimaParcela: desfazerUltimaParcela, pagarParcela: pagarParcela, toast: toast, renderMensal: renderMensal, calcularFundoReserva: calcularFundoReserva, totalReservaProgramado: totalReservaProgramado, renderReserva: renderReserva, coletarGastosRealizados: coletarGastosRealizados, chaveGasto: chaveGasto, categorizarGasto: categorizarGasto, categoriaDoEvento: categoriaDoEvento, categorizarAuto: categorizarAuto, renderGastoMensal: renderGastoMensal, abrirRotularGasto: abrirRotularGasto, resumoCustoFixoMensal: resumoCustoFixoMensal, resumoCustoFixoDeTabela: resumoCustoFixoDeTabela, renderResumoCustoFixo: renderResumoCustoFixo, renderCustoFixo: renderCustoFixo, openSheet: openSheet, closeSheet: closeSheet, melhorPeriodoParaParcelamento: melhorPeriodoParaParcelamento, applyTheme: applyTheme, abrirEditSheet: abrirEditSheet, renderLinhasParcelasEdit: renderLinhasParcelasEdit, lerLinhasParcelasEdit: lerLinhasParcelasEdit, abrirEditorParcelas: abrirEditorParcelas, r2: r2, inicioFixoExtra: inicioFixoExtra, custoFixoDoMesAtual: custoFixoDoMesAtual, custoFixoDoMes: custoFixoDoMes, agruparCustoFixo: agruparCustoFixo, livrePessoal: livrePessoal, parcPorMes: parcPorMes, renderParcMes: renderParcMes, reorgUnidades: reorgUnidades, reorgRetrato: reorgRetrato, reorgPlano: reorgPlano, reorgGravar: reorgGravar, reorgBotoes: reorgBotoes, reorgDesfazer: reorgDesfazer, reorgRefazer: reorgRefazer, reorgTela: reorgTela, reorgEntrar: reorgEntrar, reorgSair: reorgSair, antDias: antDias, antPossivel: antPossivel, antCandidatos: antCandidatos, antMarcarLinhas: antMarcarLinhas, antTextoItem: antTextoItem, abrirAntecipar: abrirAntecipar, abrirSugestaoAntecipar: abrirSugestaoAntecipar, sugerirParcelada: sugerirParcelada, usarSugestao: usarSugestao, htmlSugestoes: htmlSugestoes, abrirParcelamentoRec: abrirParcelamentoRec, datasSeguindoEntrada: datasSeguindoEntrada, valoresDasParcelas: valoresDasParcelas, gravarCamposTask: gravarCamposTask, seguirEntrada: seguirEntrada, dpVista: dpVista, lerParcelada: lerParcelada, ligarCamposParcelada: ligarCamposParcelada, abrirParcelamento: abrirParcelamento, abrirEdicaoTask: abrirEdicaoTask, abrirEdicaoRecorrente: abrirEdicaoRecorrente, estornarPagoFixo: estornarPagoFixo, estornarPagosPorNome: estornarPagosPorNome, migrarMarcacaoPago: migrarMarcacaoPago, valorEfetivoNoDia: valorEfetivoNoDia, abrirEdicaoFixo: abrirEdicaoFixo, abrirEdicaoFixoExtra: abrirEdicaoFixoExtra, updateDate: updateDate}
+      F: {load: load, METAS_PADRAO: METAS_PADRAO, save: save, garantirSeeds: garantirSeeds, fmtBR: fmtBR, parseISO: parseISO, isoOf: isoOf, addMonths: addMonths, fmtDataCurta: fmtDataCurta, fmtDataComAno: fmtDataComAno, mesLabel: mesLabel, ultimoDiaMes: ultimoDiaMes, ultimoDiaUtilMes: ultimoDiaUtilMes, ajustarParaDiaUtilAnterior: ajustarParaDiaUtilAnterior, sextoDiaUtil: sextoDiaUtil, proximoPagamento: proximoPagamento, primeiroSabado: primeiroSabado, diasEntre: diasEntre, todayISO: todayISO, inicioLedger: inicioLedger, cfv: cfv, cfvData: cfvData, custoFixoDoDia: custoFixoDoDia, construirLedger: construirLedger, todasOcorrenciasFuturas: todasOcorrenciasFuturas, construirCaixaDiarioCompleto: construirCaixaDiarioCompleto, melhorDataParaValor: melhorDataParaValor, sugerirAntecipacao: sugerirAntecipacao, sugerirMelhorDataBidirecional: sugerirMelhorDataBidirecional, aplicarNovaDataCompromisso: aplicarNovaDataCompromisso, abrirMoverData: abrirMoverData, custoFixoMensalMedio: custoFixoMensalMedio, colchaoAlvo: colchaoAlvo, rendaMensal: rendaMensal, aindaTemPendencias: aindaTemPendencias, distribuir203050: distribuir203050, aplicarNasMetas: aplicarNasMetas, construirCronograma: construirCronograma, todasTasks: todasTasks, tasksPendentes: tasksPendentes, tasksConcluidas: tasksConcluidas, recorrentesAtivos: recorrentesAtivos, catLabel: catLabel, updateHero: updateHero, iconCheck: iconCheck, cardHTML: cardHTML, recorrenteEventoHTML: recorrenteEventoHTML, escapeHTML: escapeHTML, fmtDataLonga: fmtDataLonga, renderRecorrentes: renderRecorrentes, renderAll: renderAll, diaEstaConcluido: diaEstaConcluido, renderCronograma: renderCronograma, custoFixoChipHTML: custoFixoChipHTML, compromissoChipHTML: compromissoChipHTML, bindChips: bindChips, valorTotalTask: valorTotalTask, acharFixoPago: acharFixoPago, htmlFixosPagos: htmlFixosPagos, voltarFixoPago: voltarFixoPago, renderResumoFinal: renderResumoFinal, renderTotaisLista: renderTotaisLista, ultimaParcelaProjetada: ultimaParcelaProjetada, tabelaRD: tabelaRD, renderRegras: renderRegras, renderMetas: renderMetas, planoVermelho: planoVermelho, htmlPlanoVermelho: htmlPlanoVermelho, montarPlanoVermelho: montarPlanoVermelho, renderDiasNegativos: renderDiasNegativos, abrirSugestaoNegativo: abrirSugestaoNegativo, renderRelatorioDatas: renderRelatorioDatas, aplicarConclusaoTask: aplicarConclusaoTask, toggleDone: toggleDone, delExtra: delExtra, aplicarPagamentoParcela: aplicarPagamentoParcela, pagamentoAnterior: pagamentoAnterior, desfazerUltimaParcela: desfazerUltimaParcela, pagarParcela: pagarParcela, toast: toast, renderMensal: renderMensal, calcularFundoReserva: calcularFundoReserva, totalReservaProgramado: totalReservaProgramado, renderReserva: renderReserva, coletarGastosRealizados: coletarGastosRealizados, chaveGasto: chaveGasto, categorizarGasto: categorizarGasto, categoriaDoEvento: categoriaDoEvento, categorizarAuto: categorizarAuto, renderGastoMensal: renderGastoMensal, abrirRotularGasto: abrirRotularGasto, resumoCustoFixoMensal: resumoCustoFixoMensal, resumoCustoFixoDeTabela: resumoCustoFixoDeTabela, renderResumoCustoFixo: renderResumoCustoFixo, renderCustoFixo: renderCustoFixo, openSheet: openSheet, closeSheet: closeSheet, melhorPeriodoParaParcelamento: melhorPeriodoParaParcelamento, applyTheme: applyTheme, abrirEditSheet: abrirEditSheet, renderLinhasParcelasEdit: renderLinhasParcelasEdit, lerLinhasParcelasEdit: lerLinhasParcelasEdit, abrirEditorParcelas: abrirEditorParcelas, r2: r2, inicioFixoExtra: inicioFixoExtra, custoFixoDoMesAtual: custoFixoDoMesAtual, custoFixoDoMes: custoFixoDoMes, agruparCustoFixo: agruparCustoFixo, livrePessoal: livrePessoal, parcPorMes: parcPorMes, renderParcMes: renderParcMes, reorgUnidades: reorgUnidades, reorgMeses: reorgMeses, reorgRetrato: reorgRetrato, reorgPlano: reorgPlano, reorgGravar: reorgGravar, reorgBotoes: reorgBotoes, reorgDesfazer: reorgDesfazer, reorgRefazer: reorgRefazer, reorgTela: reorgTela, reorgEntrar: reorgEntrar, reorgSair: reorgSair, antDias: antDias, antPossivel: antPossivel, antCandidatos: antCandidatos, antMarcarLinhas: antMarcarLinhas, antTextoItem: antTextoItem, abrirAntecipar: abrirAntecipar, abrirSugestaoAntecipar: abrirSugestaoAntecipar, sugerirParcelada: sugerirParcelada, usarSugestao: usarSugestao, htmlSugestoes: htmlSugestoes, abrirParcelamentoRec: abrirParcelamentoRec, datasSeguindoEntrada: datasSeguindoEntrada, valoresDasParcelas: valoresDasParcelas, gravarCamposTask: gravarCamposTask, seguirEntrada: seguirEntrada, dpVista: dpVista, lerParcelada: lerParcelada, ligarCamposParcelada: ligarCamposParcelada, abrirParcelamento: abrirParcelamento, abrirEdicaoTask: abrirEdicaoTask, abrirEdicaoRecorrente: abrirEdicaoRecorrente, estornarPagoFixo: estornarPagoFixo, estornarPagosPorNome: estornarPagosPorNome, migrarMarcacaoPago: migrarMarcacaoPago, valorEfetivoNoDia: valorEfetivoNoDia, abrirEdicaoFixo: abrirEdicaoFixo, abrirEdicaoFixoExtra: abrirEdicaoFixoExtra, updateDate: updateDate}
     };
   }
 
