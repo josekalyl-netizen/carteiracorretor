@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "35";
+  var VERSAO = "36";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -6140,7 +6140,16 @@ input[type="checkbox"]{width:16px;height:16px;padding:0;flex:none;accent-color:#
 .pm-it-v{font:700 13px/1.2 var(--ativa-font-display);color:rgb(var(--c-ink));white-space:nowrap}
 .pm-x{border:1px solid var(--ln);background:transparent;color:rgb(var(--c-ink2));border-radius:999px;padding:6px 10px;font:600 11px/1 var(--ativa-font-body);cursor:pointer;white-space:nowrap}
 .pm-fora .pm-it-i b,.pm-fora .pm-it-v{text-decoration:line-through;color:rgb(var(--c-muted))}
-.pm-fora .pm-x{border-color:rgb(var(--c-primary-500));color:rgb(var(--c-primary-500))}`;
+.pm-fora .pm-x{border-color:rgb(var(--c-primary-500));color:rgb(var(--c-primary-500))}
+/* quadros fechados por padrao: so o titulo aparece ate tocar */
+.bx:not(.hero):not(.aberto) > :not(:first-child){display:none !important}
+.bx:not(.aberto) .cron-sub{display:none}
+#listaRecorrentes:not(.aberto) .section > :not(.sec-head){display:none !important}
+.bx:not(.hero) > .composer-title,.bx:not(.hero) > .rf-title,.bx:not(.hero) .cron-title,#listaRecorrentes .sec-head{cursor:pointer;user-select:none}
+.bx:not(.hero) > .composer-title::after,.bx:not(.hero) > .rf-title::after,.bx:not(.hero) .cron-title::after,#listaRecorrentes .sec-head::after{content:"▸";margin-left:auto;padding-left:8px;font-size:14px;color:rgb(var(--c-muted));transition:transform .15s}
+.bx.aberto > .composer-title::after,.bx.aberto > .rf-title::after,.bx.aberto .cron-title::after,#listaRecorrentes.aberto .sec-head::after{transform:rotate(90deg)}
+.bx:not(.aberto) > .composer-title,.bx:not(.aberto) > .rf-title,.bx:not(.aberto) .cron-title,#listaRecorrentes:not(.aberto) .sec-head{margin-bottom:0}
+#listaRecorrentes:empty{display:none}`;
   var FIN_SHELL = `<div class="fin">
   <div class="fin-top">
     <div>
@@ -8291,6 +8300,12 @@ if(document.getElementById('dpBtn')){
   ligarCamposParcelada('dp');
   document.getElementById('dpBox').addEventListener('input', ()=>renderParcMes());
   if(document.getElementById('dpSugerir')) document.getElementById('dpSugerir').addEventListener('click', sugerirParcelada);
+  // todos os quadros comecam fechados; abrem e fecham no toque do titulo (so visual)
+  document.getElementById('dpBox').closest('.fin').addEventListener('click', e=>{
+    const tit = e.target.closest('.composer-title,.rf-title,.cron-title,.sec-head,.cf-toggle');
+    const bx = tit && tit.closest('.bx');
+    if(bx && !bx.classList.contains('hero')) bx.classList.toggle('aberto');
+  });
   document.getElementById('dpBtn').addEventListener('click', ()=>{
     const titulo = document.getElementById('dpTitulo').value.trim();
     if(!titulo){ toast('Preencha o que é a dívida', null); return; }
