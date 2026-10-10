@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "62";
+  var VERSAO = "63";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -8871,7 +8871,7 @@ function renderResumoCustoFixo(){
     <div class="cfr-bar"><div class="cfr-fill ${pctComprometido>90?'cfr-alerta':''}" style="width:${pctComprometido.toFixed(1)}%"></div></div>
     <div class="cfr-pct">${pctComprometido.toFixed(0)}% da renda já comprometida com custo fixo</div>
     <div class="cfr-linha cfr-saldo"><span>${sobra?'Sobra por mês':'Falta por mês'}</span><span class="${sobra?'cfr-in':'cfr-out'}">${sobra?'':'-'}${fmtBR(Math.abs(r.saldo))}</span></div>
-    <div class="cfr-nota">Conta de ${parseISO(todayISO()).toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}: tudo que entra menos tudo que sai. O que cai mais de uma vez no mês (toda semana, todo dia útil) conta todas as vezes. Recalcula sozinho quando você adiciona, tira ou muda um item.</div>`;
+    <div class="cfr-nota">Conta de ${parseISO(todayISO()).toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}: tudo que entra menos tudo que sai. O que cai mais de uma vez no mês (toda semana, todo dia útil) conta todas as vezes. Recalcula sozinho quando você adiciona, tira ou muda um item.${(cfSoma && cfSoma.pes>0.005) ? ' <b>Fora desta conta:</b> '+fmtBR(cfSoma.pes)+' neste mês do que repete e você marcou como gasto pessoal (entra nos 60%, não no custo fixo).' : ''}</div>`;
 }
 function renderCustoFixo(){
   const cf = DADOS_BASE.custoFixo;
@@ -9257,7 +9257,7 @@ function agruparCustoFixo(){
   Array.from(lista.querySelectorAll('.cf-row')).forEach(r=>{ (txt(r).charAt(0)==='+' ? grupos.entra : grupos.sai).push(r); });
   // cada item conta quantas vezes cai no mes atual (semanal = 4 ou 5 vezes, dia util = todos os dias uteis...)
   const mes = custoFixoDoMesAtual();
-  cfSoma = {entrada: mes.entrada, saida: mes.saida, saldo: r2(mes.entrada - mes.saida)};
+  cfSoma = {entrada: mes.entrada, saida: mes.saida, saldo: r2(mes.entrada - mes.saida), pes: mes.pes||0};
   grupos.entra.concat(grupos.sai).forEach(r=>{
     const chip = r.querySelector('.chip-edit');
     if(!chip) return;
