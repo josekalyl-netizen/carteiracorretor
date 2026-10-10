@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "60";
+  var VERSAO = "61";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -9718,7 +9718,17 @@ function reorgTela(){
       return ds.length+' pagamentos, de <b>'+d(ds[0])+'</b> a <b>'+d(ds[ds.length-1])+'</b> ('+(mx-mn<0.005 ? fmtBR(mn)+' cada' : 'de '+fmtBR(mn)+' a '+fmtBR(mx))+')';
     };
     let corpo;
-    if(it.k) corpo = '<span class="rg-de">Hoje: '+faixa(it.antes, it.antesVal)+'</span><span class="rg-para">Passa para: '+faixa(it.datas, it.valores)+'</span>';
+    // o movimento: de que data para que data, e quantos meses andou
+    const dm = (a,b) => { const A = parseISO(a), B = parseISO(b); return (B.getFullYear()-A.getFullYear())*12 + B.getMonth()-A.getMonth(); };
+    const mov = (rot,a,b) => {
+      if(a===b) return rot+': continua em <b>'+d(a)+'</b>';
+      const q = dm(a,b), nq = Math.abs(q);
+      return rot+': de <b>'+d(a)+'</b> para <b>'+d(b)+'</b> — <b>'+(q===0 ? 'no mesmo mês' : nq+(nq===1?' mês ':' meses ')+(q>0?'depois':'antes'))+'</b>';
+    };
+    const ua = it.antes[it.antes.length-1], ud = it.datas[it.datas.length-1];
+    const movTxt = (it.antes.length===1 && it.datas.length===1) ? mov('Movimento', it.antes[0], it.datas[0])
+      : mov('1º pagamento', it.antes[0], it.datas[0])+'<br>'+mov('Quitação', ua, ud);
+    if(it.k) corpo = '<span class="rg-de">Hoje: '+faixa(it.antes, it.antesVal)+'</span><span class="rg-para">Passa para: '+faixa(it.datas, it.valores)+'</span><span style="display:block;margin-top:4px;padding:6px 8px;border:1px dashed var(--ln);border-radius:8px">'+movTxt+'</span>';
     else corpo = '<span>Fica em: '+faixa(it.datas, it.valores)+'</span>';
     const av = it.aviso==='semdata' ? '<span class="rg-tag rg-av">'+(it.vista ? 'à vista não cabe em nenhum mês sem deixar o caixa no vermelho: ficou onde estava' : 'não achei mês que caiba: ficou onde estava')+'</span>'
       : it.aviso==='grande' ? '<span class="rg-tag rg-av">à vista ela passa dos 40% deste mês: é paga com os 40% que sobraram dos meses anteriores</span>'
@@ -9898,7 +9908,7 @@ function reorgEntrar(refazendo){
   if(refazendo!==true){ refazendo = false; reorgTravados = Object.assign({}, state.reorgTravados||{}); reorgDesde = ''; reorgOrdem = (state.reorgOrdem||[]).slice(); reorgVista = Object.assign({}, state.reorgVista||{}); reorgGrupos = []; } // a ordem que ele aplicou da ultima vez continua valendo
   let plano = null;
   try{ plano = reorgPlano(); }catch(e){ plano = null; }
-  if(!plano || !plano.mudam){
+  if(!plano){
     if(refazendo){ renderCustoFixo(); renderAll(); reorgTela(); }
     toast(!plano ? 'Não há dívidas para reorganizar.' : refazendo ? 'Com o que você travou ou com a data escolhida, não sobra nada para mudar. Saí da demonstração; o sistema está como estava.' : 'Nada a mudar: o fluxo já está na regra dos 40%.', null);
     return;
@@ -9912,7 +9922,7 @@ function reorgEntrar(refazendo){
   pmTodos = true; // na demonstracao, todos os meses aparecem no quadro de dividas
   if(!refazendo) document.getElementById('dpBox').closest('.fin').querySelectorAll('.bx').forEach(b=>b.classList.add('aberto')); // e todos os quadros abertos
   renderCustoFixo(); renderAll(); reorgTela();
-  toast(refazendo ? 'Demonstração refeita. Nada foi gravado.' : 'Demonstração montada. Nada foi gravado.', null);
+  toast(!plano.mudam ? 'Do jeito que está, nada muda. Você pode trocar a ordem, travar, juntar ou mandar à vista aqui embaixo. Nada foi gravado.' : refazendo ? 'Demonstração refeita. Nada foi gravado.' : 'Demonstração montada. Nada foi gravado.', null);
 }
 function reorgSair(aplicar){
   if(!reorgDemo) return;
