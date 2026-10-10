@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "53";
+  var VERSAO = "54";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -9339,6 +9339,7 @@ function renderParcMes(linhas){
    indo pra divida. O que nao cabe e empurrado inteiro, de mes em mes. Quem tem a data mais antiga encaixa primeiro.
    Na demonstracao o estado e uma COPIA: o verdadeiro nao e tocado e nada e gravado. */
 let reorgTravados = {}; // o que o dono mandou nao mexer (vale enquanto a tela estiver aberta)
+let reorgOrdem = []; // ordem de pagamento escolhida por ele (ids); quem nao esta na lista vai depois, da mais antiga para a mais nova
 let reorgDesde = ''; // data escolhida por ele: pagamento com data anterior a ela nao muda (vazio = reorganiza tudo)
 function reorgUnidades(L){
   const dv = state.dividaVista || {}, u = {};
@@ -9377,9 +9378,10 @@ function reorgRetrato(L){
   return {neg: L.filter(l=>l.caixa < -0.005).length, acima: acima};
 }
 function reorgPlano(){
-  // Regra nova (pedido dele): cada mes paga divida ATE os 40% da sobra. A fila anda por ordem de vencimento
-  // (a mais antiga primeiro); o que esta la na frente e puxado para encher o mes; o que nao cabe inteiro e
-  // dividido: uma parte agora, o resto no mes seguinte. Nenhum dia pode ficar com caixa negativo.
+  // Regra (pedido dele): cada mes paga divida ATE os 40% da sobra, e cada divida vira um parcelamento de verdade:
+  // parcelas IGUAIS, uma por mes, em meses seguidos, no mesmo dia. A mais antiga escolhe primeiro. Para cada uma,
+  // procura o parcelamento que termina mais cedo cabendo no que resta dos 40% de cada mes (e, empatando, o de menos
+  // parcelas). Nenhum dia pode ficar com caixa negativo.
   parcPorMes([]); // garante as marcas do que e divida a vista
   const L = construirCronograma();
   const hojeD = inicioLedger(), hoje = isoOf(hojeD);
@@ -9412,41 +9414,59 @@ function reorgPlano(){
   const tira = (d, v) => { const mk = d.slice(0,7); load[mk] = (load[mk]||0) + v; for(let i=dia(d); i<N; i++) cx[i] -= v; };
   const folga = i => { let m = Infinity; for(let j=i;j<N;j++) if(cx[j]<m) m = cx[j]; return m; }; // quanto da pra tirar no dia i sem nenhum dia depois ficar negativo
   // 1) o que nao pode mudar (travado por ele, ou de antes da data escolhida) fica onde esta e ocupa o lugar primeiro
-  const fila = [];
   unidades.forEach(x=>{
-    x.fixos = []; x.novos = [];
+    x.fixos = []; x.novos = []; x.resta = 0; x.diaRef = '';
     const par = parada(x);
     x.pags.forEach(p=>{
       if(par || antesDoCorte(p)){ x.fixos.push({data:noDia(p), valor:p.valor}); tira(noDia(p), p.valor); }
-      else fila.push({x:x, orig:p.orig, resta:p.valor});
+      else { x.resta = r2(x.resta + p.valor); if(!x.diaRef) x.diaRef = p.orig.slice(7); }
     });
   });
-  fila.sort((a,b)=> a.orig<b.orig ? -1 : a.orig>b.orig ? 1 : a.x.primeira<b.x.primeira ? -1 : a.x.primeira>b.x.primeira ? 1 : 0);
-  // 2) mes a mes, enche ate os 40%
-  const MINP = 20; // nao cria pedaco menor que isso
+  // 2) cada divida, da mais antiga para a mais nova, vira parcelas iguais em meses seguidos
+  const MINP = 50; // parcela minima (a nao ser que a divida inteira seja menor que isso)
   const ini = (reorgDesde && reorgDesde>hoje) ? reorgDesde : hoje, iniD = parseISO(ini);
-  let qi = 0;
-  for(let d0 = new Date(iniD.getFullYear(), iniD.getMonth(), 1); qi<fila.length; d0 = new Date(d0.getFullYear(), d0.getMonth()+1, 1)){
+  const meses = [];
+  for(let d0 = new Date(iniD.getFullYear(), iniD.getMonth(), 1); isoOf(d0).slice(0,7) <= fimISO.slice(0,7); d0 = new Date(d0.getFullYear(), d0.getMonth()+1, 1)){
     const mk = isoOf(d0).slice(0,7);
-    if(mk > fimISO.slice(0,7)) break;
     let ult = isoOf(new Date(d0.getFullYear(), d0.getMonth()+1, 0)); if(ult>fimISO) ult = fimISO;
     const prim = mk===ini.slice(0,7) ? ini : mk+'-01';
-    if(prim>ult) continue;
-    while(qi<fila.length){
-      const q = fila[qi], room = teto(mk) - (load[mk]||0);
-      if(room < 0.005) break;
-      let dt = mk + q.orig.slice(7); if(dt>ult) dt = ult; if(dt<prim) dt = prim;
-      let v = Math.min(q.resta, room);
-      if(folga(dia(dt)) + 0.005 < v){ dt = ult; v = Math.min(v, folga(dia(ult))); } // no dia dela nao ha caixa: vai para o fim do mes
-      v = Math.floor(v*100 + 0.0001)/100;
-      if(v >= q.resta - 0.005){ q.x.novos.push({data:dt, valor:q.resta}); tira(dt, q.resta); q.resta = 0; qi++; continue; }
-      if(q.resta - v < MINP) v = r2(q.resta - MINP); // nao deixa sobrar um resto pequeno demais
-      if(v < MINP) break; // o que cabe e pouco demais para virar um pedaco: o mes fecha aqui
-      q.x.novos.push({data:dt, valor:v}); tira(dt, v); q.resta = r2(q.resta - v); q.x.dividida = true;
-    }
+    if(prim<=ult) meses.push({mk:mk, prim:prim, ult:ult});
   }
-  // 3) se nao houve mes que coubesse (nao deve acontecer), o resto fica na data em que estava
-  for(; qi<fila.length; qi++){ const q = fila[qi]; if(q.resta>0.005){ const d = q.orig<hoje ? hoje : q.orig; q.x.novos.push({data:d, valor:q.resta}); q.x.semdata = true; } }
+  const sala = i => teto(meses[i].mk) - (load[meses[i].mk]||0);
+  const dataEm = (i, ref, noFim) => { const m = meses[i]; let dt = noFim ? m.ult : m.mk + ref; if(dt>m.ult) dt = m.ult; if(dt<m.prim) dt = m.prim; return dt; };
+  const caixaOk = (ds, vs) => {
+    const porDia = {}; ds.forEach((d,i)=>{ porDia[dia(d)] = (porDia[dia(d)]||0) + vs[i]; });
+    const dias = Object.keys(porDia).map(Number).sort((a,b)=>a-b);
+    let cum = 0, j = 0;
+    for(let i=dias[0]; i<N; i++){ if(j<dias.length && dias[j]===i){ cum += porDia[i]; j++; } if(cx[i] - cum < -0.005) return false; }
+    return true;
+  };
+  const posO = {}; reorgOrdem.forEach((id,i)=>{ posO[id] = i; });
+  const filaU = unidades.filter(x=>x.resta >= 0.005).map((x,i)=>({x:x, i:i}))
+    .sort((a,b)=> (posO[a.x.id]!=null ? posO[a.x.id] : 1e6+a.i) - (posO[b.x.id]!=null ? posO[b.x.id] : 1e6+b.i)).map(o=>o.x);
+  filaU.forEach(x=>{
+    const T = x.resta;
+    let achou = null;
+    for(let e=0; e<meses.length && !achou; e++){
+      for(let n=1; n<=Math.min(e+1, 120) && !achou; n++){
+        const p = Math.floor(T/n*100)/100;
+        if(n>1 && p < MINP) break;
+        const s = e-n+1;
+        let ok = true;
+        for(let i=s; i<=e; i++){ if(sala(i) + 0.005 < p + (i===e ? r2(T - p*n) : 0)){ ok = false; break; } }
+        if(!ok) continue;
+        const vs = []; for(let i=0;i<n;i++) vs.push(i===n-1 ? r2(T - p*(n-1)) : p);
+        for(let f=0; f<2 && !achou; f++){
+          // mesmo dia em todos os meses: o dia dela (ou, sem caixa nesse dia, o ultimo dia do primeiro mes)
+          const du = meses[s].ult.slice(7), ref = (f===1 || x.diaRef > du) ? du : x.diaRef;
+          const ds = []; for(let i=s; i<=e; i++) ds.push(dataEm(i, ref, false));
+          if(caixaOk(ds, vs)) achou = {ds:ds, vs:vs};
+        }
+      }
+    }
+    if(achou){ achou.ds.forEach((d,i)=>{ x.novos.push({data:d, valor:achou.vs[i]}); tira(d, achou.vs[i]); }); x.nNovo = achou.ds.length; }
+    else { x.semdata = true; x.pags.forEach(p=>{ if(!antesDoCorte(p)){ x.novos.push({data:noDia(p), valor:p.valor}); tira(noDia(p), p.valor); } }); } // nao achou: fica onde estava
+  });
   const itens = unidades.map(x=>{
     const todos = x.fixos.concat(x.novos).sort((a,b)=> a.data<b.data ? -1 : a.data>b.data ? 1 : 0), jun = [];
     todos.forEach(p=>{ const u = jun[jun.length-1]; if(u && u.data===p.data) u.valor = r2(u.valor + p.valor); else jun.push({data:p.data, valor:r2(p.valor)}); });
@@ -9456,10 +9476,10 @@ function reorgPlano(){
     const par = parada(x);
     return {chave:chave(x), tipo:x.tipo, id:x.id, titulo:x.titulo, k: muda ? 1 : 0, total:x.total,
       aviso: par ? (reorgTravados[chave(x)] ? 'travada' : 'antes') : x.semdata ? 'semdata' : '',
-      dividida: !!x.dividida && datas.length>antes.length, antes:antes, antesVal:antesVal, datas:datas, valores:valores,
+      dividida: muda && !x.semdata && !par && x.nNovo>1 ? x.nNovo : 0, antes:antes, antesVal:antesVal, datas:datas, valores:valores,
       temEntrada:x.pags[0].entrada, parteAntes: par ? 0 : x.fixos.length};
   });
-  return {itens: itens, mudam: itens.filter(i=>i.k>0).length, antes: reorgRetrato(L), mesesAntes: reorgMeses(L)};
+  return {itens: itens, ordem: filaU.map(x=>x.id), mudam: itens.filter(i=>i.k>0).length, antes: reorgRetrato(L), mesesAntes: reorgMeses(L)};
 }
 function reorgGravar(plano){
   // escreve os novos pagamentos (data e valor) no estado atual, com os mesmos campos que as telas de editar ja usam
@@ -9574,9 +9594,9 @@ function reorgTela(){
   const fimDepois = fimDe(ord);
   let h = `<div class="rf-title"><i class="ti ti-arrows-shuffle"></i>Reorganização do fluxo (demonstração)</div>
     <div class="rg-nota">Você está vendo o sistema <b>inteiro como ele ficaria</b>: abri todos os quadros, e cronograma, caixa, dívidas em cada mês (40/60), mês a mês e dias no vermelho já estão com as datas novas. Nada foi gravado. No fim da tela escolha <b>Aplicar</b> ou <b>Cancelar</b>.</div>
-    <div class="rg-nota"><b>Regra:</b> todo mês vai para dívida até <b>40% da sobra</b>, enquanto houver dívida. A mais antiga é paga primeiro; o que estava lá na frente é puxado para encher o mês; a dívida que não cabe inteira é <b>dividida</b>: uma parte neste mês e o resto no seguinte. Nenhum dia fica com o caixa no vermelho.</div>
+    <div class="rg-nota"><b>Regra:</b> todo mês vai para dívida até <b>40% da sobra</b>, enquanto houver dívida. Cada dívida vira um <b>parcelamento de verdade</b>: parcelas iguais, uma por mês, em meses seguidos, no mesmo dia. A mais antiga escolhe primeiro e fica com o parcelamento que termina mais cedo cabendo nos 40%; as seguintes ocupam o que sobra de cada mês. Nenhum dia fica com o caixa no vermelho.</div>
     <div class="rg-nums">
-      <div><b>${p.mudam}</b><small>de ${p.itens.length} dívidas mudam (data ou divisão)</small></div>
+      <div><b>${p.mudam}</b><small>de ${p.itens.length} dívidas mudam (data ou parcelas)</small></div>
       <div><b>${p.antes.neg} → ${p.depois.neg}</b><small>dias com caixa no vermelho</small></div>
       <div><b>${p.antes.acima} → ${p.depois.acima}</b><small>meses acima dos 40% em dívidas</small></div>
       <div><b>${d(fimDepois)}</b><small>tudo quitado (antes: ${d(fimAntes)})</small></div>
@@ -9586,7 +9606,7 @@ function reorgTela(){
     + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px"><input type="date" id="reorgDesdeIn" value="'+reorgDesde+'" style="flex:1;min-width:150px;padding:9px 10px;border:1px solid var(--ln);border-radius:10px;font:inherit;background:var(--pp);color:inherit">'
     + '<button type="button" class="rg-trava" id="reorgDesdeOk" style="margin:0">Refazer com esta data</button>'
     + (reorgDesde ? '<button type="button" class="rg-trava" id="reorgDesdeLimpar" style="margin:0">Voltar a reorganizar tudo</button>' : '') + '</div></div>';
-  const linha = it => {
+  const linha = (it, pos) => {
     const n = it.antes.length, tipoTxt = it.tipo==='vista' ? 'à vista' : it.tipo==='parc' ? 'parcelada, ainda não começou' : 'parcelas em andamento ('+n+' faltando)';
     const faixa = (ds, vs) => {
       if(ds.length<=6) return ds.map((x,i)=>'<b>'+d(x)+'</b> '+fmtBR(vs[i])).join(' · ');
@@ -9599,17 +9619,25 @@ function reorgTela(){
     const av = it.aviso==='semdata' ? '<span class="rg-tag rg-av">não achei mês que caiba: ficou onde estava</span>'
       : it.aviso==='travada' ? '<span class="rg-tag rg-muda">você travou: não muda</span>'
       : it.aviso==='antes' ? '<span class="rg-tag rg-muda">é de antes de '+d(reorgDesde)+': não muda</span>'
-      : (it.dividida ? '<span class="rg-tag rg-av">dividida: eram '+n+(n===1?' pagamento':' pagamentos')+', ficam '+it.datas.length+' para caber nos 40%</span>' : '')
+      : (it.dividida ? '<span class="rg-tag rg-av">parcelada em '+it.dividida+' vezes, uma por mês, em meses seguidos'+(n>1 ? ' (eram '+n+' pagamentos)' : '')+'</span>' : '')
         + ((it.k && it.parteAntes) ? '<span class="rg-tag rg-muda">'+it.parteAntes+(it.parteAntes===1?' pagamento':' pagamentos')+' de antes de '+d(reorgDesde)+' não '+(it.parteAntes===1?'muda':'mudam')+'</span>' : '');
     const botao = it.aviso==='travada' ? '<button type="button" class="rg-trava" data-rgt="'+it.chave+'">Liberar para mudar</button>'
       : it.k ? '<button type="button" class="rg-trava" data-rgt="'+it.chave+'">Não mudar esta</button>' : '';
-    return '<div class="rg-it"><div class="rg-it-i"><b>'+escapeHTML(it.titulo)+'</b><small>'+tipoTxt+'</small>'+corpo+av+botao+'</div><div class="rg-it-v">'+fmtBR(it.total)+'</div></div>';
+    const bt = 'border:1px solid var(--ln);background:var(--pp);color:inherit;border-radius:8px;min-width:34px;height:34px;font:inherit;font-weight:700;cursor:pointer';
+    const ordem = pos==null ? '' : '<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">'
+      + '<button type="button" data-rgpos="'+it.id+'" title="Escolher a posição" style="'+bt+';padding:0 8px">'+(pos+1)+'º</button>'
+      + '<button type="button" data-rgup="'+it.id+'" title="Subir" style="'+bt+'"'+(pos===0?' disabled':'')+'>↑</button>'
+      + '<button type="button" data-rgdn="'+it.id+'" title="Descer" style="'+bt+'"'+(pos===p.ordem.length-1?' disabled':'')+'>↓</button>'
+      + '<span data-rgdrag="'+it.id+'" title="Segure e arraste" style="'+bt+';display:inline-flex;align-items:center;justify-content:center;cursor:grab;touch-action:none;user-select:none">⠿</span>'
+      + '<small style="margin:0">quita em <b>'+d(it.datas[it.datas.length-1])+'</b></small></div>';
+    return '<div class="rg-it"'+(pos==null?'':' data-rgid="'+it.id+'"')+'><div class="rg-it-i">'+ordem+'<b>'+escapeHTML(it.titulo)+'</b><small>'+tipoTxt+'</small>'+corpo+av+botao+'</div><div class="rg-it-v">'+fmtBR(it.total)+'</div></div>';
   };
   const mudam = ord.filter(it=>it.k), ficam = ord.filter(it=>!it.k);
-  h += '<div class="rg-sec">Vão mudar (' + mudam.length + ')</div><div class="rg-nota">Confira uma por uma. Se alguma não pode mudar, toque em <b>Não mudar esta</b>: ela fica onde está e o resto é recalculado em volta dela.</div>';
-  mudam.forEach(it=>{ h += linha(it); });
-  h += '<div class="rg-sec">Não mudam (' + ficam.length + ')</div>';
-  ficam.forEach(it=>{ h += linha(it); });
+  const naFila = p.ordem.map(id=>p.itens.find(i=>i.id===id)).filter(Boolean), fora = ord.filter(it=>p.ordem.indexOf(it.id)<0);
+  h += '<div class="rg-sec">Ordem de pagamento (' + naFila.length + ')</div><div class="rg-nota">A de cima escolhe primeiro: fica com o parcelamento que quita mais cedo, e as de baixo ocupam o que sobra de cada mês. <b>Para mudar a ordem:</b> use as setas ↑ ↓, toque no número para escolher a posição, ou segure o ⠿ e arraste para cima de outra. A cada mudança a demonstração é refeita, ainda sem gravar nada. Se alguma não pode mudar de data nem de valor, toque em <b>Não mudar esta</b>.</div>';
+  naFila.forEach((it,i)=>{ h += linha(it, i); });
+  h += '<div class="rg-sec">Ficam onde estão (' + fora.length + ')</div>';
+  fora.forEach(it=>{ h += linha(it); });
   // a regra 40/60 mes a mes: como esta hoje e como fica
   {
     const A = p.mesesAntes || {}, D = p.mesesDepois || {};
@@ -9640,6 +9668,43 @@ function reorgTela(){
   bar.className = 'reorg-bar';
   bar.innerHTML = `<div class="rg-bar-t"><b>DEMONSTRAÇÃO</b><small>nada foi gravado ainda</small></div><button type="button" class="rg-b rg-cancel" id="reorgCancelar">Cancelar</button><button type="button" class="rg-b rg-ok" id="reorgAplicar">Aplicar</button>`;
   fin.appendChild(bar);
+  const mover = (id, para) => {
+    const a = p.ordem.filter(x=>x!==id);
+    para = Math.max(0, Math.min(a.length, para));
+    if(p.ordem.indexOf(id)===para) return;
+    a.splice(para, 0, id);
+    reorgOrdem = a; reorgRefazer();
+  };
+  bx.querySelectorAll('[data-rgup]').forEach(b=>b.addEventListener('click', ()=>mover(b.dataset.rgup, p.ordem.indexOf(b.dataset.rgup)-1)));
+  bx.querySelectorAll('[data-rgdn]').forEach(b=>b.addEventListener('click', ()=>mover(b.dataset.rgdn, p.ordem.indexOf(b.dataset.rgdn)+1)));
+  bx.querySelectorAll('[data-rgpos]').forEach(b=>b.addEventListener('click', ()=>{
+    const v = parseInt(prompt('Em que posição esta dívida deve ficar? (de 1 a '+p.ordem.length+')', ''), 10);
+    if(v>=1 && v<=p.ordem.length) mover(b.dataset.rgpos, v-1);
+  }));
+  // arrastar: segura o punho e solta em cima de outra divida; ela passa a ocupar aquela posicao
+  bx.querySelectorAll('[data-rgdrag]').forEach(g=>{
+    const raiz = bx.getRootNode(), eu = g.closest('[data-rgid]');
+    let alvo = null, ativo = false;
+    const limpa = () => { if(alvo) alvo.style.boxShadow = ''; alvo = null; };
+    g.addEventListener('pointerdown', e=>{ e.preventDefault(); ativo = true; try{ g.setPointerCapture(e.pointerId); }catch(x){} eu.style.opacity = '.45'; });
+    g.addEventListener('pointermove', e=>{
+      if(!ativo) return;
+      const alto = window.innerHeight;
+      if(e.clientY < 90){ let s = eu.parentNode; while(s && s.scrollHeight <= s.clientHeight + 4) s = s.parentNode || s.host; if(s && s.scrollBy) s.scrollBy(0, -18); else window.scrollBy(0, -18); }
+      else if(e.clientY > alto - 90){ let s = eu.parentNode; while(s && s.scrollHeight <= s.clientHeight + 4) s = s.parentNode || s.host; if(s && s.scrollBy) s.scrollBy(0, 18); else window.scrollBy(0, 18); }
+      const el = raiz.elementFromPoint(e.clientX, e.clientY), r = el && el.closest ? el.closest('[data-rgid]') : null;
+      limpa();
+      if(r && r!==eu){ alvo = r; r.style.boxShadow = 'inset 0 3px 0 var(--olive)'; }
+    });
+    const solta = () => {
+      if(!ativo) return;
+      ativo = false; eu.style.opacity = '';
+      const a = alvo; limpa();
+      if(a) mover(g.dataset.rgdrag, p.ordem.indexOf(a.dataset.rgid));
+    };
+    g.addEventListener('pointerup', solta);
+    g.addEventListener('pointercancel', ()=>{ ativo = false; eu.style.opacity = ''; limpa(); });
+  });
   bx.querySelectorAll('[data-rgt]').forEach(b=>b.addEventListener('click', ()=>{
     const k = b.dataset.rgt;
     if(reorgTravados[k]) delete reorgTravados[k]; else reorgTravados[k] = 1;
@@ -9653,7 +9718,7 @@ function reorgTela(){
   if(document.getElementById('reorgDesdeLimpar')) document.getElementById('reorgDesdeLimpar').addEventListener('click', ()=>{ reorgDesde = ''; reorgRefazer(); });
   document.getElementById('reorgCancelar').addEventListener('click', ()=>reorgSair(false));
   document.getElementById('reorgAplicar').addEventListener('click', ()=>{
-    if(!confirm('AVISO 1 de 3\n\n'+(reorgDesde ? 'Reorganização só de '+d(reorgDesde)+' em diante: o que tem data antes disso não muda.\n\n' : '')+'Aplicar a reorganização muda de verdade '+p.mudam+' dívidas no seu fluxo: a data e, nas que foram divididas ou juntadas, o valor de cada pagamento. A lista completa, com a data de hoje e a data nova de cada uma, está no quadro da demonstração.\n\nVocê já conferiu a lista e quer continuar?')) return;
+    if(!confirm('AVISO 1 de 3\n\n'+(reorgDesde ? 'Reorganização só de '+d(reorgDesde)+' em diante: o que tem data antes disso não muda.\n\n' : '')+'Aplicar a reorganização muda de verdade '+p.mudam+' dívidas no seu fluxo: a data e, nas que foram parceladas de novo, a quantidade e o valor das parcelas. A lista completa, com a data de hoje e a data nova de cada uma, está no quadro da demonstração.\n\nVocê já conferiu a lista e quer continuar?')) return;
     if(!confirm('AVISO 2 de 3\n\nAs datas mudam em TODO o sistema: cronograma, caixa projetado, agenda e painel.\n\nFica guardado um retrato de como está agora, e aparece um botão para voltar a ele. Mas voltar apaga o que você lançar ou pagar depois de aplicar.\n\nTem certeza?')) return;
     if(!confirm('AVISO 3 de 3 (último)\n\nMudar a data ou dividir aqui NÃO muda o que foi combinado com o credor. Se você apertar OK agora, as novas datas são gravadas em definitivo.\n\nGravar?')) return;
     reorgSair(true);
@@ -9661,7 +9726,7 @@ function reorgTela(){
 }
 function reorgEntrar(refazendo){
   if(reorgDemo) return;
-  if(refazendo!==true){ refazendo = false; reorgTravados = {}; reorgDesde = ''; }
+  if(refazendo!==true){ refazendo = false; reorgTravados = {}; reorgDesde = ''; reorgOrdem = (state.reorgOrdem||[]).slice(); } // a ordem que ele aplicou da ultima vez continua valendo
   let plano = null;
   try{ plano = reorgPlano(); }catch(e){ plano = null; }
   if(!plano || !plano.mudam){
@@ -9689,6 +9754,7 @@ function reorgSair(aplicar){
     const antes = JSON.parse(JSON.stringify(state)); delete antes.reorgAntes;
     try{ localStorage.setItem('fin_antes_reorganizar', JSON.stringify({quando: new Date().toISOString(), state: antes})); }catch(e){}
     reorgGravar(plano);
+    state.reorgOrdem = (plano.ordem||[]).slice();
     state.reorgAntes = {quando: todayISO(), state: antes}; // retrato de seguranca: e o que o botao de voltar usa
     save();
   }
