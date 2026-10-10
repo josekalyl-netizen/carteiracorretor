@@ -26,8 +26,18 @@
     try { t = localStorage.getItem("w3g_tema"); } catch (e) {}
     if (t !== "escuro") document.documentElement.setAttribute("data-tema", "claro"); // claro é o padrão
   })();
+  // telas estreitas (iPhone pequeno, zoom de tela ligado): encolhe o conteúdo na proporção da largura.
+  // de 390 px para cima fica como sempre foi; abaixo disso, tudo diminui junto e nada fica espremido.
+  function ajustarEscala() {
+    var w = Math.min(window.innerWidth || 390, (window.screen && screen.width) || 9999);
+    var f = w >= 390 ? 1 : Math.max(0.78, w / 390);
+    document.documentElement.style.setProperty('--escala', f.toFixed(3));
+  }
+  ajustarEscala();
+  window.addEventListener('resize', ajustarEscala);
+  window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "27";
+  var VERSAO = "28";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -744,6 +754,10 @@ button.ag-row:hover{background:rgb(var(--c-paper))}
   .ag-cal-grid{gap:4px}
   .ag-cal-cell{height:46px;border-radius:11px;font-size:13px}
   .ag-side .card{padding:15px}
+}
+/* telas estreitas: o conteúdo acompanha a largura do aparelho (ver ajustarEscala) */
+@media (max-width:860px){
+  #view,.subnav,.brand-bar,.overlay > .modal{zoom:var(--escala,1)}
 }
 /* assistente e conexões */
 .cx-conv{display:flex;flex-direction:column;gap:8px;max-height:44vh;overflow-y:auto;padding:2px}
@@ -6034,7 +6048,18 @@ input[type="checkbox"]{width:16px;height:16px;padding:0;flex:none;accent-color:#
 .rf-mais{display:block;width:100%;margin:2px 0 4px;padding:10px 13px}
 .rf-sem{flex:none;font-size:11px;color:rgb(var(--c-muted));max-width:92px;text-align:right;line-height:1.25}
 .rf-row.rf-done{opacity:.85}
-.rf-row.rf-done::after{content:"Voltar";flex:none;border:1px solid var(--ln);background:rgb(var(--c-card));color:rgb(var(--c-ink));font:600 12px/1 var(--ativa-font-body);border-radius:999px;padding:8px 13px}`;
+.rf-row.rf-done::after{content:"Voltar";flex:none;border:1px solid var(--ln);background:rgb(var(--c-card));color:rgb(var(--c-ink));font:600 12px/1 var(--ativa-font-body);border-radius:999px;padding:8px 13px}
+/* ---------- o que resolve o vermelho ---------- */
+.pv{border:1px solid rgb(var(--c-alert) / .35);background:rgb(var(--c-alert) / .06);border-radius:14px;padding:13px 14px;margin-bottom:10px}
+.pv-tit{font:700 14px/1.2 var(--ativa-font-display);color:rgb(var(--c-ink));margin-bottom:9px}
+.pv-passo{background:rgb(var(--c-card));border-radius:12px;padding:10px 12px;margin-bottom:7px}
+.pv-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.pv-dia{font:600 12.5px/1.2 var(--ativa-font-mono);color:rgb(var(--c-ink))}
+.pv-val{font:700 16px/1.2 var(--ativa-font-display);color:rgb(var(--c-grow));white-space:nowrap}
+.pv-txt{font-size:12.5px;line-height:1.45;color:rgb(var(--c-ink2));margin-top:5px}
+.pv-txt b{color:rgb(var(--c-ink))}
+.pv-total{display:flex;justify-content:space-between;gap:10px;font:700 13.5px/1.3 var(--ativa-font-body);color:rgb(var(--c-ink));padding:6px 2px 2px}
+.pv-nota{font-size:11.5px;color:rgb(var(--c-muted));margin-top:5px;line-height:1.4}`;
   var FIN_SHELL = `<div class="fin">
   <div class="fin-top">
     <div>
@@ -7708,7 +7733,6 @@ function renderResumoFinal(){
   document.querySelectorAll('[data-act="rfFixosMais"]').forEach(el=>{
     el.addEventListener('click', ()=>{ fixosPagosTodos = true; renderResumoFinal(); });
   });
-
   document.querySelectorAll('[data-act="rfUndo"]').forEach(el=>{
     el.style.cursor='pointer';
     el.addEventListener('click', ()=> toggleDone(el.dataset.id));
@@ -7803,6 +7827,73 @@ function renderMetas(){
 }
 
 /* ---------- PAINEL DE DIAS NEGATIVOS: todo dia no vermelho fora da janela autorizada, com o porque e sugestao de mover ---------- */
+/* ---------- PLANO PRA SAIR DO VERMELHO: em que dia aplicar e quanto ----------
+   Acha o primeiro dia no vermelho e a fila de dias que ele arrasta; calcula quanto precisa entrar NAQUELE dia
+   pra fila inteira fechar no azul. Confere com o proprio cronograma (simula a entrada, recalcula e segue pro
+   proximo trecho). Nada e gravado: a simulacao e desfeita antes de sair. */
+function planoVermelho(){
+  const fora = l => l.caixa < -0.005 && !(l.data>=PERMITE_NEG_DE && l.data<=PERMITE_NEG_ATE);
+  const reais = state.extras;
+  const passos = [];
+  let sobrou = false;
+  try{
+    state.extras = reais.slice();
+    for(let n=0; n<10; n++){
+      const L = construirCronograma();
+      const i0 = L.findIndex(fora);
+      if(i0<0) break;
+      if(passos.length>=4 && passos[passos.length-1].dia!==L[i0].data){ sobrou = true; break; }
+      let i1 = i0, pior = L[i0].caixa;
+      while(i1+1<L.length && fora(L[i1+1])){ i1++; if(L[i1].caixa<pior) pior = L[i1].caixa; }
+      const valor = Math.ceil(-pior*100 - 1e-6)/100;
+      const dia = L[i0].data;
+      let ate = L[i1].data;
+      if(L[i1+1]){ const d = parseISO(L[i1+1].data); ate = isoOf(new Date(d.getFullYear(), d.getMonth(), d.getDate()-1)); }
+      const ult = passos[passos.length-1];
+      if(ult && ult.dia===dia) ult.valor = Math.round((ult.valor+valor)*100)/100;
+      else passos.push({dia:dia, valor:valor, ate:ate, pior:pior, nDias: diasEntre(parseISO(dia), parseISO(ate))+1});
+      state.extras.push({id:'__sim'+n, titulo:'(simulacao)', valor:valor, data:dia, pessoa:'', categoria:'outro', tipo:'unico', tipoMov:'entrada', custom:true});
+      if(n===9) sobrou = true;
+    }
+  }catch(e){} finally{ state.extras = reais; }
+  return {passos:passos, sobrou:sobrou};
+}
+// a conta refaz o cronograma varias vezes; por isso roda depois de a tela aparecer e fica guardada
+// enquanto nada mudar (qualquer alteracao nos lancamentos refaz).
+let pvCache = {chave:null, html:''};
+function htmlPlanoVermelho(){
+  const chave = todayISO()+'|'+JSON.stringify(state);
+  if(pvCache.chave===chave) return `<div id="pvBox">${pvCache.html}</div>`;
+  setTimeout(()=>{
+    let html = '';
+    try{ html = montarPlanoVermelho(); }catch(e){}
+    const agora = todayISO()+'|'+JSON.stringify(state);
+    if(agora!==chave) return; // mudou algo no meio: o proximo desenho refaz
+    pvCache = {chave:chave, html:html};
+    const el = document.getElementById('pvBox');
+    if(el) el.innerHTML = html;
+  }, 80);
+  return `<div id="pvBox"><div class="pv-nota" style="margin:0 0 10px">Calculando o que resolve o vermelho…</div></div>`;
+}
+function montarPlanoVermelho(){
+  const p = planoVermelho();
+  if(!p.passos.length) return '';
+  let total = 0;
+  let h = `<div class="pv"><div class="pv-tit">O que resolve o vermelho</div>`;
+  p.passos.forEach((x,i)=>{
+    total += x.valor;
+    const fila = x.nDias>1
+      ? `Esse dia fica no vermelho e arrasta a fila até ${fmtDataCurta(x.ate)} (${x.nDias} dias seguidos). O pior ponto da fila chega a ${fmtBR(x.pior)}.`
+      : `Só esse dia fica no vermelho (${fmtBR(x.pior)}).`;
+    h += `<div class="pv-passo"><div class="pv-top"><span class="pv-dia">${fmtDataLonga(x.dia)}</span><span class="pv-val">+${fmtBR(x.valor)}</span></div>
+      <div class="pv-txt">${fila} <b>Aplicando ${fmtBR(x.valor)} em ${fmtDataCurta(x.dia)}</b>, a fila inteira fecha no azul${i>0?' (contando que os valores acima já entraram)':''}.</div></div>`;
+  });
+  total = Math.round(total*100)/100;
+  h += `<div class="pv-total"><span>${p.passos.length>1?'Total pra correr atrás':'Valor pra correr atrás'}${p.sobrou?' (até aqui)':''}</span><span>${fmtBR(total)}</span></div>`;
+  if(p.sobrou) h += `<div class="pv-nota">Depois desses ainda há outros trechos no vermelho mais adiante; eles aparecem aqui conforme os primeiros forem resolvidos.</div>`;
+  h += `<div class="pv-nota">Conta feita no próprio cronograma: simulei cada entrada, recalculei e conferi. Nada foi lançado.</div></div>`;
+  return h;
+}
 function renderDiasNegativos(){
   const linhas = construirCronograma();
   const negativos = linhas.filter(l => l.caixa < -0.005 && !(l.data>=PERMITE_NEG_DE && l.data<=PERMITE_NEG_ATE));
@@ -7815,10 +7906,11 @@ function renderDiasNegativos(){
   const porMes = {};
   negativos.forEach(l=>{ const k=l.data.slice(0,7); (porMes[k]=porMes[k]||[]).push(l); });
   const keys = Object.keys(porMes).sort();
-  let html = '';
+  let html = htmlPlanoVermelho();
   keys.forEach(k=>{
     const dias = porMes[k];
-    const nomeMes = parseISO(k+'-01').toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+    const nomeMes
+ = parseISO(k+'-01').toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
     const pior = Math.min(...dias.map(l=>l.caixa));
     html += `<button class="cf-toggle neg-mes-toggle" data-mes="${k}"><span class="arw">&#9656;</span>${nomeMes} — ${dias.length} dia(s) no vermelho · pior dia: ${fmtBR(pior)}</button>`;
     html += `<div class="neg-mes-lista" id="negMes-${k}">`;
@@ -9099,7 +9191,7 @@ function updateDate(){
       aberto: function () { return overlay.classList.contains('show'); },
       estado: function () { return state; },
       raiz: RAIZ,
-      F: {load: load, METAS_PADRAO: METAS_PADRAO, save: save, garantirSeeds: garantirSeeds, fmtBR: fmtBR, parseISO: parseISO, isoOf: isoOf, addMonths: addMonths, fmtDataCurta: fmtDataCurta, fmtDataComAno: fmtDataComAno, mesLabel: mesLabel, ultimoDiaMes: ultimoDiaMes, ultimoDiaUtilMes: ultimoDiaUtilMes, ajustarParaDiaUtilAnterior: ajustarParaDiaUtilAnterior, sextoDiaUtil: sextoDiaUtil, proximoPagamento: proximoPagamento, primeiroSabado: primeiroSabado, diasEntre: diasEntre, todayISO: todayISO, inicioLedger: inicioLedger, cfv: cfv, cfvData: cfvData, custoFixoDoDia: custoFixoDoDia, construirLedger: construirLedger, todasOcorrenciasFuturas: todasOcorrenciasFuturas, construirCaixaDiarioCompleto: construirCaixaDiarioCompleto, melhorDataParaValor: melhorDataParaValor, sugerirAntecipacao: sugerirAntecipacao, sugerirMelhorDataBidirecional: sugerirMelhorDataBidirecional, aplicarNovaDataCompromisso: aplicarNovaDataCompromisso, abrirMoverData: abrirMoverData, custoFixoMensalMedio: custoFixoMensalMedio, colchaoAlvo: colchaoAlvo, rendaMensal: rendaMensal, aindaTemPendencias: aindaTemPendencias, distribuir203050: distribuir203050, aplicarNasMetas: aplicarNasMetas, construirCronograma: construirCronograma, todasTasks: todasTasks, tasksPendentes: tasksPendentes, tasksConcluidas: tasksConcluidas, recorrentesAtivos: recorrentesAtivos, catLabel: catLabel, updateHero: updateHero, iconCheck: iconCheck, cardHTML: cardHTML, recorrenteEventoHTML: recorrenteEventoHTML, escapeHTML: escapeHTML, fmtDataLonga: fmtDataLonga, renderRecorrentes: renderRecorrentes, renderAll: renderAll, diaEstaConcluido: diaEstaConcluido, renderCronograma: renderCronograma, custoFixoChipHTML: custoFixoChipHTML, compromissoChipHTML: compromissoChipHTML, bindChips: bindChips, valorTotalTask: valorTotalTask, acharFixoPago: acharFixoPago, htmlFixosPagos: htmlFixosPagos, voltarFixoPago: voltarFixoPago, renderResumoFinal: renderResumoFinal, renderTotaisLista: renderTotaisLista, ultimaParcelaProjetada: ultimaParcelaProjetada, tabelaRD: tabelaRD, renderRegras: renderRegras, renderMetas: renderMetas, renderDiasNegativos: renderDiasNegativos, abrirSugestaoNegativo: abrirSugestaoNegativo, renderRelatorioDatas: renderRelatorioDatas, aplicarConclusaoTask: aplicarConclusaoTask, toggleDone: toggleDone, delExtra: delExtra, aplicarPagamentoParcela: aplicarPagamentoParcela, pagamentoAnterior: pagamentoAnterior, desfazerUltimaParcela: desfazerUltimaParcela, pagarParcela: pagarParcela, toast: toast, renderMensal: renderMensal, calcularFundoReserva: calcularFundoReserva, totalReservaProgramado: totalReservaProgramado, renderReserva: renderReserva, coletarGastosRealizados: coletarGastosRealizados, chaveGasto: chaveGasto, categorizarGasto: categorizarGasto, categoriaDoEvento: categoriaDoEvento, categorizarAuto: categorizarAuto, renderGastoMensal: renderGastoMensal, abrirRotularGasto: abrirRotularGasto, resumoCustoFixoMensal: resumoCustoFixoMensal, resumoCustoFixoDeTabela: resumoCustoFixoDeTabela, renderResumoCustoFixo: renderResumoCustoFixo, renderCustoFixo: renderCustoFixo, openSheet: openSheet, closeSheet: closeSheet, melhorPeriodoParaParcelamento: melhorPeriodoParaParcelamento, applyTheme: applyTheme, abrirEditSheet: abrirEditSheet, renderLinhasParcelasEdit: renderLinhasParcelasEdit, lerLinhasParcelasEdit: lerLinhasParcelasEdit, abrirEditorParcelas: abrirEditorParcelas, abrirEdicaoTask: abrirEdicaoTask, abrirEdicaoRecorrente: abrirEdicaoRecorrente, estornarPagoFixo: estornarPagoFixo, estornarPagosPorNome: estornarPagosPorNome, migrarMarcacaoPago: migrarMarcacaoPago, valorEfetivoNoDia: valorEfetivoNoDia, abrirEdicaoFixo: abrirEdicaoFixo, abrirEdicaoFixoExtra: abrirEdicaoFixoExtra, updateDate: updateDate}
+      F: {load: load, METAS_PADRAO: METAS_PADRAO, save: save, garantirSeeds: garantirSeeds, fmtBR: fmtBR, parseISO: parseISO, isoOf: isoOf, addMonths: addMonths, fmtDataCurta: fmtDataCurta, fmtDataComAno: fmtDataComAno, mesLabel: mesLabel, ultimoDiaMes: ultimoDiaMes, ultimoDiaUtilMes: ultimoDiaUtilMes, ajustarParaDiaUtilAnterior: ajustarParaDiaUtilAnterior, sextoDiaUtil: sextoDiaUtil, proximoPagamento: proximoPagamento, primeiroSabado: primeiroSabado, diasEntre: diasEntre, todayISO: todayISO, inicioLedger: inicioLedger, cfv: cfv, cfvData: cfvData, custoFixoDoDia: custoFixoDoDia, construirLedger: construirLedger, todasOcorrenciasFuturas: todasOcorrenciasFuturas, construirCaixaDiarioCompleto: construirCaixaDiarioCompleto, melhorDataParaValor: melhorDataParaValor, sugerirAntecipacao: sugerirAntecipacao, sugerirMelhorDataBidirecional: sugerirMelhorDataBidirecional, aplicarNovaDataCompromisso: aplicarNovaDataCompromisso, abrirMoverData: abrirMoverData, custoFixoMensalMedio: custoFixoMensalMedio, colchaoAlvo: colchaoAlvo, rendaMensal: rendaMensal, aindaTemPendencias: aindaTemPendencias, distribuir203050: distribuir203050, aplicarNasMetas: aplicarNasMetas, construirCronograma: construirCronograma, todasTasks: todasTasks, tasksPendentes: tasksPendentes, tasksConcluidas: tasksConcluidas, recorrentesAtivos: recorrentesAtivos, catLabel: catLabel, updateHero: updateHero, iconCheck: iconCheck, cardHTML: cardHTML, recorrenteEventoHTML: recorrenteEventoHTML, escapeHTML: escapeHTML, fmtDataLonga: fmtDataLonga, renderRecorrentes: renderRecorrentes, renderAll: renderAll, diaEstaConcluido: diaEstaConcluido, renderCronograma: renderCronograma, custoFixoChipHTML: custoFixoChipHTML, compromissoChipHTML: compromissoChipHTML, bindChips: bindChips, valorTotalTask: valorTotalTask, acharFixoPago: acharFixoPago, htmlFixosPagos: htmlFixosPagos, voltarFixoPago: voltarFixoPago, renderResumoFinal: renderResumoFinal, renderTotaisLista: renderTotaisLista, ultimaParcelaProjetada: ultimaParcelaProjetada, tabelaRD: tabelaRD, renderRegras: renderRegras, renderMetas: renderMetas, planoVermelho: planoVermelho, htmlPlanoVermelho: htmlPlanoVermelho, montarPlanoVermelho: montarPlanoVermelho, renderDiasNegativos: renderDiasNegativos, abrirSugestaoNegativo: abrirSugestaoNegativo, renderRelatorioDatas: renderRelatorioDatas, aplicarConclusaoTask: aplicarConclusaoTask, toggleDone: toggleDone, delExtra: delExtra, aplicarPagamentoParcela: aplicarPagamentoParcela, pagamentoAnterior: pagamentoAnterior, desfazerUltimaParcela: desfazerUltimaParcela, pagarParcela: pagarParcela, toast: toast, renderMensal: renderMensal, calcularFundoReserva: calcularFundoReserva, totalReservaProgramado: totalReservaProgramado, renderReserva: renderReserva, coletarGastosRealizados: coletarGastosRealizados, chaveGasto: chaveGasto, categorizarGasto: categorizarGasto, categoriaDoEvento: categoriaDoEvento, categorizarAuto: categorizarAuto, renderGastoMensal: renderGastoMensal, abrirRotularGasto: abrirRotularGasto, resumoCustoFixoMensal: resumoCustoFixoMensal, resumoCustoFixoDeTabela: resumoCustoFixoDeTabela, renderResumoCustoFixo: renderResumoCustoFixo, renderCustoFixo: renderCustoFixo, openSheet: openSheet, closeSheet: closeSheet, melhorPeriodoParaParcelamento: melhorPeriodoParaParcelamento, applyTheme: applyTheme, abrirEditSheet: abrirEditSheet, renderLinhasParcelasEdit: renderLinhasParcelasEdit, lerLinhasParcelasEdit: lerLinhasParcelasEdit, abrirEditorParcelas: abrirEditorParcelas, abrirEdicaoTask: abrirEdicaoTask, abrirEdicaoRecorrente: abrirEdicaoRecorrente, estornarPagoFixo: estornarPagoFixo, estornarPagosPorNome: estornarPagosPorNome, migrarMarcacaoPago: migrarMarcacaoPago, valorEfetivoNoDia: valorEfetivoNoDia, abrirEdicaoFixo: abrirEdicaoFixo, abrirEdicaoFixoExtra: abrirEdicaoFixoExtra, updateDate: updateDate}
     };
   }
 
