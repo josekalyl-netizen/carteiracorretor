@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "50";
+  var VERSAO = "51";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -9709,16 +9709,44 @@ function abrirSugestaoAntecipar(){
     lista.push({c:c, r:r});
   });
   const total = r2(lista.reduce((s,x)=>s+x.r.total, 0));
-  let h = `<div class="rd-sub" style="margin:0 0 10px">Conta feita com o caixa de hoje (<b>${fmtBR(state.caixaAtual)}</b>) e todo o fluxo que já está lançado. Ordem: a dívida com a data mais próxima primeiro. Nada é pago aqui: é só a sugestão.</div>`;
+  let h = `<div class="rd-sub" style="margin:0 0 10px">Conta feita com o caixa de hoje (<b>${fmtBR(state.caixaAtual)}</b>) e todo o fluxo que já está lançado. Ordem: a dívida com a data mais próxima primeiro.</div>`;
   if(!lista.length) h += `<div class="calc-erro">Com o caixa de hoje não dá para antecipar nenhuma dívida sem deixar algum dia no vermelho.</div>`;
   else {
-    h += `<div class="calc-ok">Dá para antecipar <b>${fmtBR(total)}</b> em ${lista.length} ${lista.length===1?'dívida':'dívidas'}, todas juntas, sem nenhum dia ficar no vermelho.</div><div class="ant-lista">`;
-    lista.forEach(x=>{ h += `<div class="ant-it"><div class="ant-i"><b>${escapeHTML(x.c.titulo)}</b><span>${antTextoItem(x.c, x.r)}</span></div><div class="ant-v">${fmtBR(x.r.total)}<br><button type="button" class="rf-voltar rf-ant" data-antp="${x.c.tipo}:${x.c.id}" style="margin-top:6px">Antecipar</button></div></div>`; });
-    h += `</div><div class="rd-sub" style="margin-top:10px">Para pagar, toque em <b>Antecipar</b> na dívida que quiser. Depois de cada pagamento a conta é refeita: abra esta sugestão de novo para ver o que ainda cabe.</div>`;
+    h += `<div class="calc-ok">Dá para antecipar <b>${fmtBR(total)}</b> em ${lista.length} ${lista.length===1?'dívida':'dívidas'}, todas juntas, sem nenhum dia ficar no vermelho. Deixe marcado o que você quer pagar agora: pode ser tudo, ou só uma ou outra.</div>
+      <div style="display:flex;gap:8px;margin:10px 0 4px"><button type="button" class="rf-voltar" id="antTodos">Marcar todas</button><button type="button" class="rf-voltar" id="antNenhum">Desmarcar todas</button></div><div class="ant-lista">`;
+    lista.forEach((x,i)=>{ h += `<label class="ant-it" style="cursor:pointer"><input type="checkbox" data-anti="${i}" checked style="margin-right:10px"><div class="ant-i"><b>${escapeHTML(x.c.titulo)}</b><span>${antTextoItem(x.c, x.r)}</span></div><div class="ant-v">${fmtBR(x.r.total)}</div></label>`; });
+    h += `</div><div class="calc-ok" id="antSoma" style="margin-top:10px"></div><div class="rd-sub" style="margin-top:8px">Ao apertar o botão abaixo, o valor do que está marcado sai do caixa agora, como quando você marca um pagamento no cronograma.</div>`;
   }
-  abrirEditSheet('O que dá para antecipar hoje', h, false, ()=>{}, null);
-  document.querySelectorAll('[data-antp]').forEach(b=>b.addEventListener('click', ()=>{ const k = b.dataset.antp, i = k.indexOf(':'); abrirAntecipar(k.slice(0,i), k.slice(i+1)); }));
-  document.getElementById('editSalvarBtn').textContent = 'Fechar';
+  const marcados = ()=> Array.from(document.querySelectorAll('[data-anti]')).filter(e=>e.checked).map(e=>lista[+e.dataset.anti]);
+  abrirEditSheet('O que dá para antecipar hoje', h, false, ()=>{
+    const m = marcados();
+    if(!m.length) return;
+    const soma = r2(m.reduce((s,x)=>s+x.r.total, 0));
+    if(!confirm('Pagar agora '+m.length+(m.length===1?' dívida':' dívidas')+', no total de '+fmtBR(soma)+'?\n\nO valor sai do caixa neste momento.')) return;
+    let feitos = 0;
+    m.forEach(x=>{
+      if(x.c.tipo==='task'){
+        const tk = tasksPendentes().find(y=>y.id===x.c.id);
+        if(tk && !state.doneIds.includes(tk.id)){ aplicarConclusaoTask(tk); feitos++; }
+      } else if(recorrentesAtivos().some(y=>y.id===x.c.id)){
+        for(let i=0;i<x.r.n;i++) aplicarPagamentoParcela(x.c.id);
+        feitos++;
+      }
+    });
+    save(); renderAll();
+    toast(feitos+(feitos===1?' dívida antecipada':' dívidas antecipadas')+' ('+fmtBR(soma)+') — caixa e fluxo recalculados', null);
+  }, null);
+  const btn = document.getElementById('editSalvarBtn');
+  if(!lista.length){ btn.textContent = 'Fechar'; return; }
+  const atual = ()=>{
+    const m = marcados(), soma = r2(m.reduce((s,x)=>s+x.r.total, 0));
+    document.getElementById('antSoma').innerHTML = m.length ? 'Marcado: <b>'+m.length+(m.length===1?' dívida':' dívidas')+'</b>, total <b>'+fmtBR(soma)+'</b>. Caixa depois de pagar: <b>'+fmtBR(r2(state.caixaAtual - soma))+'</b>.' : 'Nada marcado.';
+    btn.textContent = m.length ? 'Antecipar o que está marcado ('+fmtBR(soma)+')' : 'Fechar';
+  };
+  document.querySelectorAll('[data-anti]').forEach(e=>e.addEventListener('change', atual));
+  document.getElementById('antTodos').addEventListener('click', ()=>{ document.querySelectorAll('[data-anti]').forEach(e=>{ e.checked = true; }); atual(); });
+  document.getElementById('antNenhum').addEventListener('click', ()=>{ document.querySelectorAll('[data-anti]').forEach(e=>{ e.checked = false; }); atual(); });
+  atual();
 }
 
 /* ---------- SUGESTAO DE PARCELAMENTO QUE NAO DEIXA NENHUM DIA NO VERMELHO ----------
