@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "29";
+  var VERSAO = "30";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -2406,8 +2406,17 @@ function isSnoozedOn(c, ref) { return !!c.snoozeUntil && dayNum(ref) < dayNum(c.
 function isSnoozed(c) { return isSnoozedOn(c, todayStr()); }
 
 // o corretor era/é devido no dia `ref`? (mesma regra para hoje e para o fechamento do dia)
+// o trabalho é de segunda a sexta: no sábado e no domingo ninguém fica "devido" (o follow-up volta na segunda).
+// "mostrarNoFds" é só desta sessão: o botão do follow-up liga para quem quiser adiantar contatos no fim de semana.
+let mostrarNoFds = false;
+function ehFimDeSemana(ref) {
+  const m = /^(d{4})-(d{2})-(d{2})$/.exec(String(ref));
+  const d = m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(ref);
+  return d.getDay() === 0 || d.getDay() === 6;
+}
 function isDueOn(c, ref) {
   if (c.deleted) return false;
+  if (!mostrarNoFds && ehFimDeSemana(ref)) return false;
   if (isSnoozedOn(c, ref)) return false;
   const st = stageOf(c);
   if (st.cadence === 'none') return false;
@@ -2761,6 +2770,11 @@ function buildFollowup() {
   html += '</div>';
   html += '<p class="hint" style="margin:0 0 1.2rem;"><i class="ti ti-calendar-event" style="vertical-align:-2px; margin-right:5px;"></i>' + dateLabel() + '</p>';
 
+  if (ehFimDeSemana(todayStr())) {
+    html += '<div class="banner soneca"><i class="ti ti-beach" style="font-size:18px; color:rgb(var(--c-dados));"></i><span style="font-size:13px; flex:1;">' +
+      (mostrarNoFds ? 'Fim de semana: você pediu para ver a lista mesmo assim.' : 'Fim de semana: sem follow-up hoje. A lista volta sozinha na segunda-feira.') + '</span>' +
+      '<button class="btn btn-sm" onclick="mostrarNoFds=!mostrarNoFds;render()">' + (mostrarNoFds ? 'Esconder' : 'Ver a lista mesmo assim') + '</button></div>';
+  }
   html += '<div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);">';
   html += kpi(due.length, 'Para hoje');
   html += kpi(done, 'Falei', 'grow');
@@ -7837,10 +7851,10 @@ function renderMetas(){
       entrar no primeiro dia dela pra aquele periodo fechar no azul (= o pior saldo do periodo).
    2) No total: quanto precisa entrar no primeiro dia vermelho pra NENHUM dia ficar no vermelho. Esse numero e
       conferido no proprio cronograma (simula a entrada, recalcula). Nada e gravado: a simulacao e desfeita. */
-function planoVermelho(){
+function planoVermelho(linhas){
   const fora = l => l.caixa < -0.005 && !(l.data>=PERMITE_NEG_DE && l.data<=PERMITE_NEG_ATE);
   const cent = v => Math.ceil(v*100 - 1e-6)/100;
-  const L = construirCronograma();
+  const L = linhas || construirCronograma(); // reaproveita o cronograma que a tela acabou de montar
   const periodos = [];
   for(let i=0; i<L.length; i++){
     if(!fora(L[i])) continue;
@@ -7868,12 +7882,12 @@ function planoVermelho(){
 // a conta refaz o cronograma; por isso roda depois de a tela aparecer e fica guardada
 // enquanto nada mudar (qualquer alteracao nos lancamentos refaz).
 let pvCache = {chave:null, html:''};
-function htmlPlanoVermelho(){
+function htmlPlanoVermelho(linhas){
   const chave = todayISO()+'|'+JSON.stringify(state);
   if(pvCache.chave===chave) return `<div id="pvBox">${pvCache.html}</div>`;
   setTimeout(()=>{
     let html = '';
-    try{ html = montarPlanoVermelho(); }catch(e){}
+    try{ html = montarPlanoVermelho(linhas); }catch(e){}
     const agora = todayISO()+'|'+JSON.stringify(state);
     if(agora!==chave) return; // mudou algo no meio: o proximo desenho refaz
     pvCache = {chave:chave, html:html};
@@ -7882,8 +7896,8 @@ function htmlPlanoVermelho(){
   }, 80);
   return `<div id="pvBox"><div class="pv-nota" style="margin:0 0 10px">Calculando quanto precisa pra sair do vermelho…</div></div>`;
 }
-function montarPlanoVermelho(){
-  const p = planoVermelho();
+function montarPlanoVermelho(linhas){
+  const p = planoVermelho(linhas);
   if(!p.periodos.length) return '';
   const intervalo = x => x.de===x.ate ? fmtDataCurta(x.de) : fmtDataCurta(x.de)+' a '+fmtDataCurta(x.ate);
   let h = `<div class="pv">
@@ -7917,7 +7931,7 @@ function renderDiasNegativos(){
   const porMes = {};
   negativos.forEach(l=>{ const k=l.data.slice(0,7); (porMes[k]=porMes[k]||[]).push(l); });
   const keys = Object.keys(porMes).sort();
-  let html = htmlPlanoVermelho();
+  let html = htmlPlanoVermelho(linhas);
   keys.forEach(k=>{
     const dias = porMes[k];
     const nomeMes
