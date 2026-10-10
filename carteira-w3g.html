@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "65";
+  var VERSAO = "66";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -10760,6 +10760,7 @@ function abrirEdicaoFixoExtra(id, dataISO){
       </select>
     </div>
     ${campoPeriodo}
+    <div class="field"><label>Começa a valer em (dessa data em diante)</label><input id="edInicioFixo" type="date" value="${ex.inicio||''}"></div>
     <div class="field"><label>Na regra 40/60 conta como</label>
       <select id="edContaFixo">
         <option value="fixo" ${ex.pessoal?'':'selected'}>Custo fixo (diminui a sobra do mês)</option>
@@ -10771,6 +10772,14 @@ function abrirEdicaoFixoExtra(id, dataISO){
     ex.titulo = document.getElementById('edTituloFixo').value.trim()||ex.titulo;
     ex.valor = Math.abs(parseFloat(document.getElementById('edValorFixoExtra').value))||ex.valor;
     { const tv = document.getElementById('edTipoFixoExtra').value; ex.reserva = tv==='reserva'; ex.tipoMov = tv==='reserva' ? 'saida' : tv; }
+    { // nova data de inicio: vale dali em diante, e o que estava pulado dali pra frente volta a contar
+      const ni = document.getElementById('edInicioFixo').value;
+      if(ni && ni!==ex.inicio){
+        ex.inicio = ni;
+        const nm = ex.titulo+(ehSemanal?' (semanal)':' (fixo)');
+        state.custoFixoPuladosData = (state.custoFixoPuladosData||[]).filter(k=>!(k.slice(k.indexOf('|')+1)===nm && k.slice(0,10)>=ni));
+      }
+    }
     ex.pessoal = document.getElementById('edContaFixo').value==='pessoal' && ex.tipoMov!=='entrada' && !ex.reserva;
 
     if(ehSemanal){ ex.diaSemana = parseInt(document.getElementById('edDiaFixo').value,10); }
