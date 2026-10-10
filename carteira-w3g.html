@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "28";
+  var VERSAO = "29";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -6059,7 +6059,12 @@ input[type="checkbox"]{width:16px;height:16px;padding:0;flex:none;accent-color:#
 .pv-txt{font-size:12.5px;line-height:1.45;color:rgb(var(--c-ink2));margin-top:5px}
 .pv-txt b{color:rgb(var(--c-ink))}
 .pv-total{display:flex;justify-content:space-between;gap:10px;font:700 13.5px/1.3 var(--ativa-font-body);color:rgb(var(--c-ink));padding:6px 2px 2px}
-.pv-nota{font-size:11.5px;color:rgb(var(--c-muted));margin-top:5px;line-height:1.4}`;
+.pv-nota{font-size:11.5px;color:rgb(var(--c-muted));margin-top:5px;line-height:1.4}
+.pv-geral{background:rgb(var(--c-card));border-radius:12px;padding:12px 13px;margin-bottom:10px}
+.pv-geral-k{font:600 12px/1.3 var(--ativa-font-body);color:rgb(var(--c-muted))}
+.pv-geral-v{font:700 28px/1.15 var(--ativa-font-display);letter-spacing:-.02em;color:rgb(var(--c-alert));margin:2px 0 4px}
+.pv-sub{font:600 11.5px/1.3 var(--ativa-font-body);color:rgb(var(--c-muted));margin:2px 2px 6px}
+.pv-val{color:rgb(var(--c-alert))}`;
   var FIN_SHELL = `<div class="fin">
   <div class="fin-top">
     <div>
@@ -7827,38 +7832,40 @@ function renderMetas(){
 }
 
 /* ---------- PAINEL DE DIAS NEGATIVOS: todo dia no vermelho fora da janela autorizada, com o porque e sugestao de mover ---------- */
-/* ---------- PLANO PRA SAIR DO VERMELHO: em que dia aplicar e quanto ----------
-   Acha o primeiro dia no vermelho e a fila de dias que ele arrasta; calcula quanto precisa entrar NAQUELE dia
-   pra fila inteira fechar no azul. Confere com o proprio cronograma (simula a entrada, recalcula e segue pro
-   proximo trecho). Nada e gravado: a simulacao e desfeita antes de sair. */
+/* ---------- QUANTO PRECISA PRA SAIR DO VERMELHO ----------
+   1) Por periodo: cada sequencia de dias no vermelho (a mesma que aparece na lista abaixo) e quanto precisa
+      entrar no primeiro dia dela pra aquele periodo fechar no azul (= o pior saldo do periodo).
+   2) No total: quanto precisa entrar no primeiro dia vermelho pra NENHUM dia ficar no vermelho. Esse numero e
+      conferido no proprio cronograma (simula a entrada, recalcula). Nada e gravado: a simulacao e desfeita. */
 function planoVermelho(){
   const fora = l => l.caixa < -0.005 && !(l.data>=PERMITE_NEG_DE && l.data<=PERMITE_NEG_ATE);
+  const cent = v => Math.ceil(v*100 - 1e-6)/100;
+  const L = construirCronograma();
+  const periodos = [];
+  for(let i=0; i<L.length; i++){
+    if(!fora(L[i])) continue;
+    let j = i, pior = L[i].caixa;
+    while(j+1<L.length && fora(L[j+1])){ j++; if(L[j].caixa<pior) pior = L[j].caixa; }
+    let ate = L[j].data;
+    if(L[j+1]){ const d = parseISO(L[j+1].data); ate = isoOf(new Date(d.getFullYear(), d.getMonth(), d.getDate()-1)); }
+    periodos.push({de:L[i].data, ate:ate, pior:pior, valor:cent(-pior), nDias: diasEntre(parseISO(L[i].data), parseISO(ate))+1});
+    i = j;
+  }
+  if(!periodos.length) return {periodos:[], total:0, dia:null, conferido:true};
+  const dia = periodos[0].de;
+  let total = periodos.reduce((m,x)=>Math.max(m,x.valor), 0), conferido = false;
   const reais = state.extras;
-  const passos = [];
-  let sobrou = false;
   try{
-    state.extras = reais.slice();
-    for(let n=0; n<10; n++){
-      const L = construirCronograma();
-      const i0 = L.findIndex(fora);
-      if(i0<0) break;
-      if(passos.length>=4 && passos[passos.length-1].dia!==L[i0].data){ sobrou = true; break; }
-      let i1 = i0, pior = L[i0].caixa;
-      while(i1+1<L.length && fora(L[i1+1])){ i1++; if(L[i1].caixa<pior) pior = L[i1].caixa; }
-      const valor = Math.ceil(-pior*100 - 1e-6)/100;
-      const dia = L[i0].data;
-      let ate = L[i1].data;
-      if(L[i1+1]){ const d = parseISO(L[i1+1].data); ate = isoOf(new Date(d.getFullYear(), d.getMonth(), d.getDate()-1)); }
-      const ult = passos[passos.length-1];
-      if(ult && ult.dia===dia) ult.valor = Math.round((ult.valor+valor)*100)/100;
-      else passos.push({dia:dia, valor:valor, ate:ate, pior:pior, nDias: diasEntre(parseISO(dia), parseISO(ate))+1});
-      state.extras.push({id:'__sim'+n, titulo:'(simulacao)', valor:valor, data:dia, pessoa:'', categoria:'outro', tipo:'unico', tipoMov:'entrada', custom:true});
-      if(n===9) sobrou = true;
+    for(let n=0; n<4 && !conferido; n++){
+      state.extras = reais.concat([{id:'__sim', titulo:'(simulacao)', valor:total, data:dia, pessoa:'', categoria:'outro', tipo:'unico', tipoMov:'entrada', custom:true}]);
+      const resto = construirCronograma().filter(fora);
+      if(!resto.length) conferido = true;
+      else total = Math.round((total + cent(-Math.min(...resto.map(l=>l.caixa))))*100)/100;
     }
   }catch(e){} finally{ state.extras = reais; }
-  return {passos:passos, sobrou:sobrou};
+  return {periodos:periodos, total:total, dia:dia, conferido:conferido};
 }
-// a conta refaz o cronograma varias vezes; por isso roda depois de a tela aparecer e fica guardada
+// a conta refaz o cronograma; por isso roda depois de a tela aparecer e fica guardada
 // enquanto nada mudar (qualquer alteracao nos lancamentos refaz).
 let pvCache = {chave:null, html:''};
 function htmlPlanoVermelho(){
@@ -7873,25 +7880,29 @@ function htmlPlanoVermelho(){
     const el = document.getElementById('pvBox');
     if(el) el.innerHTML = html;
   }, 80);
-  return `<div id="pvBox"><div class="pv-nota" style="margin:0 0 10px">Calculando o que resolve o vermelho…</div></div>`;
+  return `<div id="pvBox"><div class="pv-nota" style="margin:0 0 10px">Calculando quanto precisa pra sair do vermelho…</div></div>`;
 }
 function montarPlanoVermelho(){
   const p = planoVermelho();
-  if(!p.passos.length) return '';
-  let total = 0;
-  let h = `<div class="pv"><div class="pv-tit">O que resolve o vermelho</div>`;
-  p.passos.forEach((x,i)=>{
-    total += x.valor;
-    const fila = x.nDias>1
-      ? `Esse dia fica no vermelho e arrasta a fila até ${fmtDataCurta(x.ate)} (${x.nDias} dias seguidos). O pior ponto da fila chega a ${fmtBR(x.pior)}.`
-      : `Só esse dia fica no vermelho (${fmtBR(x.pior)}).`;
-    h += `<div class="pv-passo"><div class="pv-top"><span class="pv-dia">${fmtDataLonga(x.dia)}</span><span class="pv-val">+${fmtBR(x.valor)}</span></div>
-      <div class="pv-txt">${fila} <b>Aplicando ${fmtBR(x.valor)} em ${fmtDataCurta(x.dia)}</b>, a fila inteira fecha no azul${i>0?' (contando que os valores acima já entraram)':''}.</div></div>`;
+  if(!p.periodos.length) return '';
+  const intervalo = x => x.de===x.ate ? fmtDataCurta(x.de) : fmtDataCurta(x.de)+' a '+fmtDataCurta(x.ate);
+  let h = `<div class="pv">
+    <div class="pv-tit">Quanto você precisa pra sair do vermelho</div>
+    <div class="pv-geral">
+      <div class="pv-geral-k">Pra não ficar nenhum dia no vermelho</div>
+      <div class="pv-geral-v">${fmtBR(p.total)}</div>
+      <div class="pv-txt">Esse valor precisa entrar até <b>${fmtDataLonga(p.dia)}</b>, o primeiro dia que fica no vermelho. Entrando nesse dia, todos os períodos abaixo fecham no azul${p.conferido?' (conferido no cronograma)':''}.</div>
+    </div>
+    <div class="pv-sub">Período por período</div>`;
+  const mostra = p.periodos.slice(0, 8);
+  mostra.forEach((x,i)=>{
+    h += `<div class="pv-passo">
+      <div class="pv-top"><span class="pv-dia">${i+1}º período · ${intervalo(x)}</span><span class="pv-val">${fmtBR(x.valor)}</span></div>
+      <div class="pv-txt">${x.nDias>1 ? x.nDias+' dias seguidos no vermelho' : '1 dia no vermelho'}, pior saldo ${fmtBR(x.pior)}. <b>Precisa de ${fmtBR(x.valor)} em ${fmtDataCurta(x.de)}</b> pra esse período ficar no azul.</div>
+    </div>`;
   });
-  total = Math.round(total*100)/100;
-  h += `<div class="pv-total"><span>${p.passos.length>1?'Total pra correr atrás':'Valor pra correr atrás'}${p.sobrou?' (até aqui)':''}</span><span>${fmtBR(total)}</span></div>`;
-  if(p.sobrou) h += `<div class="pv-nota">Depois desses ainda há outros trechos no vermelho mais adiante; eles aparecem aqui conforme os primeiros forem resolvidos.</div>`;
-  h += `<div class="pv-nota">Conta feita no próprio cronograma: simulei cada entrada, recalculei e conferi. Nada foi lançado.</div></div>`;
+  if(p.periodos.length>mostra.length) h += `<div class="pv-nota">E mais ${p.periodos.length-mostra.length} período(s) mais adiante; veja mês a mês na lista abaixo.</div>`;
+  h += `<div class="pv-nota">Os valores dos períodos não se somam: o dinheiro que entra num período continua no caixa e já ajuda os seguintes. Por isso o total é o valor de cima, não a soma. Nada foi lançado; é só a conta.</div></div>`;
   return h;
 }
 function renderDiasNegativos(){
