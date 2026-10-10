@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "57";
+  var VERSAO = "58";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -6293,6 +6293,15 @@ input[type="checkbox"]{width:16px;height:16px;padding:0;flex:none;accent-color:#
             </div>
           </div>
         </div>
+        <div class="form-row" id="rowConta" style="display:none">
+          <div class="field">
+            <label>Na regra 40/60 conta como</label>
+            <div class="seg" id="segConta">
+              <button data-v="pessoal" class="active" type="button">Gasto pessoal (60%)</button>
+              <button data-v="fixo" type="button">Custo fixo</button>
+            </div>
+          </div>
+        </div>
         <div class="form-row" id="rowDiaSemana" style="display:none">
           <div class="field">
             <label>Em qual dia da semana</label>
@@ -8427,6 +8436,31 @@ if(document.getElementById('dpBtn')){
     renderAll();
   });
 }
+{
+  // quem nasceu neste clique recebe a marca escolhida (o codigo original nao conhece a marca)
+  const idsFixos = () => (state.custoFixoExtra||[]).concat(state.custoFixoSemanalExtra||[]).map(x=>x.id);
+  let antesIds = null;
+  const ab = document.getElementById('addBtn');
+  ab.addEventListener('click', ()=>{ antesIds = idsFixos(); }, true);
+  const contaRow = document.getElementById('rowConta');
+  const ativoSeg = id => { const b = document.querySelector('#'+id+' button.active'); return b ? b.dataset.v : ''; };
+  const mostraConta = () => { if(contaRow) contaRow.style.display = (ativoSeg('segRepete')!=='unico' && ativoSeg('segTipo')==='saida') ? '' : 'none'; };
+  ['segTipo','segRepete'].forEach(i=>{ const e = document.getElementById(i); if(e) e.addEventListener('click', ()=>setTimeout(mostraConta, 0)); });
+  if(document.getElementById('segConta')) document.getElementById('segConta').querySelectorAll('button').forEach(b=>b.addEventListener('click', ()=>{
+    document.getElementById('segConta').querySelectorAll('button').forEach(x=>x.classList.remove('active')); b.classList.add('active');
+  }));
+  setTimeout(()=>{ // registra depois do clique original
+    ab.addEventListener('click', ()=>{
+      if(!antesIds) return;
+      const pessoal = ativoSeg('segConta')!=='fixo';
+      let mudou = false;
+      (state.custoFixoExtra||[]).concat(state.custoFixoSemanalExtra||[]).forEach(x=>{ if(antesIds.indexOf(x.id)<0 && x.tipoMov!=='entrada' && pessoal){ x.pessoal = true; mudou = true; } });
+      antesIds = null;
+      if(mudou){ save(); renderAll(); }
+      mostraConta();
+    });
+  }, 0);
+}
 document.getElementById('addBtn').addEventListener('click', ()=>{
   const titulo = document.getElementById('inTitulo').value.trim();
   const valor = parseFloat(document.getElementById('inValor').value);
@@ -9182,7 +9216,19 @@ function inicioFixoExtra(ex){
 let cfSoma = null;
 // tudo de custo fixo que cai no mes atual, pelo valor de tabela (sem datas movidas, puladas ou valor trocado num dia so)
 function custoFixoDoMesAtual(){ const h = parseISO(todayISO()); return custoFixoDoMes(h.getFullYear(), h.getMonth()); }
+let cfMemo = {}, cfMemoSig = '';
+function fixosPessoais(){
+  // custo que repete, criado por ele, e marcado como gasto pessoal (entra nos 60%, nao diminui a sobra do mes)
+  const o = {};
+  (state.custoFixoExtra||[]).concat(state.custoFixoSemanalExtra||[]).forEach(x=>{ if(x.pessoal && x.tipoMov!=='entrada') o[x.id] = x.titulo; });
+  return o;
+}
 function custoFixoDoMes(ano, mes0){
+  const fp = fixosPessoais();
+  const sig = JSON.stringify([state.custoFixoExtra, state.custoFixoSemanalExtra, state.custoFixoOverrides, state.custoFixoRemovidos, state.custoFixoRemovidosIds]);
+  if(sig!==cfMemoSig){ cfMemoSig = sig; cfMemo = {}; }
+  if(cfMemo[ano+'-'+mes0]) return cfMemo[ano+'-'+mes0];
+  const pesPor = {}; let pesTot = 0;
   const reais = [state.custoFixoMovidas, state.custoFixoPuladosData, state.custoFixoOverridesData];
   state.custoFixoMovidas = {}; state.custoFixoPuladosData = []; state.custoFixoOverridesData = {};
   const por = {}, tot = {entrada:0, saida:0};
@@ -9194,11 +9240,13 @@ function custoFixoDoMes(ano, mes0){
         if(f[2]!=='entrada' && f[2]!=='saida') return;
         const k = f[3] ? 'id:'+f[3] : 'n:'+(f[0]===R.lav2 ? R.lav : f[0]);
         const o = por[k] = por[k] || {n:0, total:0};
-        o.n++; o.total += f[1]; tot[f[2]] += f[1];
+        o.n++; o.total += f[1];
+        if(f[2]==='saida' && f[3] && fp[f[3]]){ pesTot += f[1]; const q = pesPor[f[3]] = pesPor[f[3]] || {titulo:fp[f[3]], total:0}; q.total += f[1]; }
+        else tot[f[2]] += f[1];
       });
     }
   } finally { state.custoFixoMovidas = reais[0]; state.custoFixoPuladosData = reais[1]; state.custoFixoOverridesData = reais[2]; }
-  return {por:por, entrada:r2(tot.entrada), saida:r2(tot.saida)};
+  return (cfMemo[ano+'-'+mes0] = {por:por, entrada:r2(tot.entrada), saida:r2(tot.saida), pes:r2(pesTot), pesPor:pesPor});
 }
 function agruparCustoFixo(){
   const lista = document.getElementById('cfList');
@@ -9277,6 +9325,18 @@ function parcPorMes(L){
     const rot = ev.tipo==='projecao' ? 'parcela '+ev.numero+' de '+ev.obj.parcelas : ev.tipo==='rec' ? 'parcela' : ehParc ? 'entrada do parcelamento' : 'à vista';
     o.itens.push({id:ev.obj.id, titulo:ev.obj.titulo, data:l.data, valor:v, rot:rot, conta:conta});
   }));
+  // gasto pessoal que repete todo mes (marcado por ele): entra nos 60% de cada mes, do mes atual ate o ultimo mes com lancamento
+  if(L.length && Object.keys(fixosPessoais()).length){
+    const ks = Object.keys(m).sort(), fimK = ks.length ? ks[ks.length-1] : '';
+    const h0 = parseISO(L[0].data);
+    for(let d0 = new Date(h0.getFullYear(), h0.getMonth(), 1); isoOf(d0).slice(0,7) <= fimK; d0 = new Date(d0.getFullYear(), d0.getMonth()+1, 1)){
+      const k = isoOf(d0).slice(0,7), cf = custoFixoDoMes(d0.getFullYear(), d0.getMonth());
+      if(!(cf.pes > 0.005)) continue;
+      const o = m[k] = m[k] || {ids:{}, total:0, vista:{}, div:0, pes:0, itens:[]};
+      o.pes += cf.pes;
+      Object.keys(cf.pesPor).forEach(id=>{ o.itens.push({id:id, titulo:cf.pesPor[id].titulo, data:k+'-01', valor:r2(cf.pesPor[id].total), rot:'repete todo mês', conta:false}); });
+    }
+  }
   return m;
 }
 function renderParcMes(linhas){
@@ -10598,11 +10658,19 @@ function abrirEdicaoFixoExtra(id, dataISO){
       </select>
     </div>
     ${campoPeriodo}
+    <div class="field"><label>Na regra 40/60 conta como</label>
+      <select id="edContaFixo">
+        <option value="fixo" ${ex.pessoal?'':'selected'}>Custo fixo (diminui a sobra do mês)</option>
+        <option value="pessoal" ${ex.pessoal?'selected':''}>Gasto pessoal (entra nos 60%)</option>
+      </select>
+    </div>
     <div class="rd-sub">Isso muda TODOS os meses. Pra mexer só numa data específica, toque no ✎ do próprio dia no cronograma.</div>`;
   abrirEditSheet('Editar custo fixo '+(ehSemanal?'semanal':'mensal')+' (todos os meses)', html, true, ()=>{
     ex.titulo = document.getElementById('edTituloFixo').value.trim()||ex.titulo;
     ex.valor = Math.abs(parseFloat(document.getElementById('edValorFixoExtra').value))||ex.valor;
     ex.tipoMov = document.getElementById('edTipoFixoExtra').value;
+    ex.pessoal = document.getElementById('edContaFixo').value==='pessoal' && ex.tipoMov!=='entrada';
+
     if(ehSemanal){ ex.diaSemana = parseInt(document.getElementById('edDiaFixo').value,10); }
     else {
       const tipoDiaMes = document.getElementById('edTipoDiaMes').value;
@@ -10661,7 +10729,7 @@ function updateDate(){
       aberto: function () { return overlay.classList.contains('show'); },
       estado: function () { return state; },
       raiz: RAIZ,
-      F: {load: load, METAS_PADRAO: METAS_PADRAO, save: save, garantirSeeds: garantirSeeds, fmtBR: fmtBR, parseISO: parseISO, isoOf: isoOf, addMonths: addMonths, fmtDataCurta: fmtDataCurta, fmtDataComAno: fmtDataComAno, mesLabel: mesLabel, ultimoDiaMes: ultimoDiaMes, ultimoDiaUtilMes: ultimoDiaUtilMes, ajustarParaDiaUtilAnterior: ajustarParaDiaUtilAnterior, sextoDiaUtil: sextoDiaUtil, proximoPagamento: proximoPagamento, primeiroSabado: primeiroSabado, diasEntre: diasEntre, todayISO: todayISO, inicioLedger: inicioLedger, cfv: cfv, cfvData: cfvData, custoFixoDoDia: custoFixoDoDia, construirLedger: construirLedger, todasOcorrenciasFuturas: todasOcorrenciasFuturas, construirCaixaDiarioCompleto: construirCaixaDiarioCompleto, melhorDataParaValor: melhorDataParaValor, sugerirAntecipacao: sugerirAntecipacao, sugerirMelhorDataBidirecional: sugerirMelhorDataBidirecional, aplicarNovaDataCompromisso: aplicarNovaDataCompromisso, abrirMoverData: abrirMoverData, custoFixoMensalMedio: custoFixoMensalMedio, colchaoAlvo: colchaoAlvo, rendaMensal: rendaMensal, aindaTemPendencias: aindaTemPendencias, distribuir203050: distribuir203050, aplicarNasMetas: aplicarNasMetas, construirCronograma: construirCronograma, todasTasks: todasTasks, tasksPendentes: tasksPendentes, tasksConcluidas: tasksConcluidas, recorrentesAtivos: recorrentesAtivos, catLabel: catLabel, updateHero: updateHero, iconCheck: iconCheck, cardHTML: cardHTML, recorrenteEventoHTML: recorrenteEventoHTML, escapeHTML: escapeHTML, fmtDataLonga: fmtDataLonga, renderRecorrentes: renderRecorrentes, renderAll: renderAll, diaEstaConcluido: diaEstaConcluido, renderCronograma: renderCronograma, custoFixoChipHTML: custoFixoChipHTML, compromissoChipHTML: compromissoChipHTML, bindChips: bindChips, valorTotalTask: valorTotalTask, acharFixoPago: acharFixoPago, htmlFixosPagos: htmlFixosPagos, voltarFixoPago: voltarFixoPago, renderResumoFinal: renderResumoFinal, renderTotaisLista: renderTotaisLista, ultimaParcelaProjetada: ultimaParcelaProjetada, tabelaRD: tabelaRD, renderRegras: renderRegras, renderMetas: renderMetas, planoVermelho: planoVermelho, htmlPlanoVermelho: htmlPlanoVermelho, montarPlanoVermelho: montarPlanoVermelho, renderDiasNegativos: renderDiasNegativos, abrirSugestaoNegativo: abrirSugestaoNegativo, renderRelatorioDatas: renderRelatorioDatas, aplicarConclusaoTask: aplicarConclusaoTask, toggleDone: toggleDone, delExtra: delExtra, aplicarPagamentoParcela: aplicarPagamentoParcela, pagamentoAnterior: pagamentoAnterior, desfazerUltimaParcela: desfazerUltimaParcela, pagarParcela: pagarParcela, toast: toast, renderMensal: renderMensal, calcularFundoReserva: calcularFundoReserva, totalReservaProgramado: totalReservaProgramado, renderReserva: renderReserva, coletarGastosRealizados: coletarGastosRealizados, chaveGasto: chaveGasto, categorizarGasto: categorizarGasto, categoriaDoEvento: categoriaDoEvento, categorizarAuto: categorizarAuto, renderGastoMensal: renderGastoMensal, abrirRotularGasto: abrirRotularGasto, resumoCustoFixoMensal: resumoCustoFixoMensal, resumoCustoFixoDeTabela: resumoCustoFixoDeTabela, renderResumoCustoFixo: renderResumoCustoFixo, renderCustoFixo: renderCustoFixo, openSheet: openSheet, closeSheet: closeSheet, melhorPeriodoParaParcelamento: melhorPeriodoParaParcelamento, applyTheme: applyTheme, abrirEditSheet: abrirEditSheet, renderLinhasParcelasEdit: renderLinhasParcelasEdit, lerLinhasParcelasEdit: lerLinhasParcelasEdit, abrirEditorParcelas: abrirEditorParcelas, r2: r2, inicioFixoExtra: inicioFixoExtra, custoFixoDoMesAtual: custoFixoDoMesAtual, custoFixoDoMes: custoFixoDoMes, agruparCustoFixo: agruparCustoFixo, livrePessoal: livrePessoal, parcPorMes: parcPorMes, renderParcMes: renderParcMes, reorgUnidades: reorgUnidades, reorgMeses: reorgMeses, reorgRetrato: reorgRetrato, reorgPlano: reorgPlano, reorgGravar: reorgGravar, listaExcluidos: listaExcluidos, exclBotao: exclBotao, abrirExcluidos: abrirExcluidos, reorgBotoes: reorgBotoes, reorgDesfazer: reorgDesfazer, reorgRefazer: reorgRefazer, reorgTela: reorgTela, reorgEntrar: reorgEntrar, reorgSair: reorgSair, antDias: antDias, antPossivel: antPossivel, antCandidatos: antCandidatos, antMarcarLinhas: antMarcarLinhas, antTextoItem: antTextoItem, abrirAntecipar: abrirAntecipar, abrirSugestaoAntecipar: abrirSugestaoAntecipar, sugerirParcelada: sugerirParcelada, usarSugestao: usarSugestao, htmlSugestoes: htmlSugestoes, abrirParcelamentoRec: abrirParcelamentoRec, datasSeguindoEntrada: datasSeguindoEntrada, valoresDasParcelas: valoresDasParcelas, gravarCamposTask: gravarCamposTask, seguirEntrada: seguirEntrada, dpVista: dpVista, lerParcelada: lerParcelada, ligarCamposParcelada: ligarCamposParcelada, abrirParcelamento: abrirParcelamento, abrirEdicaoTask: abrirEdicaoTask, abrirEdicaoRecorrente: abrirEdicaoRecorrente, estornarPagoFixo: estornarPagoFixo, estornarPagosPorNome: estornarPagosPorNome, migrarMarcacaoPago: migrarMarcacaoPago, valorEfetivoNoDia: valorEfetivoNoDia, abrirEdicaoFixo: abrirEdicaoFixo, abrirEdicaoFixoExtra: abrirEdicaoFixoExtra, updateDate: updateDate}
+      F: {load: load, METAS_PADRAO: METAS_PADRAO, save: save, garantirSeeds: garantirSeeds, fmtBR: fmtBR, parseISO: parseISO, isoOf: isoOf, addMonths: addMonths, fmtDataCurta: fmtDataCurta, fmtDataComAno: fmtDataComAno, mesLabel: mesLabel, ultimoDiaMes: ultimoDiaMes, ultimoDiaUtilMes: ultimoDiaUtilMes, ajustarParaDiaUtilAnterior: ajustarParaDiaUtilAnterior, sextoDiaUtil: sextoDiaUtil, proximoPagamento: proximoPagamento, primeiroSabado: primeiroSabado, diasEntre: diasEntre, todayISO: todayISO, inicioLedger: inicioLedger, cfv: cfv, cfvData: cfvData, custoFixoDoDia: custoFixoDoDia, construirLedger: construirLedger, todasOcorrenciasFuturas: todasOcorrenciasFuturas, construirCaixaDiarioCompleto: construirCaixaDiarioCompleto, melhorDataParaValor: melhorDataParaValor, sugerirAntecipacao: sugerirAntecipacao, sugerirMelhorDataBidirecional: sugerirMelhorDataBidirecional, aplicarNovaDataCompromisso: aplicarNovaDataCompromisso, abrirMoverData: abrirMoverData, custoFixoMensalMedio: custoFixoMensalMedio, colchaoAlvo: colchaoAlvo, rendaMensal: rendaMensal, aindaTemPendencias: aindaTemPendencias, distribuir203050: distribuir203050, aplicarNasMetas: aplicarNasMetas, construirCronograma: construirCronograma, todasTasks: todasTasks, tasksPendentes: tasksPendentes, tasksConcluidas: tasksConcluidas, recorrentesAtivos: recorrentesAtivos, catLabel: catLabel, updateHero: updateHero, iconCheck: iconCheck, cardHTML: cardHTML, recorrenteEventoHTML: recorrenteEventoHTML, escapeHTML: escapeHTML, fmtDataLonga: fmtDataLonga, renderRecorrentes: renderRecorrentes, renderAll: renderAll, diaEstaConcluido: diaEstaConcluido, renderCronograma: renderCronograma, custoFixoChipHTML: custoFixoChipHTML, compromissoChipHTML: compromissoChipHTML, bindChips: bindChips, valorTotalTask: valorTotalTask, acharFixoPago: acharFixoPago, htmlFixosPagos: htmlFixosPagos, voltarFixoPago: voltarFixoPago, renderResumoFinal: renderResumoFinal, renderTotaisLista: renderTotaisLista, ultimaParcelaProjetada: ultimaParcelaProjetada, tabelaRD: tabelaRD, renderRegras: renderRegras, renderMetas: renderMetas, planoVermelho: planoVermelho, htmlPlanoVermelho: htmlPlanoVermelho, montarPlanoVermelho: montarPlanoVermelho, renderDiasNegativos: renderDiasNegativos, abrirSugestaoNegativo: abrirSugestaoNegativo, renderRelatorioDatas: renderRelatorioDatas, aplicarConclusaoTask: aplicarConclusaoTask, toggleDone: toggleDone, delExtra: delExtra, aplicarPagamentoParcela: aplicarPagamentoParcela, pagamentoAnterior: pagamentoAnterior, desfazerUltimaParcela: desfazerUltimaParcela, pagarParcela: pagarParcela, toast: toast, renderMensal: renderMensal, calcularFundoReserva: calcularFundoReserva, totalReservaProgramado: totalReservaProgramado, renderReserva: renderReserva, coletarGastosRealizados: coletarGastosRealizados, chaveGasto: chaveGasto, categorizarGasto: categorizarGasto, categoriaDoEvento: categoriaDoEvento, categorizarAuto: categorizarAuto, renderGastoMensal: renderGastoMensal, abrirRotularGasto: abrirRotularGasto, resumoCustoFixoMensal: resumoCustoFixoMensal, resumoCustoFixoDeTabela: resumoCustoFixoDeTabela, renderResumoCustoFixo: renderResumoCustoFixo, renderCustoFixo: renderCustoFixo, openSheet: openSheet, closeSheet: closeSheet, melhorPeriodoParaParcelamento: melhorPeriodoParaParcelamento, applyTheme: applyTheme, abrirEditSheet: abrirEditSheet, renderLinhasParcelasEdit: renderLinhasParcelasEdit, lerLinhasParcelasEdit: lerLinhasParcelasEdit, abrirEditorParcelas: abrirEditorParcelas, r2: r2, inicioFixoExtra: inicioFixoExtra, custoFixoDoMesAtual: custoFixoDoMesAtual, fixosPessoais: fixosPessoais, custoFixoDoMes: custoFixoDoMes, agruparCustoFixo: agruparCustoFixo, livrePessoal: livrePessoal, parcPorMes: parcPorMes, renderParcMes: renderParcMes, reorgUnidades: reorgUnidades, reorgMeses: reorgMeses, reorgRetrato: reorgRetrato, reorgPlano: reorgPlano, reorgGravar: reorgGravar, listaExcluidos: listaExcluidos, exclBotao: exclBotao, abrirExcluidos: abrirExcluidos, reorgBotoes: reorgBotoes, reorgDesfazer: reorgDesfazer, reorgRefazer: reorgRefazer, reorgTela: reorgTela, reorgEntrar: reorgEntrar, reorgSair: reorgSair, antDias: antDias, antPossivel: antPossivel, antCandidatos: antCandidatos, antMarcarLinhas: antMarcarLinhas, antTextoItem: antTextoItem, abrirAntecipar: abrirAntecipar, abrirSugestaoAntecipar: abrirSugestaoAntecipar, sugerirParcelada: sugerirParcelada, usarSugestao: usarSugestao, htmlSugestoes: htmlSugestoes, abrirParcelamentoRec: abrirParcelamentoRec, datasSeguindoEntrada: datasSeguindoEntrada, valoresDasParcelas: valoresDasParcelas, gravarCamposTask: gravarCamposTask, seguirEntrada: seguirEntrada, dpVista: dpVista, lerParcelada: lerParcelada, ligarCamposParcelada: ligarCamposParcelada, abrirParcelamento: abrirParcelamento, abrirEdicaoTask: abrirEdicaoTask, abrirEdicaoRecorrente: abrirEdicaoRecorrente, estornarPagoFixo: estornarPagoFixo, estornarPagosPorNome: estornarPagosPorNome, migrarMarcacaoPago: migrarMarcacaoPago, valorEfetivoNoDia: valorEfetivoNoDia, abrirEdicaoFixo: abrirEdicaoFixo, abrirEdicaoFixoExtra: abrirEdicaoFixoExtra, updateDate: updateDate}
     };
   }
 
