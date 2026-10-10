@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "67";
+  var VERSAO = "68";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -8090,7 +8090,7 @@ function htmlPlanoVermelho(linhas){
 function montarPlanoVermelho(linhas){
   const p = planoVermelho(linhas);
   if(!p.periodos.length) return '';
-  const intervalo = x => x.de===x.ate ? fmtDataCurta(x.de) : fmtDataCurta(x.de)+' a '+fmtDataCurta(x.ate);
+  const intervalo = x => x.de===x.ate ? fmtDataComAno(x.de) : (x.de.slice(0,4)===x.ate.slice(0,4) ? fmtDataCurta(x.de) : fmtDataComAno(x.de))+' a '+fmtDataComAno(x.ate);
   let h = `<div class="pv">
     <div class="pv-tit">Quanto você precisa pra sair do vermelho</div>
     <div class="pv-geral">
@@ -8103,7 +8103,7 @@ function montarPlanoVermelho(linhas){
   mostra.forEach((x,i)=>{
     h += `<div class="pv-passo">
       <div class="pv-top"><span class="pv-dia">${i+1}º período · ${intervalo(x)}</span><span class="pv-val">${fmtBR(x.valor)}</span></div>
-      <div class="pv-txt">${x.nDias>1 ? x.nDias+' dias seguidos no vermelho' : '1 dia no vermelho'}, pior saldo ${fmtBR(x.pior)}. <b>Precisa de ${fmtBR(x.valor)} em ${fmtDataCurta(x.de)}</b> pra esse período ficar no azul.</div>
+      <div class="pv-txt">${x.nDias>1 ? x.nDias+' dias seguidos no vermelho' : '1 dia no vermelho'}, pior saldo ${fmtBR(x.pior)}. <b>Precisa de ${fmtBR(x.valor)} em ${fmtDataComAno(x.de)}</b> pra esse período ficar no azul.</div>
     </div>`;
   });
   if(p.periodos.length>mostra.length) h += `<div class="pv-nota">E mais ${p.periodos.length-mostra.length} período(s) mais adiante; veja mês a mês na lista abaixo.</div>`;
