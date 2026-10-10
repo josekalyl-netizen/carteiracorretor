@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "30";
+  var VERSAO = "31";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -2338,7 +2338,9 @@ function saveData() {
    a aba/janela da carteira o sistema baixa UM backup atualizado direto na
    pasta de Downloads. Um arquivo por sessão, sem inundar a máquina. */
 let autoBackupOn = false;
-try { autoBackupOn = localStorage.getItem('w3g_autobackup') !== '0'; } catch(e) {}  // padrão LIGADO
+// padrão DESLIGADO: a cópia de segurança fica na nuvem e no GitHub (repositório privado), sem baixar arquivo.
+// (chave nova de propósito: quem tinha o padrão antigo, ligado, passa a ficar desligado)
+try { autoBackupOn = localStorage.getItem('w3g_autobackup2') === '1'; } catch(e) {}
 let backupDoneThisClose = false;
 function scheduleAutoBackup() { /* mantido por compatibilidade — não faz nada no modo "ao fechar" */ }
 function doAutoBackup(silent) {
@@ -2369,7 +2371,7 @@ function backupOnClose() {
 }
 function toggleAutoBackup() {
   autoBackupOn = !autoBackupOn;
-  try { localStorage.setItem('w3g_autobackup', autoBackupOn ? '1' : '0'); } catch(e) {}
+  try { localStorage.setItem('w3g_autobackup2', autoBackupOn ? '1' : '0'); } catch(e) {}
   applyAutoBackupBtn();
   if (autoBackupOn) {
     alert('Backup automático ao fechar LIGADO.\n\nToda vez que você fechar a aba da carteira, o sistema baixa um arquivo de backup atualizado na sua pasta de Downloads.\n\nDica: no Chrome, em Configurações → Downloads, desligue "Perguntar onde salvar cada arquivo" para o backup cair direto na pasta, sem perguntar.');
