@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "71";
+  var VERSAO = "72";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -7723,7 +7723,7 @@ function renderCronograma(){
       html += `<div class="dia-row">
         <div class="dia-head">
           <span class="dia-data">${dataFmt}</span>
-          <span class="dia-caixa ${neg?'neg':''}">Caixa: ${fmtBR(l.caixa)}</span>
+          <span class="dia-caixa ${neg?'neg':''}">Caixa no fim do dia: ${fmtBR(l.caixa)}</span>
         </div>
         <div class="dia-compromissos">
           ${l.fixos.map(f=>custoFixoChipHTML(l.data,f)).join('')}
@@ -7750,7 +7750,8 @@ function renderCronograma(){
       html += `<div class="dia-row dia-concluido">
         <div class="dia-head">
           <span class="dia-data">${dataFmt} &#10003;</span>
-          <span class="dia-caixa">Caixa: ${fmtBR(l.caixa)}</span>
+          <span class="dia-caixa">Caixa no fim do dia: ${fmtBR(l.caixa)}</span>
+
         </div>
         <div class="dia-compromissos">
           ${l.fixos.map(f=>custoFixoChipHTML(l.data,f)).join('')}
