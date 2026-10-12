@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "73";
+  var VERSAO = "74";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -2411,14 +2411,34 @@ function isSnoozed(c) { return isSnoozedOn(c, todayStr()); }
 // o trabalho é de segunda a sexta: no sábado e no domingo ninguém fica "devido" (o follow-up volta na segunda).
 // "mostrarNoFds" é só desta sessão: o botão do follow-up liga para quem quiser adiantar contatos no fim de semana.
 let mostrarNoFds = false;
+function dataLocalDe(ref) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ref));
+  return m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(ref);
+}
 function ehFimDeSemana(ref) {
-  const m = /^(d{4})-(d{2})-(d{2})$/.exec(String(ref));
-  const d = m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(ref);
+  const d = dataLocalDe(ref);
   return d.getDay() === 0 || d.getDay() === 6;
 }
+// Feriados de São Paulo capital: nacionais, o estadual (9 de julho) e os municipais (aniversário da cidade e
+// Corpus Christi). Carnaval (segunda e terça) entra como dia sem trabalho. Devolve o nome do feriado, ou ''.
+function feriadoSP(ref) {
+  const d = dataLocalDe(ref), y = d.getFullYear();
+  const fixos = { '1-1': 'Confraternização Universal', '1-25': 'Aniversário de São Paulo', '4-21': 'Tiradentes', '5-1': 'Dia do Trabalho',
+    '7-9': 'Revolução Constitucionalista', '9-7': 'Independência', '10-12': 'Nossa Senhora Aparecida', '11-2': 'Finados',
+    '11-15': 'Proclamação da República', '11-20': 'Consciência Negra', '12-25': 'Natal' };
+  const f = fixos[(d.getMonth() + 1) + '-' + d.getDate()];
+  if (f) return f;
+  // Páscoa (cálculo de Meeus) e os feriados que andam com ela
+  const a = y % 19, b = Math.floor(y / 100), c = y % 100, dd = Math.floor(b / 4), e = b % 4, g = Math.floor((b - Math.floor((b + 8) / 25) + 1) / 3), h = (19 * a + b - dd - g + 15) % 30;
+  const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, mm = Math.floor((a + 11 * h + 22 * l) / 451);
+  const pascoa = new Date(y, Math.floor((h + l - 7 * mm + 114) / 31) - 1, ((h + l - 7 * mm + 114) % 31) + 1);
+  const dif = Math.round((new Date(y, d.getMonth(), d.getDate()) - pascoa) / 86400000);
+  return dif === -48 ? 'Carnaval' : dif === -47 ? 'Carnaval' : dif === -2 ? 'Sexta-feira Santa' : dif === 60 ? 'Corpus Christi' : '';
+}
+function ehDiaSemTrabalho(ref) { return ehFimDeSemana(ref) || !!feriadoSP(ref); }
 function isDueOn(c, ref) {
   if (c.deleted) return false;
-  if (!mostrarNoFds && ehFimDeSemana(ref)) return false;
+  if (!mostrarNoFds && ehDiaSemTrabalho(ref)) return false;
   if (isSnoozedOn(c, ref)) return false;
   const st = stageOf(c);
   if (st.cadence === 'none') return false;
@@ -2772,9 +2792,10 @@ function buildFollowup() {
   html += '</div>';
   html += '<p class="hint" style="margin:0 0 1.2rem;"><i class="ti ti-calendar-event" style="vertical-align:-2px; margin-right:5px;"></i>' + dateLabel() + '</p>';
 
-  if (ehFimDeSemana(todayStr())) {
+  if (ehDiaSemTrabalho(todayStr())) {
+    const fer = feriadoSP(todayStr()), oQue = fer ? 'Feriado (' + fer + ')' : 'Fim de semana';
     html += '<div class="banner soneca"><i class="ti ti-beach" style="font-size:18px; color:rgb(var(--c-dados));"></i><span style="font-size:13px; flex:1;">' +
-      (mostrarNoFds ? 'Fim de semana: você pediu para ver a lista mesmo assim.' : 'Fim de semana: sem follow-up hoje. A lista volta sozinha na segunda-feira.') + '</span>' +
+      (mostrarNoFds ? oQue + ': você pediu para ver a lista mesmo assim.' : oQue + ': sem follow-up hoje. A lista volta sozinha no próximo dia útil.') + '</span>' +
       '<button class="btn btn-sm" onclick="mostrarNoFds=!mostrarNoFds;render()">' + (mostrarNoFds ? 'Esconder' : 'Ver a lista mesmo assim') + '</button></div>';
   }
   html += '<div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);">';
@@ -10278,22 +10299,38 @@ function abrirAntecipar(tipo, id){
   }, null);
   document.getElementById('editSalvarBtn').textContent = 'Pagar agora';
 }
-function abrirSugestaoAntecipar(){
+let antModo = 'idade'; // 'idade' = a mais antiga primeiro; 'prio' = todas na ordem de prioridade; '1'..'10' = so aquela prioridade
+function abrirSugestaoAntecipar(modo){
   if(reorgDemo){ toast('Saia da demonstração da reorganização (Aplicar ou Cancelar) antes de antecipar.', null); return; }
+  if(typeof modo==='string') antModo = modo;
+  // prioridades dadas por ele na reorganizacao (valem depois de aplicar)
+  const pr = state.reorgPrio || {}, posO = {}; (state.reorgOrdem||[]).forEach((id,i)=>{ posO[id] = i; });
+  const naOrdem = (a,b)=> (posO[a.id]!=null ? posO[a.id] : 1e6) - (posO[b.id]!=null ? posO[b.id] : 1e6);
+  let cands = antCandidatos();
+  const qtd = {}; cands.forEach(c=>{ const n = pr[c.id]||0; if(n) qtd[n] = (qtd[n]||0)+1; });
+  const niveis = Object.keys(qtd).map(Number).sort((a,b)=>a-b);
+  if(antModo!=='idade' && !(antModo==='prio' ? niveis.length : qtd[+antModo])) antModo = 'idade';
+  if(antModo==='prio') cands = cands.slice().sort((a,b)=> (pr[a.id]||99)-(pr[b.id]||99) || naOrdem(a,b));
+  else if(antModo!=='idade') cands = cands.filter(c=>(pr[c.id]||0)===+antModo).sort(naOrdem);
   const dias = antDias(), gasto = new Array(dias.length).fill(0), lista = [];
-  antCandidatos().forEach(c=>{
+  cands.forEach(c=>{
     const r = antPossivel(c.tipo, c.id, dias, gasto);
     if(!r) return;
     for(let j=0;j<gasto.length;j++) gasto[j] += r.need[j];
     lista.push({c:c, r:r});
   });
   const total = r2(lista.reduce((s,x)=>s+x.r.total, 0));
-  let h = `<div class="rd-sub" style="margin:0 0 10px">Conta feita com o caixa de hoje (<b>${fmtBR(state.caixaAtual)}</b>) e todo o fluxo que já está lançado. Ordem: a dívida mais antiga primeiro.</div>`;
-  if(!lista.length) h += `<div class="calc-erro">Com o caixa de hoje não dá para antecipar nenhuma dívida sem deixar algum dia no vermelho.</div>`;
+  let h = '<div class="field" style="margin:0 0 10px"><label>O que antecipar</label><select id="antModoSel">'
+    + '<option value="idade"'+(antModo==='idade'?' selected':'')+'>Todas as dívidas, a mais antiga primeiro</option>'
+    + (niveis.length ? '<option value="prio"'+(antModo==='prio'?' selected':'')+'>Todas as dívidas, na ordem de prioridade (1ª primeiro)</option>' : '')
+    + niveis.map(n=>'<option value="'+n+'"'+(antModo===String(n)?' selected':'')+'>Só a '+n+'ª prioridade ('+qtd[n]+(qtd[n]===1?' dívida':' dívidas')+')</option>').join('')
+    + '</select>'+(niveis.length ? '' : '<div class="rd-sub" style="margin-top:6px">Para antecipar por prioridade, dê as prioridades em <b>Reorganizar fluxo</b> e toque em Aplicar.</div>')+'</div>';
+  h += `<div class="rd-sub" style="margin:0 0 10px">Conta feita com o caixa de hoje (<b>${fmtBR(state.caixaAtual)}</b>) e todo o fluxo que já está lançado. Ordem: ${antModo==='idade' ? 'a dívida mais antiga primeiro' : antModo==='prio' ? 'a 1ª prioridade primeiro, depois a 2ª, e assim por diante' : 'só as dívidas da '+antModo+'ª prioridade, na ordem da reorganização'}.</div>`;
+  if(!lista.length) h += `<div class="calc-erro">Com o caixa de hoje não dá para antecipar nenhuma ${antModo==='idade'||antModo==='prio' ? 'dívida' : 'dívida da '+antModo+'ª prioridade'} sem deixar algum dia no vermelho.</div>`;
   else {
     h += `<div class="calc-ok">Dá para antecipar <b>${fmtBR(total)}</b> em ${lista.length} ${lista.length===1?'dívida':'dívidas'}, todas juntas, sem nenhum dia ficar no vermelho. Deixe marcado o que você quer pagar agora: pode ser tudo, ou só uma ou outra.</div>
       <div style="display:flex;gap:8px;margin:10px 0 4px"><button type="button" class="rf-voltar" id="antTodos">Marcar todas</button><button type="button" class="rf-voltar" id="antNenhum">Desmarcar todas</button></div><div class="ant-lista">`;
-    lista.forEach((x,i)=>{ h += `<label class="ant-it" style="cursor:pointer"><input type="checkbox" data-anti="${i}" checked style="margin-right:10px"><div class="ant-i"><b>${escapeHTML(x.c.titulo)}</b><span>${antTextoItem(x.c, x.r)}</span></div><div class="ant-v">${fmtBR(x.r.total)}</div></label>`; });
+    lista.forEach((x,i)=>{ h += `<label class="ant-it" style="cursor:pointer"><input type="checkbox" data-anti="${i}" checked style="margin-right:10px"><div class="ant-i"><b>${escapeHTML(x.c.titulo)}</b><span>${pr[x.c.id] ? pr[x.c.id]+'ª prioridade · ' : ''}${antTextoItem(x.c, x.r)}</span></div><div class="ant-v">${fmtBR(x.r.total)}</div></label>`; });
     h += `</div><div class="calc-ok" id="antSoma" style="margin-top:10px"></div><div class="rd-sub" style="margin-top:8px">Ao apertar o botão abaixo, o valor do que está marcado sai do caixa agora, como quando você marca um pagamento no cronograma.</div>`;
   }
   const marcados = ()=> Array.from(document.querySelectorAll('[data-anti]')).filter(e=>e.checked).map(e=>lista[+e.dataset.anti]);
@@ -10316,6 +10353,7 @@ function abrirSugestaoAntecipar(){
     toast(feitos+(feitos===1?' dívida antecipada':' dívidas antecipadas')+' ('+fmtBR(soma)+') — caixa e fluxo recalculados', null);
   }, null);
   const btn = document.getElementById('editSalvarBtn');
+  { const ms = document.getElementById('antModoSel'); if(ms) ms.addEventListener('change', ()=>{ const v = ms.value; closeSheet(); setTimeout(()=>abrirSugestaoAntecipar(v), 60); }); }
   if(!lista.length){ btn.textContent = 'Fechar'; return; }
   const atual = ()=>{
     const m = marcados(), soma = r2(m.reduce((s,x)=>s+x.r.total, 0));
