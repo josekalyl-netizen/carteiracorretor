@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "75";
+  var VERSAO = "76";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -5149,6 +5149,7 @@ const Agenda = (function () {
   /* ---------- anotações do dia ----------
      Bloco simples para tarefas soltas do dia (não é compromisso). O que não for marcado como feito até
      o dia virar passa a ser um compromisso atrasado na agenda, com a data do dia em que foi anotado. */
+  let verNotasFeitas = false;   // só desta sessão: mostrar também as anotações já feitas hoje
   function diaLocal(d) { d = d || new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
   function notas() { const st = S(); if (!Array.isArray(st.notes)) st.notes = []; return st.notes; }
   function virarNotas() {
@@ -5180,13 +5181,16 @@ const Agenda = (function () {
       '<div style="display:flex;gap:8px;margin-bottom:10px;"><input type="text" id="ag-nota" enterkeyhint="done" placeholder="Ex.: ligar para o corretor X às 15h" style="flex:1;min-width:0;">' +
       '<button class="btn btn-sm btn-accent" data-ag="notaAdd"><i class="ti ti-plus"></i>Anotar</button></div>';
     if (!ns.length) h += '<p class="hint" style="margin:0 0 6px;">Nada anotado para hoje. Use para tarefas soltas do dia; compromisso com hora marcada continua indo no campo de cima.</p>';
-    ns.forEach(n => {
+    // a anotação feita sai da lista na hora; fica só a contagem, com um atalho para rever (e desmarcar se foi engano)
+    if (ns.length && feitas === ns.length && !verNotasFeitas) h += '<p class="hint" style="margin:0 0 6px;"><i class="ti ti-circle-check" style="color:rgb(var(--c-grow));"></i> Tudo feito por hoje.</p>';
+    ns.filter(n => verNotasFeitas || !n.done).forEach(n => {
       h += '<div class="ag-row" style="' + (n.done ? 'opacity:.6;' : '') + (n.prio ? 'box-shadow:inset 3px 0 0 rgb(var(--c-accent));' : '') + '">' +
         '<button class="ag-check rem" data-ag="notaOk" data-id="' + n.id + '" aria-label="' + (n.done ? 'Desmarcar' : 'Marcar como feita') + '"' + (n.done ? ' style="background:rgb(var(--c-grow));border-color:rgb(var(--c-grow));color:#fff;"' : '') + '><i class="ti ti-check"></i></button>' +
         '<span class="tt" style="' + (n.done ? 'text-decoration:line-through;' : '') + (n.prio ? 'font-weight:700;' : '') + '">' + esc(n.text) + '</span>' +
         '<button class="btn btn-ghost btn-icon btn-sm" data-ag="notaPrio" data-id="' + n.id + '" aria-label="' + (n.prio ? 'Tirar a prioridade' : 'Marcar como prioridade') + '" title="' + (n.prio ? 'Tirar a prioridade' : 'Marcar como prioridade') + '"' + (n.prio ? ' style="color:rgb(var(--c-accent));"' : '') + '><i class="ti ' + (n.prio ? 'ti-star-filled' : 'ti-star') + '"></i></button>' +
         '<button class="btn btn-ghost btn-icon btn-sm" data-ag="notaDel" data-id="' + n.id + '" aria-label="Apagar anotação" title="Apagar"><i class="ti ti-x"></i></button></div>';
     });
+    if (feitas) h += '<button class="btn btn-ghost btn-sm" data-ag="notaVerFeitas" style="margin-top:2px;"><i class="ti ' + (verNotasFeitas ? 'ti-eye-off' : 'ti-eye') + '"></i>' + (verNotasFeitas ? 'Esconder as feitas' : (feitas > 1 ? 'Ver as ' + feitas + ' feitas hoje' : 'Ver a que já foi feita hoje')) + '</button>';
     h += '<p class="hint" style="margin:6px 2px 0;line-height:1.5;">Toque na estrela para marcar uma anotação como prioridade: ela sobe para o topo. O que não for marcado como feito até o fim do dia vira compromisso atrasado na agenda, com a data de hoje.</p></div>';
     return h;
   }
@@ -5528,6 +5532,7 @@ const Agenda = (function () {
   /* ---------- cliques (um só ouvinte para a tela e para as janelas) ---------- */
   const ACOES = {
     notaAdd: () => notaAdd(),
+    notaVerFeitas: () => { verNotasFeitas = !verNotasFeitas; build(); },
     notaPrio: id => { const n = notas().find(x => x.id === id); if (!n) return; n.prio = !n.prio; salvar(); build(); },
     notaOk: id => { const n = notas().find(x => x.id === id); if (!n) return; n.done = !n.done; n.doneAt = n.done ? Date.now() : null; salvar(); build(); },
     notaDel: id => { S().notes = notas().filter(x => x.id !== id); salvar(); build(); },
