@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "77";
+  var VERSAO = "78";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -1972,6 +1972,148 @@ const FECHAMENTOS = {
   ],
 };
 /* ============================================================
+   RÉGUA DE FOLLOW-UP (mensagens de texto de cada etapa)
+   Uma mensagem para cada contato de texto da jornada, na ordem. Todas seguem o mesmo método:
+   saudação · por que estou falando com você · o que a W3G faz por você · uma pergunta que puxa
+   o corretor para a próxima etapa. Os contatos de áudio continuam com os roteiros de cima.
+   A saudação entra sozinha na frente; aqui ficam só os parágrafos do meio e a pergunta final.
+============================================================ */
+const REGUA = {
+  // etapa: sem código → fazer o corretor iniciar a abertura do código
+  sem_codigo: [
+    ["Gostei muito da nossa conversa e quero dar continuidade ao seu cadastro com a W3G. O primeiro passo é a abertura do seu código, e eu acompanho você em todo o processo.", "Podemos começar essa semana?"],
+    ["Passando para te explicar como funciona a abertura do código: é um cadastro simples, e eu te envio o passo a passo pronto para você só seguir.", "Posso te mandar agora?"],
+    ["Com o código aberto na W3G, você passa a contar com a gente nas cotações, nas negociações com as operadoras e no apoio às emissões.", "Faz sentido darmos esse primeiro passo?"],
+    ["Você tem algum cliente pedindo cotação neste momento? Se tiver, vale abrir o código agora para já trabalharmos esse caso juntos.", "Me conta como está por aí?"],
+    ["Se ficar mais fácil, faço uma ligação rápida e tiramos de uma vez todas as dúvidas sobre a abertura do código.", "Qual o melhor horário para você, hoje ou amanhã?"],
+    ["Queria entender o que falta para avançarmos com o seu código: é tempo, alguma dúvida ou algum documento?", "Me fala que eu ajudo no que for preciso."],
+    ["Ficou alguma dúvida sobre a parceria com a W3G depois da nossa conversa? Prefiro esclarecer com você a deixar seu cadastro parado.", "O que você gostaria de entender melhor?"],
+    ["Retomando nosso contato sobre o seu cadastro. Você não precisa esperar um cliente aparecer para abrir o código: o ideal é deixar tudo pronto antes, para não perder tempo quando a oportunidade surgir.", "Vamos deixar isso encaminhado?"],
+    ["Uma pergunta rápida: hoje, quando um cliente pede cotação, você tem alguém para te apoiar na negociação com a operadora? É exatamente esse suporte que a W3G oferece.", "Quer que eu te mostre como funciona na prática?"],
+    ["Estou organizando os cadastros desta semana e lembrei de você. Se quiser, já incluo a abertura do seu código nessa leva.", "Posso colocar o seu nome?"],
+    ["Sei que a rotina de vendas é corrida, então quero facilitar: você me responde só com um \"pode mandar\" e eu te envio o que é preciso para abrir o código.", "Combinado?"],
+    ["Muitos corretores começam com a gente por um único caso: um cliente que precisava de uma cotação melhor. Se você tiver um caso assim, podemos usar ele para abrir o seu código e já trabalhar juntos.", "Tem alguém em mente?"],
+    ["Voltando a falar com você. Quero garantir que você tenha todas as informações para decidir sobre a parceria com a W3G.", "Tem algum ponto que ficou em aberto e que eu possa esclarecer?"],
+    ["A abertura do código é o que libera o nosso suporte para você: cotações, negociação com as operadoras e apoio nas emissões. Enquanto ele não é aberto, não consigo te ajudar nas suas vendas.", "Podemos resolver isso essa semana?"],
+    ["Se o momento não é agora, sem problema. Só me diz quando faz mais sentido eu te procurar para darmos sequência ao seu cadastro.", "Fica melhor ainda este mês ou no próximo?"],
+    ["Como estão as vendas por aí? Pergunto porque, com o código aberto, cada cotação sua pode ter mais uma opção para apresentar ao cliente.", "Quer aproveitar e abrir o seu agora?"],
+    ["Tenho um horário livre para te ajudar com a abertura do código do início ao fim. Em uma conversa rápida deixamos tudo encaminhado.", "Qual dia fica melhor para você?"],
+    ["Retomando nosso contato para saber se a parceria com a W3G ainda faz sentido para você. Se fizer, o próximo passo continua sendo simples: a abertura do código.", "Posso te enviar o passo a passo?"],
+    ["Queria ouvir você com sinceridade: teve algo na nossa proposta de parceria que não te agradou? Sua opinião me ajuda a te atender melhor.", "Pode me falar sem cerimônia."],
+    ["Não quero ser insistente, mas também não quero que você fique sem o suporte da W3G por falta de um cadastro.", "Seguimos com a abertura do seu código?"],
+    ["Esta é a minha última mensagem sobre a abertura do código por enquanto, para não ocupar o seu tempo. A proposta continua de pé.", "Se quiser seguir, é só me responder com um \"vamos\" que eu retomo de onde paramos."],
+  ],
+  // etapa: código solicitado → receber o código de abertura
+  solicitado: [
+    ["Estou passando para dar continuidade ao seu cadastro com a W3G. Precisamos do código de abertura para avançar com o processo e deixar tudo pronto para você começar a trabalhar com a gente.", "Consegue me enviar, por favor?"],
+    ["Seu cadastro na W3G está a um passo de ficar pronto: falta só o código de abertura.", "Você consegue me enviar ainda hoje?"],
+    ["Assim que o código de abertura chegar, eu finalizo o seu cadastro e você já pode contar com a gente para cotações, negociações com as operadoras e emissões.", "Posso contar com o envio essa semana?"],
+    ["Você tem algum cliente em vista para as próximas semanas? Se tiver, vale me enviar o código de abertura agora, para dar tempo de trabalharmos esse caso juntos.", "Como está por aí?"],
+    ["Teve alguma dificuldade para conseguir o código de abertura? Se travou em alguma etapa, me conta qual foi que eu te oriento.", "O que aconteceu até aqui?"],
+    ["Se ficar mais fácil, faço uma ligação rápida e resolvemos juntos o que falta para o seu código de abertura.", "Qual o melhor horário para você, hoje ou amanhã?"],
+    ["Ficou alguma dúvida sobre o processo ou sobre a parceria que esteja segurando o envio do código? Prefiro resolver com você a deixar seu cadastro parado.", "O que posso esclarecer?"],
+    ["Retomando nosso contato sobre o seu cadastro. Do lado da W3G está tudo pronto, falta apenas o código de abertura.", "Consegue me enviar?"],
+    ["Enquanto o código de abertura não chega, eu não consigo te apoiar nas cotações e nas propostas. Por isso estou insistindo um pouco nesse ponto.", "Vamos fechar isso essa semana?"],
+    ["Pode me enviar o código do jeito que for mais prático para você: texto, foto ou print, por aqui mesmo. Eu cuido do resto.", "Consegue me mandar agora?"],
+    ["A parte mais difícil você já fez, que foi decidir pela parceria. Agora falta só o código de abertura para essa decisão virar resultado.", "Até quando posso contar com ele?"],
+    ["Estou finalizando os cadastros desta semana e o seu é um dos que quero concluir.", "Você me envia o código de abertura até amanhã?"],
+    ["Voltando a falar com você sobre o cadastro. Se o código ainda não saiu, me avisa em que ponto está, para eu acompanhar junto.", "Já tem alguma previsão?"],
+    ["Não quero que você perca uma venda por causa de um cadastro pendente. Com o código de abertura em mãos, eu deixo tudo pronto para a sua primeira cotação.", "Consegue me enviar hoje?"],
+    ["Se algum documento ou informação estiver faltando para você conseguir o código, me fala qual. Vemos juntos como resolver.", "O que está pendente do seu lado?"],
+    ["Como estão as vendas por aí? Pergunto porque, com o seu cadastro concluído, cada cotação sua pode contar com o nosso suporte.", "Me envia o código de abertura para finalizarmos?"],
+    ["Tenho um horário livre para te acompanhar no que faltar para o código de abertura. Em poucos minutos deixamos isso resolvido.", "Qual dia fica melhor para você?"],
+    ["Retomando nosso contato. Você ainda quer seguir com o cadastro na W3G? Se sim, o único passo que falta é o envio do código de abertura.", "Posso aguardar por ele?"],
+    ["Se o momento mudou e você prefere pausar o cadastro, tudo bem, é só me avisar. Se ainda fizer sentido, eu continuo à disposição para concluir.", "Como você prefere seguir?"],
+    ["Não quero ser insistente, mas seu cadastro continua aberto aqui e seria uma pena deixá-lo parado por um último detalhe.", "Consegue me enviar o código de abertura?"],
+    ["Esta é a minha última mensagem sobre o código por enquanto, para não ocupar o seu tempo. Seu cadastro continua pronto do meu lado.", "Quando quiser concluir, é só me enviar o código de abertura que eu retomo na hora."],
+  ],
+  // etapa: código aberto → receber a primeira proposta
+  aberto: [
+    ["Parabéns, seu código na W3G está aberto! A partir de agora você pode contar com a gente para cotações, negociações com as operadoras e apoio nas emissões.", "Já tem algum cliente para fazermos a primeira cotação juntos?"],
+    ["Vi que você já está com o código aberto na W3G, mas ainda não recebemos propostas suas por aqui.", "Tem alguma oportunidade em andamento que possamos trabalhar juntos?"],
+    ["Quero te ajudar a tirar a primeira proposta do papel. Me manda o perfil de um cliente, mesmo que seja só uma sondagem, e eu monto a cotação com você.", "Quem seria o primeiro?"],
+    ["Uma dica para começar: olhe na sua carteira quem tem renovação ou reajuste chegando. Esses clientes costumam estar abertos a ouvir uma alternativa.", "Quer que a gente escolha dois ou três juntos?"],
+    ["A primeira proposta podemos fazer juntos, passo a passo. Depois dela, as próximas ficam muito mais fáceis.", "Você tem quinze minutos essa semana para isso?"],
+    ["Queria entender o que falta para sair a sua primeira proposta com a W3G: cliente, dúvida de produto ou alguma dificuldade no processo?", "Me fala que eu resolvo o que estiver ao meu alcance."],
+    ["Sei que nem sempre aparece cliente novo na hora. Mas aquele que ficou de pensar, ou que não fechou por preço, pode ser a sua primeira proposta com a gente.", "Lembra de alguém assim?"],
+    ["Retomando nosso contato para saber como está sua operação. Seu código está ativo e eu quero garantir que você esteja aproveitando o suporte e as condições comerciais da W3G.", "Tem algo em que possamos te ajudar?"],
+    ["Quando um cliente te pedir preço, me envie o pedido do jeito que chegar. Eu organizo e te devolvo a cotação pronta.", "Tem algum pedido assim agora?"],
+    ["Ficou alguma dúvida sobre produtos, tabelas ou sobre como enviar uma proposta? Prefiro que você me pergunte a deixar de oferecer a W3G para um cliente.", "O que eu posso esclarecer?"],
+    ["Quero te propor uma meta simples: uma proposta enviada até o fim desta semana. Eu te apoio em tudo que precisar para isso acontecer.", "Topa?"],
+    ["Como estão as vendas por aí? Se tiver alguma negociação em andamento, vale incluir uma opção da W3G para o cliente comparar.", "Me manda o perfil para eu cotar?"],
+    ["Voltando a falar com você. Tem alguma visita ou retorno de cliente marcado para os próximos dias? Posso deixar uma cotação pronta para você levar.", "Quem você vai atender essa semana?"],
+    ["Se o que falta é segurança para apresentar, eu entro com você: ajudo nos argumentos e na negociação com a operadora.", "Tem algum cliente em que esse apoio faria diferença?"],
+    ["Não precisa esperar o cliente ideal para começar. Qualquer cotação feita com a gente já te deixa familiarizado com o processo.", "Qual caso podemos usar para a primeira?"],
+    ["Separei um horário para ajudar os parceiros que ainda vão enviar a primeira proposta. Em uma conversa rápida montamos a sua.", "Qual dia fica melhor para você?"],
+    ["Retomando nosso contato. Seu código continua ativo e pronto para uso. Que tal revisarmos juntos a sua carteira para encontrar a primeira oportunidade?", "Posso te ligar?"],
+    ["Queria ouvir você com sinceridade: teve algo que dificultou o envio de propostas até agora? Sua resposta me ajuda a te apoiar melhor.", "O que aconteceu por aí?"],
+    ["Um passo de cada vez: se você me enviar um único cliente para cotar nos próximos dias, já destravamos a sua primeira proposta.", "Quem você escolheria?"],
+    ["Não quero ser insistente, mas seria uma pena deixar um código ativo sem uso. Basta um cliente para começarmos.", "Tem alguma cotação que eu possa fazer para você hoje?"],
+    ["Esta é a minha última mensagem sobre a primeira proposta por enquanto, para não ocupar o seu tempo. Seu código segue ativo e eu sigo à disposição.", "Quando surgir um cliente, é só me chamar que eu monto a cotação com você."],
+  ],
+  // etapa: com proposta → acompanhar até fechar e puxar as próximas
+  proposta: [
+    ["Recebemos a sua proposta, obrigado pela confiança! Vou acompanhar de perto para que tudo ande bem com a operadora.", "Existe alguma pendência em que eu já possa ajudar?"],
+    ["Estou passando para acompanhar suas propostas e verificar se existe alguma pendência em que possamos ajudar.", "Tem alguma atualização do cliente ou da operadora?"],
+    ["O que falta para essa proposta virar contrato? Se for documento, dúvida do cliente ou negociação com a operadora, me envolve.", "Em que ponto está agora?"],
+    ["Enquanto essa proposta anda, quem é o próximo cliente da fila? Me manda o perfil que eu já vou preparando a cotação.", "Tem alguém em vista?"],
+    ["Cliente bem atendido costuma indicar. Você já pediu uma indicação para o cliente dessa proposta? O que vier, eu te ajudo a cotar.", "Vale tentar essa semana?"],
+    ["Quero te propor um combinado: toda cotação nova que aparecer, você me envia para vermos se cabe uma opção da W3G. Assim você sempre leva mais uma alternativa ao cliente.", "Podemos testar na próxima?"],
+    ["Como foi a experiência de enviar a proposta com a gente? Se algo dificultou, me conta: quero que a próxima seja mais fácil.", "O que podemos melhorar?"],
+    ["Retomando nosso contato para acompanhar suas propostas. Se o cliente estiver comparando com outra opção, posso te ajudar com os argumentos e com a negociação.", "Como está a conversa com ele?"],
+    ["Já pensou em revisitar sua carteira com as opções da W3G em mãos? Cliente com reajuste ou renovação chegando é uma ótima conversa para abrir.", "Quer que eu prepare duas ou três cotações?"],
+    ["Você já conhece o caminho, agora é dar ritmo. Tem mais algum cliente para cotarmos essa semana?", "Me manda que eu agilizo."],
+    ["Passando para saber se suas propostas precisam de algum apoio com a operadora. Às vezes um contato nosso ajuda a destravar uma pendência.", "Tem alguma parada aguardando retorno?"],
+    ["Como está sua agenda de clientes para essa semana? Se tiver visita ou retorno marcado, me avisa antes, que deixo uma cotação pronta para você levar.", "Quem você vai atender?"],
+    ["Voltando a falar com você. Aqueles clientes que não fecharam por preço no passado merecem uma segunda tentativa.", "Lembra de algum para cotarmos de novo?"],
+    ["Que tal combinarmos uma meta para o mês? Duas ou três propostas já criam um bom ritmo, e eu te apoio em cada uma.", "Qual número faz sentido para você?"],
+    ["Quero que trabalhar com a W3G seja cada vez mais fácil para você.", "O que faria você enviar mais propostas com a gente: mais agilidade, material ou suporte na negociação?"],
+    ["Notei que depois da última proposta não cotamos mais nada juntos. Foi só o movimento que diminuiu ou aconteceu alguma coisa?", "Me conta como posso ajudar."],
+    ["Retomando nosso contato para saber como está sua operação. Quero garantir que você esteja aproveitando o suporte e as condições comerciais da W3G.", "Tem alguma oportunidade nova em andamento?"],
+    ["Pode me enviar os pedidos de cotação direto por aqui, do jeito que chegarem. Eu organizo e te devolvo. Quanto mais simples para você, melhor.", "Tem algum pedido na mesa hoje?"],
+    ["Quero te ver entre os parceiros que produzem todo mês com a gente. O passo é simples: uma proposta nova por semana.", "Qual seria a desta semana?"],
+    ["Não quero ser insistente, mas sei que você já tem o caminho pronto com a W3G. Basta um novo cliente para retomarmos o ritmo.", "Tem alguma cotação que eu possa fazer para você?"],
+    ["Esta é a minha última mensagem sobre novas propostas por enquanto, para não ocupar o seu tempo.", "Na próxima cotação que surgir, lembra de mim: faço questão de montar com você."],
+  ],
+  // etapa: engajado (corretor recorrente) → manter o ritmo, crescer e gerar indicações
+  engajado: [
+    ["Passando para agradecer pela parceria. É muito bom trabalhar com você, e quero continuar te apoiando em cada negócio.", "Tem alguma oportunidade nova em andamento?"],
+    ["Passando para saber como estão as vendas e se você tem alguma oportunidade nova em andamento. Conte com a W3G para te apoiar nas cotações, negociações e emissões.", "Tem algum caso para trabalharmos juntos?"],
+    ["O que você tem na mesa essa semana?", "Me conta as negociações em andamento que eu vejo onde posso ajudar a acelerar."],
+    ["Você já tem um ótimo ritmo com a gente, e fiquei pensando no que te ajudaria a dar o próximo passo.", "Se pudesse pedir uma coisa para vender mais, o que seria?"],
+    ["Quero reconhecer o seu trabalho: parceiro que produz com constância faz diferença para a W3G.", "O que eu posso fazer para facilitar ainda mais o seu dia a dia?"],
+    ["Posso te pedir uma ajuda? Você conhece algum colega corretor que combinaria com a nossa parceria? Uma indicação sua vale muito para mim.", "Lembra de alguém?"],
+    ["Queria deixar algumas cotações prontas antes de você precisar. Tem cliente com renovação ou reajuste chegando nos próximos meses?", "Me passa que eu adianto."],
+    ["Sua opinião conta muito: tem algo no nosso processo que poderia ser mais rápido ou mais simples para você?", "Pode ser sincero comigo."],
+    ["Quais clientes você quer fechar ainda este mês?", "Me passa a lista e pensamos juntos no que falta para cada um."],
+    ["Tem algum tipo de cliente para quem você ainda não oferece a W3G? Pode haver oportunidade aí, e eu te ajudo a explorar.", "Vamos olhar isso juntos?"],
+    ["Passando para alinhar a semana com você. Tem alguma cotação urgente ou algum cliente que precise de atenção especial?", "Me manda que eu priorizo."],
+    ["Lembrei de você hoje. Como estão as vendas e a sua carteira?", "Tem algum caso em que o nosso apoio com a operadora ajudaria?"],
+    ["Que tal quinze minutos para planejarmos o próximo mês juntos? Vemos metas, clientes em vista e onde a W3G pode te apoiar mais.", "Qual horário fica bom para você?"],
+    ["Como estão as vendas por aí? Se tiver alguma proposta aguardando retorno de cliente, me fala: às vezes um ajuste no argumento destrava.", "Tem alguma assim?"],
+    ["Qual é a sua meta para os próximos meses?", "Me conta que eu vejo como te apoiar para chegar lá."],
+    ["Quem trabalha bem costuma andar com gente que trabalha bem. Tem algum corretor do seu convívio que se daria bem com a W3G?", "Me apresenta que eu faço o primeiro contato."],
+    ["Retomando nosso contato para saber como está sua operação. Quero garantir que você siga aproveitando o suporte e as condições comerciais da W3G.", "Tem algo em que possamos ajudar?"],
+    ["Que tal revisarmos o que funcionou nos seus últimos negócios para repetir nos próximos?", "Posso te ligar essa semana?"],
+    ["Surgiu alguma oportunidade maior ou algum cliente diferente do habitual? Nesses casos vale me envolver desde o início, para negociarmos melhor com a operadora.", "Tem algo assim em vista?"],
+    ["Passando para saber se suas propostas em andamento precisam de algum apoio. Estou à disposição para o que for preciso com a operadora.", "Tem alguma pendência hoje?"],
+    ["Mais um ciclo de parceria, e quero que o próximo seja ainda melhor.", "O que você tem em vista para trabalharmos juntos nas próximas semanas?"],
+  ],
+};
+// liga a régua à jornada: cada contato de TEXTO da etapa recebe a sua mensagem, na ordem
+const REGUA_SAUDACOES = ["Oi, {nome}! Tudo bem?", "Olá, {nome}! Tudo bem?", "Oi, {nome}! Como você está?"];
+Object.keys(REGUA).forEach(function (etapa) {
+  let k = 0;
+  (JORNADAS[etapa] || []).forEach(function (passo) {
+    if ((passo.formato || 'texto') !== 'texto' || !REGUA[etapa][k]) return;
+    const tema = 'rg_' + etapa + '_' + (k + 1);
+    MSG[tema] = [REGUA_SAUDACOES[k % REGUA_SAUDACOES.length] + '\n\n' + REGUA[etapa][k].join('\n\n')];
+    TEMAS_DIRETOS.add(tema);   // já termina com o pedido de ação: sem fechamento extra e sem troca de segunda/sexta
+    passo.tema = tema; k++;
+  });
+});
+
+/* ============================================================
    MOTOR DA JORNADA
    ============================================================ */
 
@@ -2113,6 +2255,7 @@ function gerarContatoDia(c, dataRef) {
       if (msgBase) { t.tema = passo.tema; }
     }
   }
+  if (!msgBase && /^rg_/.test(t.tema) && MSG[t.tema]) msgBase = MSG[t.tema][0];
   if (!msgBase) { esgotou = true; }
 
   const nome = primeiroNome(c.name);
