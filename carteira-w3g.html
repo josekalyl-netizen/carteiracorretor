@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "74";
+  var VERSAO = "75";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -5164,7 +5164,8 @@ const Agenda = (function () {
       const comHora = !r.noDate && !it.allDay;
       it.start = (comHora ? new Date(p[0], p[1] - 1, p[2], ini.getHours(), ini.getMinutes()) : new Date(p[0], p[1] - 1, p[2])).toISOString();
       if (!comHora) { it.allDay = true; it.dur = null; }
-      it.autoToday = false; it.silent = true; it.pending = false; it.recurrence = null; it.deNota = nt.day; it.createdAt = nt.createdAt || Date.now();
+      it.autoToday = false; it.silent = true; it.pending = false; it.recurrence = null; it.deNota = nt.day; it.createdAt = nt.createdAt || Date.now(); if (nt.prio) it.urg = true;
+      it.title = cap(nt.text); // a anotação vira compromisso com o texto que ele escreveu, sem o interpretador cortar palavras
       S().items.push(it); virou++;
     });
     S().notes = ficam;
@@ -5172,19 +5173,21 @@ const Agenda = (function () {
     return virou;
   }
   function notasHTML() {
-    const hoje = diaLocal(), ns = notas().filter(n => n.day === hoje), feitas = ns.filter(n => n.done).length;
+    const hoje = diaLocal(), ns = notas().filter(n => n.day === hoje).map((n, i) => ({ n: n, i: i })).sort((a, b) => (b.n.prio ? 1 : 0) - (a.n.prio ? 1 : 0) || a.i - b.i).map(x => x.n), feitas = ns.filter(n => n.done).length;
+    const nPrio = ns.filter(n => n.prio && !n.done).length;
     let h = '<div class="card" style="margin-top:16px;"><div class="sect-title"><i class="ti ti-notes"></i>Anotações de hoje' +
-      (ns.length ? '<span class="hint" style="margin-left:auto;font-weight:600;">' + feitas + ' de ' + ns.length + ' feitas</span>' : '') + '</div>' +
+      (ns.length ? '<span class="hint" style="margin-left:auto;font-weight:600;">' + (nPrio ? nPrio + (nPrio > 1 ? ' prioridades' : ' prioridade') + ' · ' : '') + feitas + ' de ' + ns.length + ' feitas</span>' : '') + '</div>' +
       '<div style="display:flex;gap:8px;margin-bottom:10px;"><input type="text" id="ag-nota" enterkeyhint="done" placeholder="Ex.: ligar para o corretor X às 15h" style="flex:1;min-width:0;">' +
       '<button class="btn btn-sm btn-accent" data-ag="notaAdd"><i class="ti ti-plus"></i>Anotar</button></div>';
     if (!ns.length) h += '<p class="hint" style="margin:0 0 6px;">Nada anotado para hoje. Use para tarefas soltas do dia; compromisso com hora marcada continua indo no campo de cima.</p>';
     ns.forEach(n => {
-      h += '<div class="ag-row"' + (n.done ? ' style="opacity:.6;"' : '') + '>' +
+      h += '<div class="ag-row" style="' + (n.done ? 'opacity:.6;' : '') + (n.prio ? 'box-shadow:inset 3px 0 0 rgb(var(--c-accent));' : '') + '">' +
         '<button class="ag-check rem" data-ag="notaOk" data-id="' + n.id + '" aria-label="' + (n.done ? 'Desmarcar' : 'Marcar como feita') + '"' + (n.done ? ' style="background:rgb(var(--c-grow));border-color:rgb(var(--c-grow));color:#fff;"' : '') + '><i class="ti ti-check"></i></button>' +
-        '<span class="tt"' + (n.done ? ' style="text-decoration:line-through;"' : '') + '>' + esc(n.text) + '</span>' +
+        '<span class="tt" style="' + (n.done ? 'text-decoration:line-through;' : '') + (n.prio ? 'font-weight:700;' : '') + '">' + esc(n.text) + '</span>' +
+        '<button class="btn btn-ghost btn-icon btn-sm" data-ag="notaPrio" data-id="' + n.id + '" aria-label="' + (n.prio ? 'Tirar a prioridade' : 'Marcar como prioridade') + '" title="' + (n.prio ? 'Tirar a prioridade' : 'Marcar como prioridade') + '"' + (n.prio ? ' style="color:rgb(var(--c-accent));"' : '') + '><i class="ti ' + (n.prio ? 'ti-star-filled' : 'ti-star') + '"></i></button>' +
         '<button class="btn btn-ghost btn-icon btn-sm" data-ag="notaDel" data-id="' + n.id + '" aria-label="Apagar anotação" title="Apagar"><i class="ti ti-x"></i></button></div>';
     });
-    h += '<p class="hint" style="margin:6px 2px 0;line-height:1.5;">O que não for marcado até o fim do dia vira compromisso atrasado na agenda, com a data de hoje.</p></div>';
+    h += '<p class="hint" style="margin:6px 2px 0;line-height:1.5;">Toque na estrela para marcar uma anotação como prioridade: ela sobe para o topo. O que não for marcado como feito até o fim do dia vira compromisso atrasado na agenda, com a data de hoje.</p></div>';
     return h;
   }
   function notaAdd() {
@@ -5525,6 +5528,7 @@ const Agenda = (function () {
   /* ---------- cliques (um só ouvinte para a tela e para as janelas) ---------- */
   const ACOES = {
     notaAdd: () => notaAdd(),
+    notaPrio: id => { const n = notas().find(x => x.id === id); if (!n) return; n.prio = !n.prio; salvar(); build(); },
     notaOk: id => { const n = notas().find(x => x.id === id); if (!n) return; n.done = !n.done; n.doneAt = n.done ? Date.now() : null; salvar(); build(); },
     notaDel: id => { S().notes = notas().filter(x => x.id !== id); salvar(); build(); },
     sub: (id, v) => { sub = v; openId = null; build(); },
