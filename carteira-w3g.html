@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "81";
+  var VERSAO = "82";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     try {
@@ -5302,8 +5302,12 @@ const Agenda = (function () {
       (futura ? '<span class="t" style="min-width:0;font-size:16px;color:rgb(var(--c-muted));"><i class="ti ti-calendar-time"></i></span>'
         : '<button class="ag-check rem" data-ag="notaOk" data-id="' + n.id + '" aria-label="' + (n.done ? 'Desmarcar' : 'Marcar como feita') + '"' + (n.done ? ' style="background:rgb(var(--c-grow));border-color:rgb(var(--c-grow));color:#fff;"' : '') + '><i class="ti ti-check"></i></button>') +
       '<span class="tt" style="' + (n.done ? 'text-decoration:line-through;' : '') + (n.prio ? 'font-weight:700;' : '') + '">' + esc(n.text) +
-        (!futura && n.desde && n.desde < n.day ? ' <span class="ag-tag bad" title="Ficou por fazer">desde ' + n.desde.slice(8, 10) + '/' + n.desde.slice(5, 7) + '</span>' : '') + '</span>' +
+        (!futura && n.desde && n.desde < n.day ? ' <span class="ag-tag bad" title="Ficou por fazer">desde ' + n.desde.slice(8, 10) + '/' + n.desde.slice(5, 7) + '</span>' : '') +
+        (n.acomp && !n.done ? (futura ? ' <span class="ag-tag"><i class="ti ti-eye"></i>acompanhar todo dia</span>'
+          : n.verif === n.day ? ' <button class="ag-tag ok" data-ag="notaVerif" data-id="' + n.id + '" title="Tocar para desfazer"><i class="ti ti-eye-check"></i>verificada hoje</button>'
+          : ' <button class="ag-tag bad" style="white-space:normal;text-align:left;line-height:1.25;" data-ag="notaVerif" data-id="' + n.id + '" title="Tocar quando conferir hoje"><i class="ti ti-alert-triangle"></i>não verificada hoje' + (n.verif ? ' (última ' + n.verif.slice(8, 10) + '/' + n.verif.slice(5, 7) + ')' : '') + '</button>') : '') + '</span>' +
       '<button class="btn btn-ghost btn-icon btn-sm" data-ag="notaPrio" data-id="' + n.id + '" aria-label="' + (n.prio ? 'Tirar a prioridade' : 'Marcar como prioridade') + '" title="' + (n.prio ? 'Tirar a prioridade' : 'Marcar como prioridade') + '"' + (n.prio ? ' style="color:rgb(var(--c-accent));"' : '') + '><i class="ti ' + (n.prio ? 'ti-star-filled' : 'ti-star') + '"></i></button>' +
+      '<button class="btn btn-ghost btn-icon btn-sm" data-ag="notaAcomp" data-id="' + n.id + '" aria-label="' + (n.acomp ? 'Parar de acompanhar todo dia' : 'Acompanhar todo dia até concluir') + '" title="' + (n.acomp ? 'Parar de acompanhar todo dia' : 'Acompanhar todo dia até concluir') + '"' + (n.acomp ? ' style="color:rgb(var(--c-dados));"' : '') + '><i class="ti ' + (n.acomp ? 'ti-eye-filled' : 'ti-eye') + '"></i></button>' +
       '<button class="btn btn-ghost btn-icon btn-sm" data-ag="notaEditar" data-id="' + n.id + '" aria-label="Editar anotação" title="Editar"><i class="ti ti-pencil"></i></button>' +
       '<button class="btn btn-ghost btn-icon btn-sm" data-ag="notaDel" data-id="' + n.id + '" aria-label="Apagar anotação" title="Apagar"><i class="ti ti-x"></i></button></div>';
   }
@@ -5311,10 +5315,11 @@ const Agenda = (function () {
     const ordem = l => l.map((n, i) => ({ n: n, i: i })).sort((a, b) => (b.n.prio ? 1 : 0) - (a.n.prio ? 1 : 0) || a.i - b.i).map(x => x.n);
     const hoje = diaLocal(), prox = proxDiaNota(), ns = ordem(notas().filter(n => n.day === hoje)), feitas = ns.filter(n => n.done).length;
     const futuras = notas().filter(n => n.day > hoje).slice().sort((a, b) => a.day < b.day ? -1 : a.day > b.day ? 1 : 0);
+    const nVer = ns.filter(n => n.acomp && !n.done && n.verif !== hoje).length;
     const nPrio = ns.filter(n => n.prio && !n.done).length, paraProx = notaPara === 'prox', rotProx = rotuloDiaNota(prox);
     const seg = (v, txt) => '<button class="btn btn-sm ' + ((notaPara === v) ? 'btn-accent' : 'btn-ghost') + '" data-ag="notaPara" data-v="' + v + '" aria-pressed="' + (notaPara === v) + '">' + txt + '</button>';
     let h = '<div class="card" style="margin-top:16px;"><div class="sect-title"><i class="ti ti-notes"></i>Anotações de hoje' +
-      (ns.length ? '<span class="hint" style="margin-left:auto;font-weight:600;">' + (nPrio ? nPrio + (nPrio > 1 ? ' prioridades' : ' prioridade') + ' · ' : '') + feitas + ' de ' + ns.length + ' feitas</span>' : '') + '</div>' +
+      (ns.length ? '<span class="hint" style="margin-left:auto;font-weight:600;">' + (nVer ? '<span style="color:rgb(var(--c-alert));">' + nVer + ' sem verificar</span> · ' : '') + (nPrio ? nPrio + (nPrio > 1 ? ' prioridades' : ' prioridade') + ' · ' : '') + feitas + ' de ' + ns.length + ' feitas</span>' : '') + '</div>' +
       '<div style="display:flex;gap:8px;margin-bottom:8px;"><input type="text" id="ag-nota" enterkeyhint="done" placeholder="' + (paraProx ? 'Anotar para ' + rotProx + '…' : 'Ex.: ligar para o corretor X às 15h') + '" style="flex:1;min-width:0;">' +
       '<button class="btn btn-sm btn-accent" data-ag="notaAdd"><i class="ti ti-plus"></i>Anotar</button></div>' +
       '<div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;flex-wrap:wrap;"><span class="hint">Anotar para:</span>' + seg('hoje', 'Hoje') + seg('prox', rotProx.charAt(0).toUpperCase() + rotProx.slice(1)) + '</div>';
@@ -5329,7 +5334,7 @@ const Agenda = (function () {
       if (n.day !== diaAnt) { diaAnt = n.day; const q = futuras.filter(x => x.day === n.day).length; h += '<div class="hint" style="margin:14px 2px 6px;font-weight:700;"><i class="ti ti-calendar-time"></i> Programadas para ' + rotuloDiaNota(n.day) + ' (' + q + ')</div>'; }
       h += notaLinha(n, true);
     });
-    h += '<p class="hint" style="margin:8px 2px 0;line-height:1.5;">Toque no lápis para corrigir o texto e na estrela para marcar como prioridade (ela sobe para o topo). O que não for marcado como feito hoje continua aqui no dia seguinte.</p></div>';
+    h += '<p class="hint" style="margin:8px 2px 0;line-height:1.5;">Toque no lápis para corrigir o texto e na estrela para marcar como prioridade (ela sobe para o topo). O que não for marcado como feito hoje continua aqui no dia seguinte. O olho marca para acompanhar todo dia: a anotação fica até você concluir e, a cada dia, mostra "não verificada hoje" até você tocar nessa etiqueta.</p></div>';
     return h;
   }
   function notaSalvar(id) {
@@ -5682,6 +5687,8 @@ const Agenda = (function () {
   const ACOES = {
     notaAdd: () => notaAdd(),
     notaVerFeitas: () => { verNotasFeitas = !verNotasFeitas; build(); },
+    notaAcomp: id => { const n = notas().find(x => x.id === id); if (!n) return; n.acomp = !n.acomp; salvar(); build(); },
+    notaVerif: id => { const n = notas().find(x => x.id === id); if (!n) return; const h = diaLocal(); n.verif = n.verif === h ? (n.verifAnt || null) : (n.verifAnt = n.verif || null, h); salvar(); build(); },
     notaPrio: id => { const n = notas().find(x => x.id === id); if (!n) return; n.prio = !n.prio; salvar(); build(); },
     notaOk: id => { const n = notas().find(x => x.id === id); if (!n) return; n.done = !n.done; n.doneAt = n.done ? Date.now() : null; salvar(); build(); },
     notaDel: id => { S().notes = notas().filter(x => x.id !== id); if (notaEditando === id) notaEditando = null; salvar(); build(); },
