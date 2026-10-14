@@ -37,15 +37,21 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "82";
+  var VERSAO = "83";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
-    try {
-      fetch("versao.txt?" + Date.now(), { cache: "no-store" }).then(function (r) { return r.ok ? r.text() : ""; }).then(function (v) {
-        v = (v || "").trim();
-        if (/^\d+$/.test(v) && v !== VERSAO && location.search.indexOf("v=" + v) < 0) location.replace("carteira-w3g.html?v=" + v);
-      }).catch(function () {});
-    } catch (e) {}
+    function conferir() {
+      try {
+        fetch("versao.txt?" + Date.now(), { cache: "no-store" }).then(function (r) { return r.ok ? r.text() : ""; }).then(function (v) {
+          v = (v || "").trim();
+          if (/^\d+$/.test(v) && v !== VERSAO && location.search.indexOf("v=" + v) < 0) location.replace("carteira-w3g.html?v=" + v);
+        }).catch(function () {});
+      } catch (e) {}
+    }
+    conferir();
+    // no celular o app costuma só voltar do fundo, sem recarregar: confere de novo sempre que ele volta para a tela
+    document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") conferir(); });
+    window.addEventListener("pageshow", function (e) { if (e.persisted) conferir(); });
   })();
 </script>
 <style>
