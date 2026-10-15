@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "86";
+  var VERSAO = "87";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     function conferir() {
@@ -5940,24 +5940,34 @@ const Agenda = (function () {
 const SEAL_ETAPAS = [
   { k: 'produziram', nome: 'Já produziram', icon: 'ti-trophy', cor: '--c-grow' },
   { k: 'engajados', nome: 'Engajados', icon: 'ti-flame', cor: '--c-dados' },
-  { k: 'engajar', nome: 'Para engajar', icon: 'ti-target-arrow', cor: '--c-warn' },
+  { k: 'engajar', nome: 'Para engajar', icon: 'ti-target-arrow', cor: '--c-warn', auto: true },   // automático: já produziram e não estão em Engajados
   { k: 'angariar', nome: 'Para angariar', icon: 'ti-user-plus', cor: '--c-accent' },
 ];
+const sealNorm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
 function sealS() {
   if (!data.seal || typeof data.seal !== 'object') data.seal = { itens: [] };
   if (!Array.isArray(data.seal.itens)) data.seal.itens = [];
+  // "Para engajar" passou a ser automático: quem tinha sido posto ali à mão vai para "Já produziram"
+  data.seal.itens.forEach(x => { if (x.etapa === 'engajar') x.etapa = 'produziram'; });
   return data.seal;
+}
+function sealEngajado(nome) { const n = sealNorm(nome); return sealS().itens.some(x => x.etapa === 'engajados' && sealNorm(x.nome) === n); }
+function sealLista(k) {
+  const itens = sealS().itens;
+  const l = k === 'engajar' ? itens.filter(x => x.etapa === 'produziram' && !sealEngajado(x.nome)) : itens.filter(x => x.etapa === k);
+  return l.slice().sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
 }
 function buildSeal() {
   const v = document.getElementById('view'); if (!v) return;
-  const itens = sealS().itens, ler = modoVitrine;
+  const ler = modoVitrine;
   let h = '<div class="seal-grid" id="seal">';
   SEAL_ETAPAS.forEach(e => {
-    const lista = itens.filter(x => x.etapa === e.k).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
+    const lista = sealLista(e.k);
     h += '<section class="card seal-box" style="--sc:var(' + e.cor + ');" aria-label="' + e.nome + '">' +
       '<div class="seal-h"><i class="ti ' + e.icon + '"></i>' + e.nome + '<span class="n">' + lista.length + '</span></div>' +
-      (ler ? '' : '<form class="seal-add" data-etapa="' + e.k + '"><input type="text" placeholder="Nome" aria-label="Adicionar em ' + e.nome + '" enterkeyhint="done" autocomplete="off"><button class="btn btn-sm btn-accent" type="submit" aria-label="Adicionar"><i class="ti ti-plus"></i></button></form>') +
-      '<div class="seal-list">' + (lista.length ? lista.map(x => '<button class="seal-nome" type="button" data-seal="' + x.id + '">' + esc(x.nome) + '</button>').join('') : '<span class="seal-vazio">Ninguém ainda.</span>') + '</div>' +
+      (e.auto ? '<p class="hint" style="margin:0 0 8px;font-size:12px;line-height:1.3;">Automático: quem já produziu e não está em Engajados.</p>'
+        : ler ? '' : '<form class="seal-add" data-etapa="' + e.k + '"><input type="text" placeholder="Nome" aria-label="Adicionar em ' + e.nome + '" enterkeyhint="done" autocomplete="off"><button class="btn btn-sm btn-accent" type="submit" aria-label="Adicionar"><i class="ti ti-plus"></i></button></form>') +
+      '<div class="seal-list">' + (lista.length ? lista.map(x => '<button class="seal-nome" type="button" data-seal="' + x.id + '" data-box="' + e.k + '">' + esc(x.nome) + '</button>').join('') : '<span class="seal-vazio">' + (e.auto ? 'Todos que produziram estão engajados.' : 'Ninguém ainda.') + '</span>') + '</div>' +
       '</section>';
   });
   h += '</div>';
@@ -5966,19 +5976,19 @@ function buildSeal() {
   g.addEventListener('submit', ev => {
     ev.preventDefault();
     const f = ev.target.closest('form.seal-add'); if (!f || modoVitrine) return;
-    const inp = f.querySelector('input'), nome = inp.value.trim().replace(/\s+/g, ' ');
+    const inp = f.querySelector('input'), nome = inp.value.trim().replace(/\s+/g, ' '), etapa = f.getAttribute('data-etapa');
     if (!nome) { inp.focus(); return; }
-    sealS().itens.push({ id: 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), nome: nome, etapa: f.getAttribute('data-etapa'), criado: now() });
+    if (sealS().itens.some(x => x.etapa === etapa && sealNorm(x.nome) === sealNorm(nome))) { toast(nome + ' já está nesse quadro'); inp.select(); return; }
+    sealS().itens.push({ id: 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), nome: nome, etapa: etapa, criado: now() });
     saveData(); buildSeal();
-    const nv = document.querySelector('form.seal-add[data-etapa="' + f.getAttribute('data-etapa') + '"] input'); if (nv) nv.focus();
+    const nv = document.querySelector('form.seal-add[data-etapa="' + etapa + '"] input'); if (nv) nv.focus();
   });
   g.addEventListener('click', ev => {
     const b = ev.target.closest('[data-seal]'); if (!b || modoVitrine) return;
-    sealMenu(b.getAttribute('data-seal'));
+    sealMenu(b.getAttribute('data-seal'), b.getAttribute('data-box'));
   });
   sealAjustar();
 }
-// os quatro quadros ocupam exatamente o espaço que sobra na tela (sem rolar a página)
 function sealAjustar() {
   const g = document.getElementById('seal'); if (!g) return;
   window.scrollTo(0, 0);
@@ -6000,28 +6010,44 @@ function sealAjustar() {
   if (excesso > 0) { const esc = g.getBoundingClientRect().height / alt || 1; g.style.height = Math.max(260, Math.floor(alt - excesso / esc)) + 'px'; }
 }
 window.addEventListener('resize', () => { if (activeTab === 'seal') sealAjustar(); });
-function sealMenu(id) {
+function sealMenu(id, box) {
   const it = sealS().itens.find(x => x.id === id); if (!it) return;
   const atual = SEAL_ETAPAS.find(e => e.k === it.etapa) || SEAL_ETAPAS[0];
+  const podeEngajar = it.etapa === 'produziram' && !sealEngajado(it.nome);
   const ov = document.createElement('div');
   ov.className = 'overlay';
   ov.onclick = e => { if (e.target === ov) ov.remove(); };
+  const bt = (attr, e, txt) => '<button class="btn btn-sm" ' + attr + ' style="justify-content:flex-start;"><i class="ti ' + e.icon + '" style="color:rgb(var(' + e.cor + '));"></i>' + txt + '</button>';
+  const eng = SEAL_ETAPAS[1];
   ov.innerHTML = '<div class="modal" style="max-width:360px;"><div style="padding:1.4rem;">' +
     '<div class="sect-title" style="overflow-wrap:anywhere;"><i class="ti ti-user"></i>' + esc(it.nome) + '</div>' +
-    '<p class="hint" style="margin:0 0 .8rem;">Está em <b>' + atual.nome + '</b>. Mover para:</p>' +
+    '<p class="hint" style="margin:0 0 .8rem;">Está em <b>' + atual.nome + '</b>' + (podeEngajar ? ' (por isso aparece em Para engajar)' : '') + '.</p>' +
     '<div style="display:flex;flex-direction:column;gap:6px;">' +
-    SEAL_ETAPAS.filter(e => e.k !== it.etapa).map(e => '<button class="btn btn-sm" data-mv="' + e.k + '" style="justify-content:flex-start;"><i class="ti ' + e.icon + '" style="color:rgb(var(' + e.cor + '));"></i>' + e.nome + '</button>').join('') +
+    (podeEngajar ? bt('data-ac="engajar"', eng, 'Marcar como engajado <span class="hint" style="margin-left:4px;">(continua em Já produziram)</span>') : '') +
+    '<p class="hint" style="margin:6px 0 0;">Mover para:</p>' +
+    SEAL_ETAPAS.filter(e => !e.auto && e.k !== it.etapa).map(e => bt('data-mv="' + e.k + '"', e, e.nome)).join('') +
     '</div><div style="display:flex;gap:6px;margin-top:12px;">' +
     '<button class="btn btn-sm btn-ghost" data-ac="ren" style="flex:1;"><i class="ti ti-pencil"></i>Corrigir nome</button>' +
-    '<button class="btn btn-sm btn-ghost" data-ac="del" style="flex:1;color:rgb(var(--c-alert));"><i class="ti ti-trash"></i>Tirar</button></div>' +
+    '<button class="btn btn-sm btn-ghost" data-ac="del" style="flex:1;color:rgb(var(--c-alert));"><i class="ti ti-trash"></i>Tirar de ' + atual.nome + '</button></div>' +
     '<button class="btn btn-sm btn-ghost" data-ac="fechar" style="width:100%;margin-top:6px;">Fechar</button></div></div>';
   document.body.appendChild(ov);
   ov.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     const mv = b.getAttribute('data-mv'), ac = b.getAttribute('data-ac');
-    if (mv) { it.etapa = mv; saveData(); }
-    else if (ac === 'ren') { const n = prompt('Nome do corretor:', it.nome); if (n == null) return; if (!n.trim()) return; it.nome = n.trim().replace(/\s+/g, ' '); saveData(); }
-    else if (ac === 'del') { if (!confirm('Tirar ' + it.nome + ' do SEAL?')) return; sealS().itens = sealS().itens.filter(x => x.id !== id); saveData(); }
+    if (mv) {
+      // se o nome já existe no quadro de destino, só tira daqui
+      if (sealS().itens.some(x => x !== it && x.etapa === mv && sealNorm(x.nome) === sealNorm(it.nome))) sealS().itens = sealS().itens.filter(x => x !== it);
+      else it.etapa = mv;
+      saveData();
+    }
+    else if (ac === 'engajar') { sealS().itens.push({ id: 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), nome: it.nome, etapa: 'engajados', criado: now() }); saveData(); }
+    else if (ac === 'ren') {
+      const n = prompt('Nome do corretor:', it.nome); if (n == null || !n.trim()) return;
+      const velho = sealNorm(it.nome), novo = n.trim().replace(/\s+/g, ' ');
+      sealS().itens.forEach(x => { if (sealNorm(x.nome) === velho) x.nome = novo; });   // corrige em todos os quadros
+      saveData();
+    }
+    else if (ac === 'del') { if (!confirm('Tirar ' + it.nome + ' de ' + atual.nome + '?')) return; sealS().itens = sealS().itens.filter(x => x.id !== id); saveData(); }
     else if (ac !== 'fechar') return;
     ov.remove(); buildSeal();
   });
