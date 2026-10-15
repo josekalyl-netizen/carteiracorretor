@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "83";
+  var VERSAO = "84";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     function conferir() {
@@ -2425,9 +2425,11 @@ function flashSaved() {
 let avisouErroSalvar = false;
 let dirtySinceBackup = false;   // houve alteração desde o último backup baixado?
 function gravarLocal() {
+  if (modoVitrine) return true;
   try { localStorage.setItem(STORAGE, JSON.stringify(data)); return true; } catch(e) { return false; }
 }
 function saveData() {
+  if (modoVitrine) return;
   data.savedAt = now();
   dirtySinceBackup = true;
   if (gravarLocal()) {
@@ -2634,7 +2636,7 @@ function buildNav() {
   nav.innerHTML = '';
   buildSubnav();
   const noTrabalho = TRABALHO.indexOf(activeTab) >= 0;
-  [{ key: 'trabalho', nome: 'Trabalho', icon: 'ti-briefcase' }].concat(TABS.filter(t => TRABALHO.indexOf(t.key) < 0)).forEach(t => {
+  [{ key: 'trabalho', nome: 'Trabalho', icon: 'ti-briefcase' }].concat(TABS.filter(t => TRABALHO.indexOf(t.key) < 0 && !(modoVitrine && t.key === 'financas'))).forEach(t => {
     const b = document.createElement('button');
     b.className = 'nav-btn' + ((t.key === 'trabalho' ? noTrabalho : activeTab === t.key) ? ' active' : '');
     let extra = '';
@@ -3895,6 +3897,9 @@ const NUVEM_PEND = 'w3g_nuvem_pendente';   // há alteração local ainda não e
 const NUVEM_REV = 'w3g_nuvem_rev';         // versão da nuvem em que a cópia local se baseia
 let sb = null, nuvemUid = null, nuvemRev = null, nuvemTimer = null;
 let nuvemEnviando = false, nuvemPronta = false, nuvemFalhou = false, nuvemUltSnap = 0;
+// modo visualização: conta só de leitura (time de TI). Lê a "vitrine", uma cópia dos dados SEM as Finanças
+// que a conta do Kalyl publica. Nada é gravado, nem na nuvem nem neste aparelho.
+let modoVitrine = false, vitrineQuando = null, vitrineTimer = null, vitrineUlt = 0, vitrineSemTabela = false;
 
 function nuvemStatus(icon, txt, cor) {
   const el = document.getElementById('cloud-status');
@@ -3910,7 +3915,7 @@ function guardarCopiaLocal() { try { localStorage.setItem(STORAGE + '_antes_rest
 
 // chamado a cada salvamento: marca como pendente e envia com um pequeno atraso
 function nuvemAgendar() {
-  if (!nuvemLigada()) return;
+  if (!nuvemLigada() || modoVitrine) return;
   nuvemMarcarPendente(true);
   if (!nuvemPronta) return;   // ainda sem login/carga: envia quando conectar
   nuvemStatus('ti-cloud-up', 'Enviando…');
@@ -3939,6 +3944,7 @@ async function nuvemEnviar() {
       nuvemDefinirRev(res.data[0].rev);
       if (data.savedAt === enviadoEm) { nuvemMarcarPendente(false); nuvemStatus('ti-cloud-check', 'Nuvem em dia', '--c-grow'); }
       nuvemSnapshot();
+      vitrineAgendar();
     }
   } catch (e) {
     nuvemStatus('ti-cloud-off', 'Sem nuvem · salvo neste aparelho', '--c-warn');
@@ -4006,11 +4012,13 @@ async function nuvemCarregar() {
   }
   rolloverIfNeeded();
   render();
+  vitrineAgendar(true);
 }
 
 // se outro aparelho salvou, puxa a versão nova (ao voltar para a aba e também sozinho, a cada poucos segundos)
 let nuvemVerificando = false;
 async function nuvemVerificar() {
+  if (modoVitrine) return vitrineVerificar();
   if (!nuvemPronta || nuvemEnviando || nuvemPendente() || nuvemVerificando) return;
   nuvemVerificando = true;
   try {
@@ -4102,6 +4110,67 @@ async function nuvemVersoes() {
   });
 }
 
+/* ---------- vitrine (acesso de visualização, sem Finanças) ---------- */
+function vitrineCopia() {
+  const c = JSON.parse(JSON.stringify(data));
+  delete c.financas;          // as Finanças nunca vão para a vitrine
+  return c;
+}
+// dono: publica a cópia sem Finanças, no máximo uma vez por minuto
+function vitrineAgendar(agora) {
+  if (modoVitrine || vitrineSemTabela || !sb || !nuvemUid || !nuvemPronta) return;
+  clearTimeout(vitrineTimer);
+  const espera = agora ? 3000 : Math.max(5000, 60000 - (Date.now() - vitrineUlt));
+  vitrineTimer = setTimeout(vitrinePublicar, espera);
+}
+async function vitrinePublicar() {
+  if (modoVitrine || vitrineSemTabela || !sb || !nuvemUid) return;
+  vitrineUlt = Date.now();
+  try {
+    const r = await sb.from('carteira_vitrine').upsert({ dono: nuvemUid, data: vitrineCopia(), updated_at: new Date().toISOString() }, { onConflict: 'dono' });
+    if (r.error && (r.error.code === '42P01' || r.error.code === 'PGRST205' || /does not exist|schema cache/i.test(r.error.message || ''))) vitrineSemTabela = true;   // ainda não foi criada no Supabase
+  } catch (e) {}
+}
+// ao entrar: se esta conta é de visualização, abre a vitrine; senão segue o normal
+async function nuvemEntrar() {
+  let v = null;
+  try { v = await sb.from('carteira_vitrine').select('data,updated_at').neq('dono', nuvemUid).limit(1).maybeSingle(); } catch (e) { v = null; }
+  if (!v || v.error || !v.data) { nuvemCarregar(); return; }
+  modoVitrine = true;
+  clearTimeout(nuvemTimer);
+  document.body.classList.add('modo-vitrine');
+  vitrineAdotar(v.data);
+}
+function vitrineAdotar(row) {
+  const d = row.data || {};
+  vitrineQuando = row.updated_at;
+  if (!Array.isArray(d.corretores)) {
+    nuvemStatus('ti-eye', 'Visualização · aguardando os dados', '--c-warn');
+    document.getElementById('view').innerHTML = '<div class="card"><div class="sect-title"><i class="ti ti-eye"></i>Acesso de visualização</div><p class="hint" style="margin:0;">Os dados ainda não foram publicados para este acesso. Eles aparecem assim que a conta principal abrir o sistema.</p></div>';
+    return;
+  }
+  data = migrateLegacy(d);
+  delete data.financas;
+  if (activeTab === 'financas') activeTab = 'dashboard';
+  nuvemStatus('ti-eye', 'Somente visualização · sem Finanças', '--c-dados');
+  render();
+}
+let vitrineVerificando = false;
+async function vitrineVerificar() {
+  if (vitrineVerificando || !sb) return;
+  vitrineVerificando = true;
+  try {
+    const r = await sb.from('carteira_vitrine').select('updated_at').neq('dono', nuvemUid).limit(1).maybeSingle();
+    if (r.error || !r.data || r.data.updated_at === vitrineQuando || !nuvemOcioso()) return;
+    const f = await sb.from('carteira_vitrine').select('data,updated_at').neq('dono', nuvemUid).limit(1).maybeSingle();
+    if (f.error || !f.data) return;
+    const rolagem = window.scrollY;
+    vitrineAdotar(f.data);
+    window.scrollTo(0, rolagem);
+  } catch (e) {}
+  finally { vitrineVerificando = false; }
+}
+
 function nuvemTelaLogin() {
   document.body.classList.add('bloqueado');
   const overlay = document.createElement('div');
@@ -4132,7 +4201,7 @@ function nuvemTelaLogin() {
     nuvemUid = r.data.user.id;
     overlay.remove();
     document.body.classList.remove('bloqueado');
-    nuvemCarregar();
+    nuvemEntrar();
   };
 }
 
@@ -4162,7 +4231,7 @@ async function nuvemIniciar() {
     });
     sb = window.supabase.createClient(NUVEM.url, NUVEM.key);
     const s = await sb.auth.getSession();
-    if (s.data && s.data.session) { nuvemUid = s.data.session.user.id; nuvemCarregar(); }
+    if (s.data && s.data.session) { nuvemUid = s.data.session.user.id; nuvemEntrar(); }
     else nuvemTelaLogin();
   } catch (e) {
     // sem internet na abertura: trabalha com a cópia local e avisa
@@ -5831,7 +5900,7 @@ function render() {
     else if (activeTab === 'lista') buildLista();
     else if (activeTab === 'relatorio') buildRelatorio();
     else if (activeTab === 'agenda') Agenda.build();
-    else if (activeTab === 'financas') { if (window.Financas) Financas.build(); }
+    else if (activeTab === 'financas') { if (modoVitrine) { activeTab = 'dashboard'; buildNav(); buildDashboard(); } else if (window.Financas) Financas.build(); }
     else if (activeTab === 'lixeira') buildLixeira();
   } catch (e) {
     // nunca deixar a tela em branco: mostra o erro e mantém o backup ao alcance
