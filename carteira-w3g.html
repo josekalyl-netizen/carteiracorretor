@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "85";
+  var VERSAO = "86";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     function conferir() {
@@ -793,6 +793,31 @@ button.ag-row:hover{background:rgb(var(--c-paper))}
   .subnav button i{font-size:16px}
 }
 @media print{.nav,.subnav,#ceu,#ag-toast{display:none}.wrap{padding:0}}
+/* SEAL: quatro quadros numa tela só, só nomes */
+body.aba-seal #view + p.hint{display:none}
+body.aba-seal .wrap{padding-bottom:0}
+.seal-grid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:14px;height:520px;min-height:0}
+.seal-box{display:flex;flex-direction:column;min-width:0;min-height:0;padding:14px 14px 12px;margin:0;border-top:4px solid rgb(var(--sc))}
+.seal-h{display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px;margin:0 0 10px;color:rgb(var(--c-ink))}
+.seal-h i{color:rgb(var(--sc));font-size:19px}
+.seal-h .n{margin-left:auto;font-size:13px;font-weight:700;color:rgb(var(--c-muted))}
+.seal-add{display:flex;gap:6px;margin:0 0 10px}
+.seal-add input{flex:1;min-width:0;padding:8px 10px}
+.seal-list{flex:1;min-height:0;overflow:auto;display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start}
+.seal-nome{border:0;border-radius:999px;padding:6px 12px;background:rgb(var(--sc) / .15);color:rgb(var(--c-ink));font:600 14px/1.25 var(--ativa-font-body,inherit);cursor:pointer;text-align:left;max-width:100%;overflow-wrap:anywhere}
+.seal-nome:hover{background:rgb(var(--sc) / .26)}
+body.modo-vitrine .seal-nome{cursor:default}
+.seal-vazio{font-size:13px;color:rgb(var(--c-muted))}
+@media (max-width:640px){
+  .seal-grid{gap:8px}
+  .seal-box{padding:10px 9px 9px}
+  .seal-h{font-size:13.5px;gap:5px;margin-bottom:7px}
+  .seal-h i{font-size:16px}
+  .seal-add{margin-bottom:7px;gap:4px}
+  .seal-add input{padding:6px 8px;font-size:16px}
+  .seal-add .btn{padding:6px 8px}
+  .seal-nome{font-size:12.5px;padding:5px 9px}
+}
 .eco-login{display:flex;flex-direction:column;align-items:center;gap:6px;margin:0 0 14px;color:rgb(var(--c-primary))}.eco-login img{border-radius:22%;box-shadow:0 14px 30px -14px rgba(0,40,90,.55);margin-bottom:8px}.eco-login b{font:600 30px/1 var(--ativa-font-display);letter-spacing:-0.02em}
 </style>
 </head>
@@ -2601,6 +2626,7 @@ const TABS = [
   { key: 'followup',  nome: 'Follow-up', icon: 'ti-checkbox' },
   { key: 'lista',     nome: 'Carteira',  icon: 'ti-users' },
   { key: 'agenda',    nome: 'Agenda',    icon: 'ti-calendar-event' },
+  { key: 'seal',      nome: 'SEAL',      icon: 'ti-layout-grid' },
   { key: 'financas',  nome: 'Finanças',  icon: 'ti-wallet' },
   { key: 'relatorio', nome: 'Relatório', icon: 'ti-file-text' },
   { key: 'lixeira',   nome: 'Lixeira',   icon: 'ti-trash' }
@@ -3842,7 +3868,7 @@ function exportBackup() {
 // Agenda e Finanças entraram depois: um backup antigo não as tem.
 // Ao restaurar um arquivo sem elas, mantém o que existe hoje em vez de apagar.
 function preservarModulos(novo, antigo) {
-  ['agenda', 'financas', 'conexoes'].forEach(k => { if (novo && antigo && novo[k] == null && antigo[k] != null) novo[k] = antigo[k]; });
+  ['agenda', 'financas', 'conexoes', 'seal'].forEach(k => { if (novo && antigo && novo[k] == null && antigo[k] != null) novo[k] = antigo[k]; });
   return novo;
 }
 // confere se o arquivo é mesmo um backup da carteira antes de aceitar
@@ -5906,14 +5932,111 @@ const Agenda = (function () {
 /* ============================================================
    RENDER + INIT
    ============================================================ */
+/* ============================================================
+   SEAL — quatro quadros só com nomes de corretores. É uma lista à parte:
+   não usa a carteira, ele preenche do zero. Fica em data.seal (vai para a
+   nuvem e aparece no acesso de visualização, sem poder mexer).
+   ============================================================ */
+const SEAL_ETAPAS = [
+  { k: 'produziram', nome: 'Já produziram', icon: 'ti-trophy', cor: '--c-grow' },
+  { k: 'engajados', nome: 'Engajados', icon: 'ti-flame', cor: '--c-dados' },
+  { k: 'engajar', nome: 'Para engajar', icon: 'ti-target-arrow', cor: '--c-warn' },
+  { k: 'angariar', nome: 'Para angariar', icon: 'ti-user-plus', cor: '--c-accent' },
+];
+function sealS() {
+  if (!data.seal || typeof data.seal !== 'object') data.seal = { itens: [] };
+  if (!Array.isArray(data.seal.itens)) data.seal.itens = [];
+  return data.seal;
+}
+function buildSeal() {
+  const v = document.getElementById('view'); if (!v) return;
+  const itens = sealS().itens, ler = modoVitrine;
+  let h = '<div class="seal-grid" id="seal">';
+  SEAL_ETAPAS.forEach(e => {
+    const lista = itens.filter(x => x.etapa === e.k).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
+    h += '<section class="card seal-box" style="--sc:var(' + e.cor + ');" aria-label="' + e.nome + '">' +
+      '<div class="seal-h"><i class="ti ' + e.icon + '"></i>' + e.nome + '<span class="n">' + lista.length + '</span></div>' +
+      (ler ? '' : '<form class="seal-add" data-etapa="' + e.k + '"><input type="text" placeholder="Nome" aria-label="Adicionar em ' + e.nome + '" enterkeyhint="done" autocomplete="off"><button class="btn btn-sm btn-accent" type="submit" aria-label="Adicionar"><i class="ti ti-plus"></i></button></form>') +
+      '<div class="seal-list">' + (lista.length ? lista.map(x => '<button class="seal-nome" type="button" data-seal="' + x.id + '">' + esc(x.nome) + '</button>').join('') : '<span class="seal-vazio">Ninguém ainda.</span>') + '</div>' +
+      '</section>';
+  });
+  h += '</div>';
+  v.innerHTML = h;
+  const g = document.getElementById('seal');
+  g.addEventListener('submit', ev => {
+    ev.preventDefault();
+    const f = ev.target.closest('form.seal-add'); if (!f || modoVitrine) return;
+    const inp = f.querySelector('input'), nome = inp.value.trim().replace(/\s+/g, ' ');
+    if (!nome) { inp.focus(); return; }
+    sealS().itens.push({ id: 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), nome: nome, etapa: f.getAttribute('data-etapa'), criado: now() });
+    saveData(); buildSeal();
+    const nv = document.querySelector('form.seal-add[data-etapa="' + f.getAttribute('data-etapa') + '"] input'); if (nv) nv.focus();
+  });
+  g.addEventListener('click', ev => {
+    const b = ev.target.closest('[data-seal]'); if (!b || modoVitrine) return;
+    sealMenu(b.getAttribute('data-seal'));
+  });
+  sealAjustar();
+}
+// os quatro quadros ocupam exatamente o espaço que sobra na tela (sem rolar a página)
+function sealAjustar() {
+  const g = document.getElementById('seal'); if (!g) return;
+  window.scrollTo(0, 0);
+  // no celular a barra de menu fica embaixo, por cima da página: os quadros param logo acima dela
+  let baixo = 12;
+  const nav = document.getElementById('nav');
+  if (nav) { const r = nav.getBoundingClientRect(); if (r.top > window.innerHeight / 2 && r.width > r.height) baixo = window.innerHeight - r.top + 10; }
+  const alvo = window.innerHeight - baixo;   // onde os quadros devem terminar (em pixels da tela)
+  // em tela estreita o app encolhe tudo (--escala): mede de verdade e corrige em duas passadas
+  let alt = 400;
+  for (let i = 0; i < 2; i++) {
+    g.style.height = alt + 'px';
+    const r = g.getBoundingClientRect(), esc = r.height / alt || 1;
+    alt = Math.max(260, Math.floor(alt + (alvo - r.bottom) / esc));
+  }
+  g.style.height = alt + 'px';
+  // se ainda sobrar rolagem, encolhe o que faltar
+  const excesso = document.documentElement.scrollHeight - window.innerHeight;
+  if (excesso > 0) { const esc = g.getBoundingClientRect().height / alt || 1; g.style.height = Math.max(260, Math.floor(alt - excesso / esc)) + 'px'; }
+}
+window.addEventListener('resize', () => { if (activeTab === 'seal') sealAjustar(); });
+function sealMenu(id) {
+  const it = sealS().itens.find(x => x.id === id); if (!it) return;
+  const atual = SEAL_ETAPAS.find(e => e.k === it.etapa) || SEAL_ETAPAS[0];
+  const ov = document.createElement('div');
+  ov.className = 'overlay';
+  ov.onclick = e => { if (e.target === ov) ov.remove(); };
+  ov.innerHTML = '<div class="modal" style="max-width:360px;"><div style="padding:1.4rem;">' +
+    '<div class="sect-title" style="overflow-wrap:anywhere;"><i class="ti ti-user"></i>' + esc(it.nome) + '</div>' +
+    '<p class="hint" style="margin:0 0 .8rem;">Está em <b>' + atual.nome + '</b>. Mover para:</p>' +
+    '<div style="display:flex;flex-direction:column;gap:6px;">' +
+    SEAL_ETAPAS.filter(e => e.k !== it.etapa).map(e => '<button class="btn btn-sm" data-mv="' + e.k + '" style="justify-content:flex-start;"><i class="ti ' + e.icon + '" style="color:rgb(var(' + e.cor + '));"></i>' + e.nome + '</button>').join('') +
+    '</div><div style="display:flex;gap:6px;margin-top:12px;">' +
+    '<button class="btn btn-sm btn-ghost" data-ac="ren" style="flex:1;"><i class="ti ti-pencil"></i>Corrigir nome</button>' +
+    '<button class="btn btn-sm btn-ghost" data-ac="del" style="flex:1;color:rgb(var(--c-alert));"><i class="ti ti-trash"></i>Tirar</button></div>' +
+    '<button class="btn btn-sm btn-ghost" data-ac="fechar" style="width:100%;margin-top:6px;">Fechar</button></div></div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const mv = b.getAttribute('data-mv'), ac = b.getAttribute('data-ac');
+    if (mv) { it.etapa = mv; saveData(); }
+    else if (ac === 'ren') { const n = prompt('Nome do corretor:', it.nome); if (n == null) return; if (!n.trim()) return; it.nome = n.trim().replace(/\s+/g, ' '); saveData(); }
+    else if (ac === 'del') { if (!confirm('Tirar ' + it.nome + ' do SEAL?')) return; sealS().itens = sealS().itens.filter(x => x.id !== id); saveData(); }
+    else if (ac !== 'fechar') return;
+    ov.remove(); buildSeal();
+  });
+}
+
 function render() {
   try {
+    document.body.classList.toggle('aba-seal', activeTab === 'seal');
     buildNav();
     if (activeTab === 'dashboard') buildDashboard();
     else if (activeTab === 'followup') buildFollowup();
     else if (activeTab === 'lista') buildLista();
     else if (activeTab === 'relatorio') buildRelatorio();
     else if (activeTab === 'agenda') Agenda.build();
+    else if (activeTab === 'seal') buildSeal();
     else if (activeTab === 'financas') { if (modoVitrine) { activeTab = 'dashboard'; buildNav(); buildDashboard(); } else if (window.Financas) Financas.build(); }
     else if (activeTab === 'lixeira') buildLixeira();
   } catch (e) {
