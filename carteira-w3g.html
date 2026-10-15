@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "84";
+  var VERSAO = "85";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     function conferir() {
@@ -3895,6 +3895,8 @@ const NUVEM = {
 const nuvemLigada = () => !!(NUVEM.url && NUVEM.key);
 const NUVEM_PEND = 'w3g_nuvem_pendente';   // há alteração local ainda não enviada
 const NUVEM_REV = 'w3g_nuvem_rev';         // versão da nuvem em que a cópia local se baseia
+const NUVEM_DONO = 'w3g_nuvem_dono';       // conta dona da cópia guardada neste aparelho
+function nuvemMarcarDono() { try { if (nuvemUid && !modoVitrine) localStorage.setItem(NUVEM_DONO, nuvemUid); } catch(e) {} }
 let sb = null, nuvemUid = null, nuvemRev = null, nuvemTimer = null;
 let nuvemEnviando = false, nuvemPronta = false, nuvemFalhou = false, nuvemUltSnap = 0;
 // modo visualização: conta só de leitura (time de TI). Lê a "vitrine", uma cópia dos dados SEM as Finanças
@@ -3942,6 +3944,7 @@ async function nuvemEnviar() {
     if (!res.data || !res.data.length) conflito = true;
     if (!conflito) {
       nuvemDefinirRev(res.data[0].rev);
+      nuvemMarcarDono();
       if (data.savedAt === enviadoEm) { nuvemMarcarPendente(false); nuvemStatus('ti-cloud-check', 'Nuvem em dia', '--c-grow'); }
       nuvemSnapshot();
       vitrineAgendar();
@@ -3977,6 +3980,7 @@ function nuvemAdotar(row) {
   guardarCopiaLocal();
   data = migrateLegacy(row.data);
   nuvemDefinirRev(row.rev);
+  nuvemMarcarDono();
   gravarLocal();
   nuvemMarcarPendente(false);
   nuvemStatus('ti-cloud-check', 'Nuvem em dia', '--c-grow');
@@ -4002,8 +4006,12 @@ async function nuvemCarregar() {
   if (!r.data) {
     // primeira vez: a nuvem está vazia
     nuvemRev = null;
-    if (temLocal) nuvemAgendar();
-    else { nuvemMarcarPendente(false); nuvemStatus('ti-cloud', 'Nuvem vazia · restaure seu backup', '--c-warn'); }
+    let dono = null; try { dono = localStorage.getItem(NUVEM_DONO); } catch(e) {}
+    if (temLocal && dono === nuvemUid) nuvemAgendar();
+    else {
+      if (temLocal) { guardarCopiaLocal(); data = { corretores: [], today: todayStr(), nextId: 0, history: [] }; }
+      nuvemMarcarPendente(false); nuvemStatus('ti-cloud', 'Nuvem vazia nesta conta', '--c-warn');
+    }
   } else if (nuvemPendente() && temLocal) {
     if (nuvemRevLocal() === r.data.rev) { nuvemRev = r.data.rev; nuvemAgendar(); }   // só este aparelho mexeu
     else await nuvemConflito(r.data);
@@ -4133,6 +4141,12 @@ async function vitrinePublicar() {
 }
 // ao entrar: se esta conta é de visualização, abre a vitrine; senão segue o normal
 async function nuvemEntrar() {
+  let donoLocal = null; try { donoLocal = localStorage.getItem(NUVEM_DONO); } catch(e) {}
+  if (donoLocal && donoLocal !== nuvemUid) {
+    guardarCopiaLocal();
+    data = { corretores: [], today: todayStr(), nextId: 0, history: [] };
+    try { [NUVEM_PEND, NUVEM_REV].forEach(k => localStorage.removeItem(k)); } catch(e) {}
+  }
   let v = null;
   try { v = await sb.from('carteira_vitrine').select('data,updated_at').neq('dono', nuvemUid).limit(1).maybeSingle(); } catch (e) { v = null; }
   if (!v || v.error || !v.data) { nuvemCarregar(); return; }
@@ -4210,7 +4224,7 @@ async function nuvemSair() {
   const aviso = nuvemPendente() ? 'ATENÇÃO: há alterações que ainda NÃO foram enviadas para a nuvem e serão perdidas.\n\n' : '';
   if (!confirm(aviso + 'Sair da conta neste aparelho? A cópia local da carteira será apagada daqui (ela continua na nuvem).')) return;
   try { await sb.auth.signOut(); } catch (e) {}
-  try { [STORAGE, STORAGE + '_mirror', STORAGE + '_antes_restaurar', STORAGE + '_fin_antes_importar', NUVEM_PEND, NUVEM_REV].forEach(k => localStorage.removeItem(k)); } catch (e) {}
+  try { [STORAGE, STORAGE + '_mirror', STORAGE + '_antes_restaurar', STORAGE + '_fin_antes_importar', NUVEM_PEND, NUVEM_REV, NUVEM_DONO].forEach(k => localStorage.removeItem(k)); } catch (e) {}
   dirtySinceBackup = false;
   data = { corretores: [], today: todayStr(), nextId: 0, history: [] };   // evita regravar ao fechar
   location.reload();
