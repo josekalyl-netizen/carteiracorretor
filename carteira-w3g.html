@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "90";
+  var VERSAO = "91";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     function conferir() {
@@ -7485,8 +7485,8 @@ function custoFixoDoDia(d, semPendencias){
   (state.custoFixoExtra||[]).forEach(ex=>{
     if((state.custoFixoRemovidosIds||[]).includes(ex.id)) return;
     let ehHoje;
-    if(ex.diaMes==='ultimo-util'){
-      ehHoje = (iso===isoOf(ultimoDiaUtilMes(y,m)));
+    if(ex.diaMes==='ultimo-util' || ex.quiSex){
+      ehHoje = ex.quiSex ? quiSexDatas(ex).has(iso) : (iso===isoOf(ultimoDiaUtilMes(y,m)));
     } else if(ex.ajusteDiaUtil){
       const dataNatural = new Date(y, m-1, Math.min(ex.diaMes, ultimoDiaMes(y,m).getDate())); // mes mais curto: usa o ultimo dia
       ehHoje = (dataNatural.getMonth()===m-1) && (iso===isoOf(ajustarParaDiaUtilAnterior(dataNatural))); // getMonth confere que o dia existe nesse mes (ex: dia 31 em fev)
@@ -9446,7 +9446,8 @@ function renderCustoFixo(){
   }).join('');
   html += `<div class="cf-row"><div><div class="n">${R.c45}</div><div class="w">${cf[K.c45].quando}</div></div><div class="v" style="color:var(--ink-2)">-${fmtBR(cfv(K.c45,cf[K.c45].valor)).replace('R$ ','')}</div><span class="chip-edit" data-act="chipEditarFixoGeral" data-nome="${R.c45}">&#9998;</span></div>`;
   state.custoFixoExtra.forEach(ex=>{
-    html += `<div class="cf-row"><div><div class="n">${escapeHTML(ex.titulo)} (seu)</div><div class="w">${ex.diaMes==='ultimo-util'?'todo último dia útil do mês':('todo dia '+ex.diaMes+' do mês'+(ex.ajusteDiaUtil?' (ou dia útil anterior, se cair no fim de semana)':''))}</div></div>
+    html += `<div class="cf-row"><div><div class="n">${escapeHTML(ex.titulo)} (seu)</div><div class="w">${ex.quiSex?'todo mês na terça ou quinta mais perto do dia '+ex.diaMes:ex.diaMes==='ultimo-util'?'todo último dia útil do mês':
+('todo dia '+ex.diaMes+' do mês'+(ex.ajusteDiaUtil?' (ou dia útil anterior, se cair no fim de semana)':''))}</div></div>
       <div class="v" style="color:${ex.tipoMov==='entrada'?'var(--olive)':'var(--ink-2)'}">${ex.tipoMov==='entrada'?'+':'-'}${fmtBR(ex.valor).replace('R$ ','')}</div>
       <span class="chip-edit" data-act="chipEditarFixoExtra" data-id="${ex.id}">&#9998;</span>
     </div>`;
@@ -9748,8 +9749,29 @@ function r2(v){ return Math.round(v*100)/100; }
 /* ---------- CUSTO FIXO EXTRA: de quando ele comeca a valer ----------
    "Ultimo dia util" (ou "dia util anterior") com a data escolhida num fim de semana: a ocorrencia daquele mes cai
    ANTES da data escolhida e era pulada. Aqui o comeco recua pro dia util em que ela de fato cai. */
+/* ---------- CUSTO FIXO "TERCA OU QUINTA MAIS PERTO DO DIA X" (pedido dele em 21/11/2026) ----------
+   Cai uma vez por mes, na terca ou quinta mais perto do dia escolhido. Empate (ex.: dia escolhido numa quarta):
+   fica com a que nao passa de 30 dias desde a anterior; se as duas servem, a mais cedo. */
+let quiSexMemo = {};
+function quiSexDatas(ex){
+  const k = ex.inicio+'|'+ex.diaMes;
+  if(quiSexMemo[k]) return quiSexMemo[k];
+  const alvo = Math.max(1, Math.min(31, parseInt(ex.diaMes,10)||15)), ini = parseISO(ex.inicio), out = [];
+  const cands = (y,m) => { const r = [], ult = new Date(y, m+1, 0).getDate(); for(let d=1; d<=ult; d++){ const dt = new Date(y, m, d); if(dt.getDay()===2 || dt.getDay()===4) r.push(dt); } return r; };
+  const gap = (dt, ant) => ant ? Math.round((dt-ant)/86400000) : 0;
+  const perto = (lista, ant) => lista.slice().sort((a,b)=> Math.abs(a.getDate()-alvo)-Math.abs(b.getDate()-alvo) || ((gap(a,ant)>30)-(gap(b,ant)>30)) || a-b)[0];
+  let y = ini.getFullYear(), m = ini.getMonth(), ant = null;
+  for(let i=0; i<240; i++){
+    const c = cands(y, m);
+    const esc = perto(c, ant);
+    out.push(isoOf(esc)); ant = esc;
+    m++; if(m>11){ m = 0; y++; }
+  }
+  return (quiSexMemo[k] = new Set(out));
+}
 function inicioFixoExtra(ex){
   const ini = parseISO(ex.inicio);
+  if(ex.quiSex){ const p = parseISO(quiSexDatas(ex).values().next().value); return p<ini ? p : ini; }
   if(ex.diaMes==='ultimo-util'){
     const u = ultimoDiaUtilMes(ini.getFullYear(), ini.getMonth()+1);
     return ini>u ? u : ini;
@@ -11455,9 +11477,10 @@ function abrirEdicaoFixoExtra(id, dataISO){
       </div>`
     : `<div class="field"><label>Quando</label>
         <select id="edTipoDiaMes">
-          <option value="fixo" ${(!ehUltimoDiaUtil && !ehFixoComAjuste)?'selected':''}>Dia fixo do mês</option>
+          <option value="fixo" ${(!ehUltimoDiaUtil && !ehFixoComAjuste && !ex.quiSex)?'selected':''}>Dia fixo do mês</option>
           <option value="fixo-ajuste" ${ehFixoComAjuste?'selected':''}>Dia fixo — se cair no fim de semana, paga no dia útil anterior</option>
           <option value="ultimo-util" ${ehUltimoDiaUtil?'selected':''}>Último dia útil do mês</option>
+          <option value="quinta-sexta" ${(!ehSemanal && ex.quiSex)?'selected':''}>Terça ou quinta mais perto do dia</option>
         </select>
         <input id="edDiaFixo" type="number" min="1" max="31" value="${ehUltimoDiaUtil?'':ex.diaMes}" style="margin-top:6px" ${ehUltimoDiaUtil?'disabled':''}>
       </div>`;
@@ -11498,6 +11521,7 @@ function abrirEdicaoFixoExtra(id, dataISO){
     if(ehSemanal){ ex.diaSemana = parseInt(document.getElementById('edDiaFixo').value,10); }
     else {
       const tipoDiaMes = document.getElementById('edTipoDiaMes').value;
+      ex.quiSex = (tipoDiaMes==='quinta-sexta');
       if(tipoDiaMes==='ultimo-util'){ ex.diaMes = 'ultimo-util'; ex.ajusteDiaUtil = false; }
       else {
         ex.diaMes = Math.min(31,Math.max(1,parseInt(document.getElementById('edDiaFixo').value,10)||1));
@@ -11553,7 +11577,7 @@ function updateDate(){
       aberto: function () { return overlay.classList.contains('show'); },
       estado: function () { return state; },
       raiz: RAIZ,
-      F: {load: load, METAS_PADRAO: METAS_PADRAO, save: save, garantirSeeds: garantirSeeds, fmtBR: fmtBR, parseISO: parseISO, isoOf: isoOf, addMonths: addMonths, fmtDataCurta: fmtDataCurta, fmtDataComAno: fmtDataComAno, mesLabel: mesLabel, ultimoDiaMes: ultimoDiaMes, ultimoDiaUtilMes: ultimoDiaUtilMes, ajustarParaDiaUtilAnterior: ajustarParaDiaUtilAnterior, sextoDiaUtil: sextoDiaUtil, proximoPagamento: proximoPagamento, primeiroSabado: primeiroSabado, diasEntre: diasEntre, todayISO: todayISO, inicioLedger: inicioLedger, cfv: cfv, cfvData: cfvData, custoFixoDoDia: custoFixoDoDia, construirLedger: construirLedger, todasOcorrenciasFuturas: todasOcorrenciasFuturas, construirCaixaDiarioCompleto: construirCaixaDiarioCompleto, melhorDataParaValor: melhorDataParaValor, sugerirAntecipacao: sugerirAntecipacao, sugerirMelhorDataBidirecional: sugerirMelhorDataBidirecional, aplicarNovaDataCompromisso: aplicarNovaDataCompromisso, abrirMoverData: abrirMoverData, custoFixoMensalMedio: custoFixoMensalMedio, colchaoAlvo: colchaoAlvo, rendaMensal: rendaMensal, aindaTemPendencias: aindaTemPendencias, distribuir203050: distribuir203050, aplicarNasMetas: aplicarNasMetas, construirCronograma: construirCronograma, todasTasks: todasTasks, tasksPendentes: tasksPendentes, tasksConcluidas: tasksConcluidas, recorrentesAtivos: recorrentesAtivos, catLabel: catLabel, updateHero: updateHero, iconCheck: iconCheck, cardHTML: cardHTML, recorrenteEventoHTML: recorrenteEventoHTML, escapeHTML: escapeHTML, fmtDataLonga: fmtDataLonga, renderRecorrentes: renderRecorrentes, renderAll: renderAll, diaEstaConcluido: diaEstaConcluido, renderCronograma: renderCronograma, custoFixoChipHTML: custoFixoChipHTML, compromissoChipHTML: compromissoChipHTML, bindChips: bindChips, valorTotalTask: valorTotalTask, acharFixoPago: acharFixoPago, htmlFixosPagos: htmlFixosPagos, voltarFixoPago: voltarFixoPago, renderResumoFinal: renderResumoFinal, renderTotaisLista: renderTotaisLista, ultimaParcelaProjetada: ultimaParcelaProjetada, tabelaRD: tabelaRD, renderRegras: renderRegras, renderMetas: renderMetas, planoVermelho: planoVermelho, htmlPlanoVermelho: htmlPlanoVermelho, montarPlanoVermelho: montarPlanoVermelho, renderDiasNegativos: renderDiasNegativos, abrirSugestaoNegativo: abrirSugestaoNegativo, renderRelatorioDatas: renderRelatorioDatas, renderRelatorioDatasAntigo: renderRelatorioDatasAntigo, aplicarConclusaoTask: aplicarConclusaoTask, toggleDone: toggleDone, delExtra: delExtra, aplicarPagamentoParcela: aplicarPagamentoParcela, pagamentoAnterior: pagamentoAnterior, desfazerUltimaParcela: desfazerUltimaParcela, pagarParcela: pagarParcela, toast: toast, renderMensal: renderMensal, calcularFundoReserva: calcularFundoReserva, totalReservaProgramado: totalReservaProgramado, renderReserva: renderReserva, coletarGastosRealizados: coletarGastosRealizados, chaveGasto: chaveGasto, categorizarGasto: categorizarGasto, categoriaDoEvento: categoriaDoEvento, categorizarAuto: categorizarAuto, renderGastoMensal: renderGastoMensal, abrirRotularGasto: abrirRotularGasto, resumoCustoFixoMensal: resumoCustoFixoMensal, resumoCustoFixoDeTabela: resumoCustoFixoDeTabela, renderResumoCustoFixo: renderResumoCustoFixo, renderCustoFixo: renderCustoFixo, openSheet: openSheet, closeSheet: closeSheet, melhorPeriodoParaParcelamento: melhorPeriodoParaParcelamento, applyTheme: applyTheme, abrirEditSheet: abrirEditSheet, renderLinhasParcelasEdit: renderLinhasParcelasEdit, lerLinhasParcelasEdit: lerLinhasParcelasEdit, abrirEditorParcelas: abrirEditorParcelas, r2: r2, inicioFixoExtra: inicioFixoExtra, custoFixoDoMesAtual: custoFixoDoMesAtual, fixosPessoais: fixosPessoais, custoFixoDoMes: custoFixoDoMes, agruparCustoFixo: agruparCustoFixo, livrePessoal: livrePessoal, parcPorMes: parcPorMes, renderParcMes: renderParcMes, reorgUnidades: reorgUnidades, reorgMeses: reorgMeses, reorgRetrato: reorgRetrato, reorgPlano: reorgPlano, reservaPaga: reservaPaga, reorgLimparReservas: reorgLimparReservas, reorgGravar: reorgGravar, listaExcluidos: listaExcluidos, exclBotao: exclBotao, abrirExcluidos: abrirExcluidos, renderRelatorioAtual: renderRelatorioAtual, relCredorObj: relCredorObj, renderRelatorioCredores: renderRelatorioCredores, renderRelatorioAtualV1: renderRelatorioAtualV1, moverOcorrenciaFixa: moverOcorrenciaFixa, consertarMovidas: consertarMovidas, reorgBotoes: reorgBotoes, reorgDesfazer: reorgDesfazer, reorgRefazer: reorgRefazer, reorgTela: reorgTela, reorgEntrar: reorgEntrar, reorgSair: reorgSair, antDias: antDias, antPossivel: antPossivel, antCandidatos: antCandidatos, antMarcarLinhas: antMarcarLinhas, antTextoItem: antTextoItem, abrirAntecipar: abrirAntecipar, abrirSugestaoAntecipar: abrirSugestaoAntecipar, sugerirParcelada: sugerirParcelada, usarSugestao: usarSugestao, htmlSugestoes: htmlSugestoes, abrirParcelamentoRec: abrirParcelamentoRec, datasSeguindoEntrada: datasSeguindoEntrada, valoresDasParcelas: valoresDasParcelas, gravarCamposTask: gravarCamposTask, seguirEntrada: seguirEntrada, dpVista: dpVista, lerParcelada: lerParcelada, ligarCamposParcelada: ligarCamposParcelada, abrirParcelamento: abrirParcelamento, abrirEdicaoTask: abrirEdicaoTask, abrirEdicaoRecorrente: abrirEdicaoRecorrente, estornarPagoFixo: estornarPagoFixo, estornarPagosPorNome: estornarPagosPorNome, migrarMarcacaoPago: migrarMarcacaoPago, valorEfetivoNoDia: valorEfetivoNoDia, abrirEdicaoFixo: abrirEdicaoFixo, abrirEdicaoFixoExtra: abrirEdicaoFixoExtra, updateDate: updateDate}
+      F: {load: load, METAS_PADRAO: METAS_PADRAO, save: save, garantirSeeds: garantirSeeds, fmtBR: fmtBR, parseISO: parseISO, isoOf: isoOf, addMonths: addMonths, fmtDataCurta: fmtDataCurta, fmtDataComAno: fmtDataComAno, mesLabel: mesLabel, ultimoDiaMes: ultimoDiaMes, ultimoDiaUtilMes: ultimoDiaUtilMes, ajustarParaDiaUtilAnterior: ajustarParaDiaUtilAnterior, sextoDiaUtil: sextoDiaUtil, proximoPagamento: proximoPagamento, primeiroSabado: primeiroSabado, diasEntre: diasEntre, todayISO: todayISO, inicioLedger: inicioLedger, cfv: cfv, cfvData: cfvData, custoFixoDoDia: custoFixoDoDia, construirLedger: construirLedger, todasOcorrenciasFuturas: todasOcorrenciasFuturas, construirCaixaDiarioCompleto: construirCaixaDiarioCompleto, melhorDataParaValor: melhorDataParaValor, sugerirAntecipacao: sugerirAntecipacao, sugerirMelhorDataBidirecional: sugerirMelhorDataBidirecional, aplicarNovaDataCompromisso: aplicarNovaDataCompromisso, abrirMoverData: abrirMoverData, custoFixoMensalMedio: custoFixoMensalMedio, colchaoAlvo: colchaoAlvo, rendaMensal: rendaMensal, aindaTemPendencias: aindaTemPendencias, distribuir203050: distribuir203050, aplicarNasMetas: aplicarNasMetas, construirCronograma: construirCronograma, todasTasks: todasTasks, tasksPendentes: tasksPendentes, tasksConcluidas: tasksConcluidas, recorrentesAtivos: recorrentesAtivos, catLabel: catLabel, updateHero: updateHero, iconCheck: iconCheck, cardHTML: cardHTML, recorrenteEventoHTML: recorrenteEventoHTML, escapeHTML: escapeHTML, fmtDataLonga: fmtDataLonga, renderRecorrentes: renderRecorrentes, renderAll: renderAll, diaEstaConcluido: diaEstaConcluido, renderCronograma: renderCronograma, custoFixoChipHTML: custoFixoChipHTML, compromissoChipHTML: compromissoChipHTML, bindChips: bindChips, valorTotalTask: valorTotalTask, acharFixoPago: acharFixoPago, htmlFixosPagos: htmlFixosPagos, voltarFixoPago: voltarFixoPago, renderResumoFinal: renderResumoFinal, renderTotaisLista: renderTotaisLista, ultimaParcelaProjetada: ultimaParcelaProjetada, tabelaRD: tabelaRD, renderRegras: renderRegras, renderMetas: renderMetas, planoVermelho: planoVermelho, htmlPlanoVermelho: htmlPlanoVermelho, montarPlanoVermelho: montarPlanoVermelho, renderDiasNegativos: renderDiasNegativos, abrirSugestaoNegativo: abrirSugestaoNegativo, renderRelatorioDatas: renderRelatorioDatas, renderRelatorioDatasAntigo: renderRelatorioDatasAntigo, aplicarConclusaoTask: aplicarConclusaoTask, toggleDone: toggleDone, delExtra: delExtra, aplicarPagamentoParcela: aplicarPagamentoParcela, pagamentoAnterior: pagamentoAnterior, desfazerUltimaParcela: desfazerUltimaParcela, pagarParcela: pagarParcela, toast: toast, renderMensal: renderMensal, calcularFundoReserva: calcularFundoReserva, totalReservaProgramado: totalReservaProgramado, renderReserva: renderReserva, coletarGastosRealizados: coletarGastosRealizados, chaveGasto: chaveGasto, categorizarGasto: categorizarGasto, categoriaDoEvento: categoriaDoEvento, categorizarAuto: categorizarAuto, renderGastoMensal: renderGastoMensal, abrirRotularGasto: abrirRotularGasto, resumoCustoFixoMensal: resumoCustoFixoMensal, resumoCustoFixoDeTabela: resumoCustoFixoDeTabela, renderResumoCustoFixo: renderResumoCustoFixo, renderCustoFixo: renderCustoFixo, openSheet: openSheet, closeSheet: closeSheet, melhorPeriodoParaParcelamento: melhorPeriodoParaParcelamento, applyTheme: applyTheme, abrirEditSheet: abrirEditSheet, renderLinhasParcelasEdit: renderLinhasParcelasEdit, lerLinhasParcelasEdit: lerLinhasParcelasEdit, abrirEditorParcelas: abrirEditorParcelas, r2: r2, quiSexDatas: quiSexDatas, inicioFixoExtra: inicioFixoExtra, custoFixoDoMesAtual: custoFixoDoMesAtual, fixosPessoais: fixosPessoais, custoFixoDoMes: custoFixoDoMes, agruparCustoFixo: agruparCustoFixo, livrePessoal: livrePessoal, parcPorMes: parcPorMes, renderParcMes: renderParcMes, reorgUnidades: reorgUnidades, reorgMeses: reorgMeses, reorgRetrato: reorgRetrato, reorgPlano: reorgPlano, reservaPaga: reservaPaga, reorgLimparReservas: reorgLimparReservas, reorgGravar: reorgGravar, listaExcluidos: listaExcluidos, exclBotao: exclBotao, abrirExcluidos: abrirExcluidos, renderRelatorioAtual: renderRelatorioAtual, relCredorObj: relCredorObj, renderRelatorioCredores: renderRelatorioCredores, renderRelatorioAtualV1: renderRelatorioAtualV1, moverOcorrenciaFixa: moverOcorrenciaFixa, consertarMovidas: consertarMovidas, reorgBotoes: reorgBotoes, reorgDesfazer: reorgDesfazer, reorgRefazer: reorgRefazer, reorgTela: reorgTela, reorgEntrar: reorgEntrar, reorgSair: reorgSair, antDias: antDias, antPossivel: antPossivel, antCandidatos: antCandidatos, antMarcarLinhas: antMarcarLinhas, antTextoItem: antTextoItem, abrirAntecipar: abrirAntecipar, abrirSugestaoAntecipar: abrirSugestaoAntecipar, sugerirParcelada: sugerirParcelada, usarSugestao: usarSugestao, htmlSugestoes: htmlSugestoes, abrirParcelamentoRec: abrirParcelamentoRec, datasSeguindoEntrada: datasSeguindoEntrada, valoresDasParcelas: valoresDasParcelas, gravarCamposTask: gravarCamposTask, seguirEntrada: seguirEntrada, dpVista: dpVista, lerParcelada: lerParcelada, ligarCamposParcelada: ligarCamposParcelada, abrirParcelamento: abrirParcelamento, abrirEdicaoTask: abrirEdicaoTask, abrirEdicaoRecorrente: abrirEdicaoRecorrente, estornarPagoFixo: estornarPagoFixo, estornarPagosPorNome: estornarPagosPorNome, migrarMarcacaoPago: migrarMarcacaoPago, valorEfetivoNoDia: valorEfetivoNoDia, abrirEdicaoFixo: abrirEdicaoFixo, abrirEdicaoFixoExtra: abrirEdicaoFixoExtra, updateDate: updateDate}
     };
   }
 
