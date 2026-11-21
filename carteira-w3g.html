@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "91";
+  var VERSAO = "92";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     function conferir() {
@@ -7525,6 +7525,9 @@ function custoFixoDoDia(d, semPendencias){
     const mov = movidas[origemChave];
     if(mov.novaData !== iso) return;
     if(removidoFixo(mov.nome)) return;
+    // custo fixo que voce criou e depois apagou: a ocorrencia que tinha sido movida de dia some junto (nao fica orfa)
+    if(mov.extraId && ((state.custoFixoRemovidosIds||[]).includes(mov.extraId) || !(state.custoFixoExtra||[]).concat(state.custoFixoSemanalExtra||[]).some(x=>x.id===mov.extraId))) return;
+
     const keyHoje = iso+'|'+mov.nome; // mesma chave que a tela de edicao usa pra esse dia (nome limpo, sem sufixo)
     if(movidas[keyHoje]) return; // essa ocorrencia ja movida foi movida DE NOVO a partir daqui - nao aparece aqui, aparece no destino seguinte
     if((state.custoFixoPuladosData||[]).includes(keyHoje)) return; // usuario excluiu essa ocorrencia ja movida
