@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "89";
+  var VERSAO = "90";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     function conferir() {
@@ -9197,11 +9197,12 @@ function coletarGastosRealizados(){
   DADOS_BASE.recorrentes.forEach(base=>{
     const est = state.recEstado[base.id];
     const hist = (est && est.historicoPago) ? est.historicoPago : [];
-    hist.forEach(h=>{ eventos.push({data:h.data, titulo:base.titulo, valor:h.valor, tipoMov:'saida', categoriaTask:null}); });
+    hist.forEach(h=>{ eventos.push({data:h.data, titulo:base.titulo, valor:h.valor, tipoMov:'saida', categoriaTask:null, catGasto:(est&&est.catGasto)||null}); }); // categoria escolhida para a serie vale para as parcelas pagas
   });
   (state.extraRecorrentes||[]).forEach(ex=>{
     const hist = ex.historicoPago || [];
-    hist.forEach(h=>{ eventos.push({data:h.data, titulo:ex.titulo, valor:h.valor, tipoMov:'saida', categoriaTask:null}); });
+    hist.forEach(h=>{ eventos.push({data:h.data, titulo:ex.titulo, valor:h.valor, tipoMov:'saida', categoriaTask:ex.categoria||null, catGasto:ex.catGasto||null}); });
+
   });
   (state.custoFixoPago||[]).forEach(key=>{
     const idx = key.indexOf('|');
@@ -10267,7 +10268,80 @@ function abrirExcluidos(){
 /* ---------- RELATORIO: quando cada divida fica quitada, lendo o sistema como esta AGORA ----------
    O relatorio antigo olhava o tipo que cada divida tinha no plano original (parcelada / a vista) e errava depois
    que ele reorganizou, juntou ou passou para a vista. Este le o cronograma atual. */
-function renderRelatorioAtual(){
+function renderRelatorioAtual(){ return renderRelatorioCredores(); }
+/* RELATORIO POR CREDOR (pedido dele em 21/11/2026): a entrada de um acordo nao quita a divida, ela vira compromisso
+   (o nome limpa ali) e ainda faltam as parcelas. Por isso cada credor vira UMA linha: entrada + parcelas juntas,
+   com "nome limpo em" (dia em que o acordo fecha: entrada, ou 1a parcela quando nao tem entrada) e
+   "fica quitada em" (ultimo pagamento). A ligacao e pelo nome: "X — entrada do acordo" + "X (Pessoa)". */
+function relCredorObj(id){
+  return (state.extras||[]).find(e=>e.id===id) || (state.extraRecorrentes||[]).find(e=>e.id===id)
+    || Object.assign({}, (DADOS_BASE.recorrentes||[]).find(r=>r.id===id)||{}, (state.recEstado||{})[id]||{});
+}
+function renderRelatorioCredores(){
+  const el = document.getElementById('rdConteudo');
+  if(!el) return;
+  parcPorMes([]);
+  const hoje = isoOf(inicioLedger()), PES = ['Julia','Kalyl','Casal'];
+  const us = reorgUnidades(construirCronograma());
+  if(!us.length){ el.innerHTML = '<div class="rd-sub">Nenhuma dívida em aberto. 🎉</div>'; return; }
+  const nomeBase = t => { let s = String(t||''), pes = null, apelido = null; const m = s.match(/\s*\(([^)]+)\)\s*$/);
+    if(m){ if(PES.indexOf(m[1])>=0) pes = m[1]; else apelido = m[1]; s = s.slice(0, m.index); }
+    return {base: s.split(' — ')[0].trim(), pes: pes, apelido: apelido}; };
+  const G = {};
+  us.forEach(x=>{
+    const nb = nomeBase(x.titulo), pes = nb.pes || x.pessoa || 'Casal', k = nb.base.toLowerCase()+'|'+pes;
+    const g = G[k] = G[k] || {base: nb.base, pes: pes, apelido: null, itens: []};
+    if(nb.apelido) g.apelido = nb.apelido;
+    const o = relCredorObj(x.id);
+    g.itens.push({x: x, entrada: /entrada|abatimento/i.test(x.titulo), cat: o.catGasto || '', categoria: o.categoria || '', serieTitulo: x.tipo==='rec' ? x.titulo : null});
+  });
+  // "Acordo X (Apelido)" + "Apelido — abatimento": junta pelo apelido entre parenteses
+  Object.keys(G).forEach(k=>{ const g = G[k]; if(!g || !g.apelido) return;
+    const alvo = Object.keys(G).find(j=>j!==k && G[j] && G[j].base.toLowerCase()===g.apelido.toLowerCase() && G[j].pes===g.pes);
+    if(alvo){ g.itens = g.itens.concat(G[alvo].itens); delete G[alvo]; } });
+  const linhas = Object.keys(G).map(k=>{
+    const g = G[k], pags = [];
+    g.itens.forEach(i=>i.x.pags.forEach(p=>pags.push({d:p.orig, v:p.valor, ent:i.entrada})));
+    pags.sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:0);
+    const ent = pags.filter(p=>p.ent), parc = pags.filter(p=>!p.ent), total = r2(pags.reduce((s,p)=>s+p.v,0));
+    const serie = g.itens.find(i=>i.serieTitulo);
+    const vs = parc.map(p=>p.v), iguais = vs.length && vs.every(v=>Math.abs(v-vs[0])<0.005);
+    const guardar = g.itens.some(i=>/guardar/i.test(i.x.titulo));   // credor que so aceita a vista: guarda por mes e paga tudo no fim
+    const abat = ent.length && g.itens.some(i=>i.entrada && /abatimento/i.test(i.x.titulo));
+    let como;
+    if(pags.length===1) como = 'À vista';
+    else if(guardar) como = 'Guardar '+pags.length+' × '+fmtBR(pags[0].v)+' e pagar à vista '+fmtBR(total);
+    else if(ent.length && parc.length) como = 'Acordo: '+(abat?'abatimento':'entrada')+' de '+fmtBR(ent.reduce((s,p)=>s+p.v,0))+' + '+parc.length+(parc.length===1?' parcela':' parcelas')+(iguais?' de '+fmtBR(vs[0]):'');
+    else if(serie) como = 'Acordo: '+parc.length+(parc.length===1?' parcela':' parcelas')+(iguais?' de '+fmtBR(vs[0]):'');
+    else como = pags.length+' pagamentos'+(iguais?' de '+fmtBR(vs[0]):'');
+    // nome limpo: so para divida em nome dele ou dela (credor), nao para conta atrasada, imposto ou acordo de familia
+    const ehCredor = (g.pes==='Julia' || g.pes==='Kalyl') && g.itens.some(i=>i.cat==='Dívidas' || /^divida-/.test(i.categoria));
+    // acordo sem entrada: e assinado no mes anterior a 1a parcela (regra do plano), e o nome limpa na assinatura
+    const mesAntes = iso => { const d = parseISO(iso); d.setMonth(d.getMonth()-1); return isoOf(d); };
+    let limpo = null, limpoAssina = false;
+    if(ehCredor){
+      if(guardar || pags.length===1) limpo = pags[pags.length-1].d;
+      else if(ent.length) limpo = ent[0].d;
+      else if(serie){ limpo = mesAntes(pags[0].d); limpoAssina = true; }
+    }
+    const sem = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+    const titulo = serie ? serie.serieTitulo : (g.base + ((g.pes==='Julia'||g.pes==='Kalyl') && sem(g.base).indexOf(sem(g.pes))<0 ? ' ('+g.pes+')' : ''));
+    const prox = pags.find(p=>p.d>=hoje) || pags[pags.length-1];
+    return {titulo: titulo, como: como, limpo: limpo, limpoAssina: limpoAssina, prox: prox.d, ult: pags[pags.length-1].d, total: total, pes: g.pes, n: pags.length};
+  }).sort((a,b)=> a.ult<b.ult ? -1 : a.ult>b.ult ? 1 : a.total-b.total);
+  const dt = iso => iso<hoje ? '<span class="rd-pend">venceu '+fmtDataComAno(iso)+'</span>' : fmtDataComAno(iso);
+  const tr = linhas.map(u=>'<tr><td>'+escapeHTML(u.titulo)+'</td><td>'+u.como+'</td><td>'+(u.limpo ? (u.limpoAssina ? 'ao assinar, '+mesLabel(u.limpo).toLowerCase() : dt(u.limpo)) : '—')+'</td><td>'+(u.n===1 ? '—' : dt(u.prox))+'</td><td><span class="rd-pend">'+dt(u.ult)+'</span></td><td style="text-align:right;white-space:nowrap">'+fmtBR(u.total)+'</td></tr>');
+  const total = r2(linhas.reduce((s,u)=>s+u.total, 0)), fim = linhas[linhas.length-1].ult;
+  const limpoDe = p => { const l = linhas.filter(u=>u.pes===p && u.limpo); return l.length ? l.reduce((m,u)=>u.limpo>m?u.limpo:m, '') : null; };
+  const fmtLimpo = iso => linhas.some(u=>u.limpo===iso && u.limpoAssina) && !linhas.some(u=>u.limpo===iso && !u.limpoAssina) ? mesLabel(iso).toLowerCase() : fmtDataComAno(iso);
+  const lj = limpoDe('Julia'), lk = limpoDe('Kalyl');
+  el.innerHTML = '<div class="rd-sub" style="margin:0 0 8px"><b>'+linhas.length+'</b> dívidas em aberto, somando <b>'+fmtBR(total)+'</b>. Tudo quitado em <b>'+fmtDataComAno(fim)+'</b>.'
+    + (lj||lk ? ' Nome limpo (todos os acordos fechados e as à vista pagas):'+(lj?' Julia em <b>'+fmtLimpo(lj)+'</b>':'')+(lj&&lk?' ·':'')+(lk?' Kalyl em <b>'+fmtLimpo(lk)+'</b>':'')+'.' : '')
+    + ' A entrada de um acordo não quita a dívida: ela vira compromisso e o nome limpa ali; a dívida só fica quitada na última parcela. Em ordem de quando cada uma termina.</div>'
+    + tabelaRD('Dívidas em aberto', ['O que é','Como fica','Nome limpo em','Próximo pagamento','Fica quitada em','Falta pagar'], tr);
+}
+function renderRelatorioAtualV1(){
+
   const el = document.getElementById('rdConteudo');
   if(!el) return;
   parcPorMes([]);
@@ -11479,7 +11553,7 @@ function updateDate(){
       aberto: function () { return overlay.classList.contains('show'); },
       estado: function () { return state; },
       raiz: RAIZ,
-      F: {load: load, METAS_PADRAO: METAS_PADRAO, save: save, garantirSeeds: garantirSeeds, fmtBR: fmtBR, parseISO: parseISO, isoOf: isoOf, addMonths: addMonths, fmtDataCurta: fmtDataCurta, fmtDataComAno: fmtDataComAno, mesLabel: mesLabel, ultimoDiaMes: ultimoDiaMes, ultimoDiaUtilMes: ultimoDiaUtilMes, ajustarParaDiaUtilAnterior: ajustarParaDiaUtilAnterior, sextoDiaUtil: sextoDiaUtil, proximoPagamento: proximoPagamento, primeiroSabado: primeiroSabado, diasEntre: diasEntre, todayISO: todayISO, inicioLedger: inicioLedger, cfv: cfv, cfvData: cfvData, custoFixoDoDia: custoFixoDoDia, construirLedger: construirLedger, todasOcorrenciasFuturas: todasOcorrenciasFuturas, construirCaixaDiarioCompleto: construirCaixaDiarioCompleto, melhorDataParaValor: melhorDataParaValor, sugerirAntecipacao: sugerirAntecipacao, sugerirMelhorDataBidirecional: sugerirMelhorDataBidirecional, aplicarNovaDataCompromisso: aplicarNovaDataCompromisso, abrirMoverData: abrirMoverData, custoFixoMensalMedio: custoFixoMensalMedio, colchaoAlvo: colchaoAlvo, rendaMensal: rendaMensal, aindaTemPendencias: aindaTemPendencias, distribuir203050: distribuir203050, aplicarNasMetas: aplicarNasMetas, construirCronograma: construirCronograma, todasTasks: todasTasks, tasksPendentes: tasksPendentes, tasksConcluidas: tasksConcluidas, recorrentesAtivos: recorrentesAtivos, catLabel: catLabel, updateHero: updateHero, iconCheck: iconCheck, cardHTML: cardHTML, recorrenteEventoHTML: recorrenteEventoHTML, escapeHTML: escapeHTML, fmtDataLonga: fmtDataLonga, renderRecorrentes: renderRecorrentes, renderAll: renderAll, diaEstaConcluido: diaEstaConcluido, renderCronograma: renderCronograma, custoFixoChipHTML: custoFixoChipHTML, compromissoChipHTML: compromissoChipHTML, bindChips: bindChips, valorTotalTask: valorTotalTask, acharFixoPago: acharFixoPago, htmlFixosPagos: htmlFixosPagos, voltarFixoPago: voltarFixoPago, renderResumoFinal: renderResumoFinal, renderTotaisLista: renderTotaisLista, ultimaParcelaProjetada: ultimaParcelaProjetada, tabelaRD: tabelaRD, renderRegras: renderRegras, renderMetas: renderMetas, planoVermelho: planoVermelho, htmlPlanoVermelho: htmlPlanoVermelho, montarPlanoVermelho: montarPlanoVermelho, renderDiasNegativos: renderDiasNegativos, abrirSugestaoNegativo: abrirSugestaoNegativo, renderRelatorioDatas: renderRelatorioDatas, renderRelatorioDatasAntigo: renderRelatorioDatasAntigo, aplicarConclusaoTask: aplicarConclusaoTask, toggleDone: toggleDone, delExtra: delExtra, aplicarPagamentoParcela: aplicarPagamentoParcela, pagamentoAnterior: pagamentoAnterior, desfazerUltimaParcela: desfazerUltimaParcela, pagarParcela: pagarParcela, toast: toast, renderMensal: renderMensal, calcularFundoReserva: calcularFundoReserva, totalReservaProgramado: totalReservaProgramado, renderReserva: renderReserva, coletarGastosRealizados: coletarGastosRealizados, chaveGasto: chaveGasto, categorizarGasto: categorizarGasto, categoriaDoEvento: categoriaDoEvento, categorizarAuto: categorizarAuto, renderGastoMensal: renderGastoMensal, abrirRotularGasto: abrirRotularGasto, resumoCustoFixoMensal: resumoCustoFixoMensal, resumoCustoFixoDeTabela: resumoCustoFixoDeTabela, renderResumoCustoFixo: renderResumoCustoFixo, renderCustoFixo: renderCustoFixo, openSheet: openSheet, closeSheet: closeSheet, melhorPeriodoParaParcelamento: melhorPeriodoParaParcelamento, applyTheme: applyTheme, abrirEditSheet: abrirEditSheet, renderLinhasParcelasEdit: renderLinhasParcelasEdit, lerLinhasParcelasEdit: lerLinhasParcelasEdit, abrirEditorParcelas: abrirEditorParcelas, r2: r2, inicioFixoExtra: inicioFixoExtra, custoFixoDoMesAtual: custoFixoDoMesAtual, fixosPessoais: fixosPessoais, custoFixoDoMes: custoFixoDoMes, agruparCustoFixo: agruparCustoFixo, livrePessoal: livrePessoal, parcPorMes: parcPorMes, renderParcMes: renderParcMes, reorgUnidades: reorgUnidades, reorgMeses: reorgMeses, reorgRetrato: reorgRetrato, reorgPlano: reorgPlano, reservaPaga: reservaPaga, reorgLimparReservas: reorgLimparReservas, reorgGravar: reorgGravar, listaExcluidos: listaExcluidos, exclBotao: exclBotao, abrirExcluidos: abrirExcluidos, renderRelatorioAtual: renderRelatorioAtual, moverOcorrenciaFixa: moverOcorrenciaFixa, consertarMovidas: consertarMovidas, reorgBotoes: reorgBotoes, reorgDesfazer: reorgDesfazer, reorgRefazer: reorgRefazer, reorgTela: reorgTela, reorgEntrar: reorgEntrar, reorgSair: reorgSair, antDias: antDias, antPossivel: antPossivel, antCandidatos: antCandidatos, antMarcarLinhas: antMarcarLinhas, antTextoItem: antTextoItem, abrirAntecipar: abrirAntecipar, abrirSugestaoAntecipar: abrirSugestaoAntecipar, sugerirParcelada: sugerirParcelada, usarSugestao: usarSugestao, htmlSugestoes: htmlSugestoes, abrirParcelamentoRec: abrirParcelamentoRec, datasSeguindoEntrada: datasSeguindoEntrada, valoresDasParcelas: valoresDasParcelas, gravarCamposTask: gravarCamposTask, seguirEntrada: seguirEntrada, dpVista: dpVista, lerParcelada: lerParcelada, ligarCamposParcelada: ligarCamposParcelada, abrirParcelamento: abrirParcelamento, abrirEdicaoTask: abrirEdicaoTask, abrirEdicaoRecorrente: abrirEdicaoRecorrente, estornarPagoFixo: estornarPagoFixo, estornarPagosPorNome: estornarPagosPorNome, migrarMarcacaoPago: migrarMarcacaoPago, valorEfetivoNoDia: valorEfetivoNoDia, abrirEdicaoFixo: abrirEdicaoFixo, abrirEdicaoFixoExtra: abrirEdicaoFixoExtra, updateDate: updateDate}
+      F: {load: load, METAS_PADRAO: METAS_PADRAO, save: save, garantirSeeds: garantirSeeds, fmtBR: fmtBR, parseISO: parseISO, isoOf: isoOf, addMonths: addMonths, fmtDataCurta: fmtDataCurta, fmtDataComAno: fmtDataComAno, mesLabel: mesLabel, ultimoDiaMes: ultimoDiaMes, ultimoDiaUtilMes: ultimoDiaUtilMes, ajustarParaDiaUtilAnterior: ajustarParaDiaUtilAnterior, sextoDiaUtil: sextoDiaUtil, proximoPagamento: proximoPagamento, primeiroSabado: primeiroSabado, diasEntre: diasEntre, todayISO: todayISO, inicioLedger: inicioLedger, cfv: cfv, cfvData: cfvData, custoFixoDoDia: custoFixoDoDia, construirLedger: construirLedger, todasOcorrenciasFuturas: todasOcorrenciasFuturas, construirCaixaDiarioCompleto: construirCaixaDiarioCompleto, melhorDataParaValor: melhorDataParaValor, sugerirAntecipacao: sugerirAntecipacao, sugerirMelhorDataBidirecional: sugerirMelhorDataBidirecional, aplicarNovaDataCompromisso: aplicarNovaDataCompromisso, abrirMoverData: abrirMoverData, custoFixoMensalMedio: custoFixoMensalMedio, colchaoAlvo: colchaoAlvo, rendaMensal: rendaMensal, aindaTemPendencias: aindaTemPendencias, distribuir203050: distribuir203050, aplicarNasMetas: aplicarNasMetas, construirCronograma: construirCronograma, todasTasks: todasTasks, tasksPendentes: tasksPendentes, tasksConcluidas: tasksConcluidas, recorrentesAtivos: recorrentesAtivos, catLabel: catLabel, updateHero: updateHero, iconCheck: iconCheck, cardHTML: cardHTML, recorrenteEventoHTML: recorrenteEventoHTML, escapeHTML: escapeHTML, fmtDataLonga: fmtDataLonga, renderRecorrentes: renderRecorrentes, renderAll: renderAll, diaEstaConcluido: diaEstaConcluido, renderCronograma: renderCronograma, custoFixoChipHTML: custoFixoChipHTML, compromissoChipHTML: compromissoChipHTML, bindChips: bindChips, valorTotalTask: valorTotalTask, acharFixoPago: acharFixoPago, htmlFixosPagos: htmlFixosPagos, voltarFixoPago: voltarFixoPago, renderResumoFinal: renderResumoFinal, renderTotaisLista: renderTotaisLista, ultimaParcelaProjetada: ultimaParcelaProjetada, tabelaRD: tabelaRD, renderRegras: renderRegras, renderMetas: renderMetas, planoVermelho: planoVermelho, htmlPlanoVermelho: htmlPlanoVermelho, montarPlanoVermelho: montarPlanoVermelho, renderDiasNegativos: renderDiasNegativos, abrirSugestaoNegativo: abrirSugestaoNegativo, renderRelatorioDatas: renderRelatorioDatas, renderRelatorioDatasAntigo: renderRelatorioDatasAntigo, aplicarConclusaoTask: aplicarConclusaoTask, toggleDone: toggleDone, delExtra: delExtra, aplicarPagamentoParcela: aplicarPagamentoParcela, pagamentoAnterior: pagamentoAnterior, desfazerUltimaParcela: desfazerUltimaParcela, pagarParcela: pagarParcela, toast: toast, renderMensal: renderMensal, calcularFundoReserva: calcularFundoReserva, totalReservaProgramado: totalReservaProgramado, renderReserva: renderReserva, coletarGastosRealizados: coletarGastosRealizados, chaveGasto: chaveGasto, categorizarGasto: categorizarGasto, categoriaDoEvento: categoriaDoEvento, categorizarAuto: categorizarAuto, renderGastoMensal: renderGastoMensal, abrirRotularGasto: abrirRotularGasto, resumoCustoFixoMensal: resumoCustoFixoMensal, resumoCustoFixoDeTabela: resumoCustoFixoDeTabela, renderResumoCustoFixo: renderResumoCustoFixo, renderCustoFixo: renderCustoFixo, openSheet: openSheet, closeSheet: closeSheet, melhorPeriodoParaParcelamento: melhorPeriodoParaParcelamento, applyTheme: applyTheme, abrirEditSheet: abrirEditSheet, renderLinhasParcelasEdit: renderLinhasParcelasEdit, lerLinhasParcelasEdit: lerLinhasParcelasEdit, abrirEditorParcelas: abrirEditorParcelas, r2: r2, inicioFixoExtra: inicioFixoExtra, custoFixoDoMesAtual: custoFixoDoMesAtual, fixosPessoais: fixosPessoais, custoFixoDoMes: custoFixoDoMes, agruparCustoFixo: agruparCustoFixo, livrePessoal: livrePessoal, parcPorMes: parcPorMes, renderParcMes: renderParcMes, reorgUnidades: reorgUnidades, reorgMeses: reorgMeses, reorgRetrato: reorgRetrato, reorgPlano: reorgPlano, reservaPaga: reservaPaga, reorgLimparReservas: reorgLimparReservas, reorgGravar: reorgGravar, listaExcluidos: listaExcluidos, exclBotao: exclBotao, abrirExcluidos: abrirExcluidos, renderRelatorioAtual: renderRelatorioAtual, relCredorObj: relCredorObj, renderRelatorioCredores: renderRelatorioCredores, renderRelatorioAtualV1: renderRelatorioAtualV1, moverOcorrenciaFixa: moverOcorrenciaFixa, consertarMovidas: consertarMovidas, reorgBotoes: reorgBotoes, reorgDesfazer: reorgDesfazer, reorgRefazer: reorgRefazer, reorgTela: reorgTela, reorgEntrar: reorgEntrar, reorgSair: reorgSair, antDias: antDias, antPossivel: antPossivel, antCandidatos: antCandidatos, antMarcarLinhas: antMarcarLinhas, antTextoItem: antTextoItem, abrirAntecipar: abrirAntecipar, abrirSugestaoAntecipar: abrirSugestaoAntecipar, sugerirParcelada: sugerirParcelada, usarSugestao: usarSugestao, htmlSugestoes: htmlSugestoes, abrirParcelamentoRec: abrirParcelamentoRec, datasSeguindoEntrada: datasSeguindoEntrada, valoresDasParcelas: valoresDasParcelas, gravarCamposTask: gravarCamposTask, seguirEntrada: seguirEntrada, dpVista: dpVista, lerParcelada: lerParcelada, ligarCamposParcelada: ligarCamposParcelada, abrirParcelamento: abrirParcelamento, abrirEdicaoTask: abrirEdicaoTask, abrirEdicaoRecorrente: abrirEdicaoRecorrente, estornarPagoFixo: estornarPagoFixo, estornarPagosPorNome: estornarPagosPorNome, migrarMarcacaoPago: migrarMarcacaoPago, valorEfetivoNoDia: valorEfetivoNoDia, abrirEdicaoFixo: abrirEdicaoFixo, abrirEdicaoFixoExtra: abrirEdicaoFixoExtra, updateDate: updateDate}
     };
   }
 
