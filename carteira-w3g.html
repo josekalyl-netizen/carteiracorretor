@@ -37,7 +37,7 @@
   window.addEventListener('resize', ajustarEscala);
   window.addEventListener('orientationchange', ajustarEscala);
   // versão publicada: se o navegador abriu uma cópia antiga guardada, busca a nova sozinho
-  var VERSAO = "92";
+  var VERSAO = "93";
   (function () {
     if (!/^https?:$/.test(location.protocol)) return;
     function conferir() {
@@ -6917,11 +6917,6 @@ input[type="checkbox"]{width:16px;height:16px;padding:0;flex:none;accent-color:#
         <div id="mensalConteudo"></div>
       </div>
 
-      <div class="bx reserva-sec" style="order:12">
-        <div class="rf-title"><i class="ti ti-building-bank"></i>Fundo de reserva</div>
-        <div class="rd-sub">Gastos marcados como Reserva: quando você paga, o valor sai do caixa e entra aqui — é dinheiro guardado, não gasto.</div>
-        <div id="reservaConteudo"></div>
-      </div>
     </div>
 
     <div class="fin-col">
